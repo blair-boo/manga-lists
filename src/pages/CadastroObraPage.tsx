@@ -1,0 +1,132 @@
+import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createObra } from '../db/repo';
+import { useListasPorCategoria } from '../hooks/useListas';
+import { TagPicker } from '../components/TagPicker';
+import type { StatusLeitura, StatusPublicacao, Tipo } from '../types';
+
+export function CadastroObraPage() {
+  const navigate = useNavigate();
+  const tipos = useListasPorCategoria('tipo');
+  const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
+  const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
+  const generosOpcoes = useListasPorCategoria('genero');
+  const tagsOpcoes = useListasPorCategoria('tag');
+
+  const [titulo, setTitulo] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [autor, setAutor] = useState('');
+  const [capaUrl, setCapaUrl] = useState('');
+  const [capituloAtual, setCapituloAtual] = useState('');
+  const [statusLeitura, setStatusLeitura] = useState('');
+  const [statusPublicacao, setStatusPublicacao] = useState('');
+  const [nota, setNota] = useState('');
+  const [generos, setGeneros] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [observacoes, setObservacoes] = useState('');
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!titulo.trim()) return;
+    const obra = await createObra({
+      titulo: titulo.trim(),
+      tipo: (tipo || null) as Tipo | null,
+      autor: autor.trim() || null,
+      capa_url: capaUrl.trim() || null,
+      capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
+      status_leitura: (statusLeitura || null) as StatusLeitura | null,
+      status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
+      ultimo_capitulo_lancado: null,
+      nota: nota === '' ? null : Number(nota),
+      generos: generos.length > 0 ? generos : null,
+      tags: tags.length > 0 ? tags : null,
+      observacoes: observacoes.trim() || null,
+    });
+    navigate(`/obra/${obra.id}`);
+  }
+
+  return (
+    <form className="cadastro-obra-form" onSubmit={handleSubmit}>
+      <h2>Nova obra</h2>
+      <label>
+        Título *
+        <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
+      </label>
+
+      <label>
+        Autor
+        <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
+      </label>
+
+      <label>
+        Capa (URL)
+        <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
+      </label>
+
+      <div className="detalhe-obra-grid">
+        <label>
+          Tipo
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="">—</option>
+            {tipos.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Status de leitura
+          <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
+            <option value="">—</option>
+            {statusLeituraOpcoes.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Status de publicação
+          <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
+            <option value="">—</option>
+            {statusPublicacaoOpcoes.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Capítulo atual
+          <input type="number" step="any" value={capituloAtual} onChange={(e) => setCapituloAtual(e.target.value)} />
+        </label>
+
+        <label>
+          Nota
+          <select value={nota} onChange={(e) => setNota(e.target.value)}>
+            <option value="">—</option>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {'★'.repeat(n)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <TagPicker label="Gêneros" value={generos} options={generosOpcoes} onChange={setGeneros} />
+      <TagPicker label="Tags" value={tags} options={tagsOpcoes} onChange={setTags} />
+
+      <label>
+        Observações
+        <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
+      </label>
+
+      <button type="submit">Salvar</button>
+    </form>
+  );
+}

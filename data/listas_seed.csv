@@ -1,0 +1,812 @@
+categoria,valor
+tipo,Manga
+tipo,Manwha
+tipo,Manhua
+tipo,Novel
+status_leitura,To read
+status_leitura,Reading
+status_leitura,Complete
+status_leitura,Paused
+status_leitura,Dropped
+status_publicacao,Ongoing
+status_publicacao,Completed
+status_publicacao,One shot
+status_publicacao,Hiatus
+status_publicacao,Canceled
+rating,1
+rating,2
+rating,3
+rating,4
+rating,5
+genero,Action
+genero,Adult
+genero,Adventure
+genero,Comedy
+genero,Drama
+genero,Ecchi
+genero,Fantasy
+genero,Gender Bender
+genero,Harem
+genero,Historical
+genero,Horror
+genero,Josei
+genero,Martial Arts
+genero,Mature
+genero,Mecha
+genero,Mystery
+genero,Psychological
+genero,Romance
+genero,School Life
+genero,Sci-fi
+genero,Seinen
+genero,Shoujo
+genero,Shoujo Ai
+genero,Shounen
+genero,Shounen Ai
+genero,Slice of Life
+genero,Smut
+genero,Sports
+genero,Supernatural
+genero,Tragedy
+genero,Wuxia
+genero,Xianxia
+genero,Xuanhuan
+genero,Smut
+tag,Abandoned Children
+tag,Ability Steal
+tag,Absent Parents
+tag,Abusive Characters
+tag,Academy
+tag,Accelerated Growth
+tag,Acting
+tag,Adapted from Manga
+tag,Adapted from Manhua
+tag,Adapted to Anime
+tag,Adapted to Drama
+tag,Adapted to Drama CD
+tag,Adapted to Game
+tag,Adapted to Manga
+tag,Adapted to Manhua
+tag,Adapted to Manhwa
+tag,Adapted to Movie
+tag,Adapted to Visual Novel
+tag,Adopted Children
+tag,Adopted Protagonist
+tag,Adultery
+tag,Adventurers
+tag,Affair
+tag,Age Progression
+tag,Age Regression
+tag,Aggressive Characters
+tag,Alchemy
+tag,Aliens
+tag,All-Girls School
+tag,Alternate World
+tag,Amnesia
+tag,Amusement Park
+tag,Ancient China
+tag,Ancient Times
+tag,Androgynous Characters
+tag,Androids
+tag,Angels
+tag,Animal Characteristics
+tag,Animal Rearing
+tag,Anti-Magic
+tag,Anti-social Protagonist
+tag,Antihero Protagonist
+tag,Antique Shop
+tag,Apartment Life
+tag,Apathetic Protagonist
+tag,Apocalypse
+tag,Appearance Changes
+tag,Appearance Different from Actual Age
+tag,Archery
+tag,Aristocracy
+tag,Arms Dealers
+tag,Army
+tag,Army Building
+tag,Arranged Marriage
+tag,Arrogant Characters
+tag,Artifact Crafting
+tag,Artifacts
+tag,Artificial Intelligence
+tag,Artists
+tag,Assassins
+tag,Astrologers
+tag,Autism
+tag,Automatons
+tag,Average-looking Protagonist
+tag,Award-winning Work
+tag,Awkward Protagonist
+tag,Bands
+tag,Based on a Movie
+tag,Based on a Song
+tag,Based on a TV Show
+tag,Based on a Video Game
+tag,Based on a Visual Novel
+tag,Based on an Anime
+tag,Battle Academy
+tag,Battle Competition
+tag,BDSM
+tag,Beast Companions
+tag,Beastkin
+tag,Beasts
+tag,Beautiful Female Lead
+tag,Betrayal
+tag,Bickering Couple
+tag,Biochip
+tag,Bisexual Protagonist
+tag,Blackmail
+tag,Blacksmith
+tag,Blind Dates
+tag,Blind Protagonist
+tag,Blood Manipulation
+tag,Bloodlines
+tag,Body Swap
+tag,Body Tempering
+tag,Body-double
+tag,Bodyguards
+tag,Books
+tag,Bookworm
+tag,Boss-Subordinate Relationship
+tag,Brainwashing
+tag,Broken Engagement
+tag,Brother Complex
+tag,Brotherhood
+tag,Buddhism
+tag,Bullying
+tag,Business Management
+tag,Businessmen
+tag,Butlers
+tag,Calm Protagonist
+tag,Cannibalism
+tag,Card Games
+tag,Carefree Protagonist
+tag,Caring Protagonist
+tag,Cautious Protagonist
+tag,Celebrities
+tag,Character Growth
+tag,Charismatic Protagonist
+tag,Charming Protagonist
+tag,Chat Rooms
+tag,Cheats
+tag,Chefs
+tag,Child Abuse
+tag,Child Protagonist
+tag,Childcare
+tag,Childhood Friends
+tag,Childhood Love
+tag,Childhood Promise
+tag,Childish Protagonist
+tag,Chuunibyou
+tag,Clan Building
+tag,Classic
+tag,Clever Protagonist
+tag,Clingy Lover
+tag,Clones
+tag,Clubs
+tag,Clumsy Love Interests
+tag,Co-Workers
+tag,Cohabitation
+tag,Cold Love Interests
+tag,Cold Protagonist
+tag,Collection of Short Stories
+tag,College/University
+tag,Coma
+tag,Comedic Undertone
+tag,Coming of Age
+tag,Compensated Dating
+tag,Complex Family Relationships
+tag,Conditional Power
+tag,Confident Protagonist
+tag,Confinement
+tag,Conflicting Loyalties
+tag,Contracts
+tag,Cooking
+tag,Corruption
+tag,Cosmic Wars
+tag,Cosplay
+tag,Couple Growth
+tag,Court Official
+tag,Cousins
+tag,Cowardly Protagonist
+tag,Crafting
+tag,Crime
+tag,Criminals
+tag,Cross-dressing
+tag,Crossover
+tag,Cruel Characters
+tag,Cryostasis
+tag,Cultivation
+tag,Cunning Protagonist
+tag,Curious Protagonist
+tag,Curses
+tag,Cute Children
+tag,Cute Protagonist
+tag,Cute Story
+tag,Dancers
+tag,Dao Companion
+tag,Dao Comprehension
+tag,Daoism
+tag,Dark
+tag,Dead Protagonist
+tag,Death
+tag,Death of Loved Ones
+tag,Debts
+tag,Delinquents
+tag,Delusions
+tag,Demi-Humans
+tag,Demon Lord
+tag,Demonic Cultivation Technique
+tag,Demons
+tag,Dense Protagonist
+tag,Depictions of Cruelty
+tag,Depression
+tag,Destiny
+tag,Detectives
+tag,Determined Protagonist
+tag,Devoted Love Interests
+tag,Different Social Status
+tag,Discrimination
+tag,Disfigurement
+tag,Dishonest Protagonist
+tag,Distrustful Protagonist
+tag,Divination
+tag,Divine Protection
+tag,Divorce
+tag,Doctors
+tag,Dolls/Puppets
+tag,Domestic Affairs
+tag,Doting Love Interests
+tag,Doting Older Siblings
+tag,Doting Parents
+tag,Dragon Riders
+tag,Dragon Slayers
+tag,Dragons
+tag,Dreams
+tag,Drugs
+tag,Druids
+tag,Dungeon Master
+tag,Dungeons
+tag,Dwarfs
+tag,Dystopia
+tag,e-Sports
+tag,Early Romance
+tag,Earth Invasion
+tag,Easy Going Life
+tag,Economics
+tag,Editors
+tag,Eidetic Memory
+tag,Elderly Protagonist
+tag,Elemental Magic
+tag,Elves
+tag,Emotionally Weak Protagonist
+tag,Empires
+tag,Enemies Become Allies
+tag,Enemies Become Lovers
+tag,Engagement
+tag,Engineer
+tag,Enlightenment
+tag,Episodic
+tag,Eunuch
+tag,European Ambience
+tag,Evil Gods
+tag,Evil Organizations
+tag,Evil Protagonist
+tag,Evil Religions
+tag,Evolution
+tag,Exhibitionism
+tag,Exorcism
+tag,Eye Powers
+tag,Fairies
+tag,Fallen Angels
+tag,Fallen Nobility
+tag,Familial Love
+tag,Familiars
+tag,Family
+tag,Family Business
+tag,Family Conflict
+tag,Famous Parents
+tag,Famous Protagonist
+tag,Fanaticism
+tag,Fanfiction
+tag,Fantasy Creatures
+tag,Fantasy World
+tag,Farming
+tag,Fast Cultivation
+tag,Fast Learner
+tag,Fat Protagonist
+tag,Fat to Fit
+tag,Fated Lovers
+tag,Fearless Protagonist
+tag,Fellatio
+tag,Female Master
+tag,Female Protagonist
+tag,Female to Male
+tag,Feng Shui
+tag,Firearms
+tag,First Love
+tag,First-time Intercourse
+tag,Flashbacks
+tag,Fleet Battles
+tag,Folklore
+tag,Forced into a Relationship
+tag,Forced Living Arrangements
+tag,Forced Marriage
+tag,Forgetful Protagonist
+tag,Former Hero
+tag,Found Family
+tag,Fox Spirits
+tag,Friends Become Enemies
+tag,Friendship
+tag,Fujoshi
+tag,Futanari
+tag,Futuristic Setting
+tag,Galge
+tag,Gambling
+tag,Game Elements
+tag,Game Ranking System
+tag,Gamers
+tag,Gangs
+tag,Gate to Another World
+tag,Genderless Protagonist
+tag,Generals
+tag,Genetic Modifications
+tag,Genies
+tag,Genius Protagonist
+tag,Ghosts
+tag,Gladiators
+tag,Glasses-wearing Love Interests
+tag,Glasses-wearing Protagonist
+tag,Goblins
+tag,God Protagonist
+tag,God-human Relationship
+tag,Goddesses
+tag,Godly Powers
+tag,Gods
+tag,Golems
+tag,Gore
+tag,Grave Keepers
+tag,Grinding
+tag,Guardian Relationship
+tag,Guideverse
+tag,Guilds
+tag,Gunfighters
+tag,Hackers
+tag,Half-human Protagonist
+tag,Handsome Male Lead
+tag,Hard-Working Protagonist
+tag,Harem-seeking Protagonist
+tag,Harsh Training
+tag,Hated Protagonist
+tag,Healers
+tag,Heartwarming
+tag,Heaven
+tag,Heavenly Tribulation
+tag,Hell
+tag,Helpful Protagonist
+tag,Herbalist
+tag,Heroes
+tag,Heterochromia
+tag,Hidden Abilities
+tag,Hiding True Abilities
+tag,Hiding True Identity
+tag,Hikikomori
+tag,Homunculus
+tag,Honest Protagonist
+tag,Hospital
+tag,Hot-blooded Protagonist
+tag,Human Experimentation
+tag,Human Weapon
+tag,Human-Nonhuman Relationship
+tag,Humanoid Protagonist
+tag,Hunters
+tag,Hypnotism
+tag,Identity Crisis
+tag,Imaginary Friend
+tag,Immortals
+tag,Imperial Harem
+tag,Incest
+tag,Incubus
+tag,Indecisive Protagonist
+tag,Industrialization
+tag,Inferiority Complex
+tag,Inheritance
+tag,Inscriptions
+tag,Insects
+tag,Interconnected Storylines
+tag,Interdimensional Travel
+tag,Introverted Protagonist
+tag,Investigations
+tag,Invisibility
+tag,Jack of All Trades
+tag,Jealousy
+tag,Jiangshi
+tag,Jobless Class
+tag,JSDF
+tag,Kidnappings
+tag,Kind Love Interests
+tag,Kingdom Building
+tag,Kingdoms
+tag,Knights
+tag,Kuudere
+tag,Lack of Common Sense
+tag,Language Barrier
+tag,Late Romance
+tag,Lawyers
+tag,Lazy Protagonist
+tag,Leadership
+tag,Legends
+tag,Level System
+tag,Library
+tag,Life Extension System
+tag,Limited Lifespan
+tag,Livestreaming
+tag,Living Abroad
+tag,Living Alone
+tag,Loli
+tag,Loneliness
+tag,Loner Protagonist
+tag,Long Separations
+tag,Long-distance Relationship
+tag,Lost Civilizations
+tag,Lottery
+tag,Love at First Sight
+tag,Love Interest Falls in Love First
+tag,Love Rivals
+tag,Love Triangles
+tag,Lovers Reunited
+tag,Low-key Protagonist
+tag,Loyal Subordinates
+tag,Lucky Protagonist
+tag,Magic
+tag,Magic Beasts
+tag,Magic Formations
+tag,Magical Girls
+tag,Magical Space
+tag,Magical Technology
+tag,Maids
+tag,Male Protagonist
+tag,Male to Female
+tag,Male Yandere
+tag,Management
+tag,Mangaka
+tag,Manipulative Characters
+tag,Manly Gay Couple
+tag,Marriage
+tag,Marriage of Convenience
+tag,Martial Spirits
+tag,Masochistic Characters
+tag,Master-Disciple Relationship
+tag,Master-Servant Relationship
+tag,Matriarchy
+tag,Mature Protagonist
+tag,Medical Knowledge
+tag,Medieval
+tag,Mercenaries
+tag,Merchants
+tag,Military
+tag,Mind Break
+tag,Mind Control
+tag,Misandry
+tag,Mismatched Couple
+tag,Mistaken Identity
+tag,Misunderstandings
+tag,MMORPG
+tag,Mob Protagonist
+tag,Models
+tag,Modern Day
+tag,Modern Knowledge
+tag,Money Grubber
+tag,Monster Girls
+tag,Monster Society
+tag,Monster Tamer
+tag,Monsters
+tag,Movies
+tag,Multiple Identities
+tag,Multiple Personalities
+tag,Multiple POV
+tag,Multiple Protagonists
+tag,Multiple Realms
+tag,Multiple Reincarnated Individuals
+tag,Multiple Timelines
+tag,Multiple Transported Individuals
+tag,Murders
+tag,Music
+tag,Mutated Creatures
+tag,Mutations
+tag,Mute Character
+tag,Mysterious Family Background
+tag,Mysterious Illness
+tag,Mysterious Past
+tag,Mystery Solving
+tag,Mythical Beasts
+tag,Mythology
+tag,Naive Protagonist
+tag,Narcissistic Protagonist
+tag,Nationalism
+tag,Near-Death Experience
+tag,Necromancer
+tag,Neet
+tag,Netorare
+tag,Netorase
+tag,Netori
+tag,Nightmares
+tag,Ninjas
+tag,Nobles
+tag,Non-humanoid Protagonist
+tag,Non-linear Storytelling
+tag,Nurses
+tag,Obsessive Love
+tag,Office Romance
+tag,Older Love Interests
+tag,Omegaverse
+tag,Oneshot
+tag,Online Romance
+tag,Onmyouji
+tag,Orcs
+tag,Organized Crime
+tag,Orgy
+tag,Orphans
+tag,Otaku
+tag,Otome Game
+tag,Outcasts
+tag,Outdoor Intercourse
+tag,Outer Space
+tag,Overpowered Protagonist
+tag,Overprotective Siblings
+tag,Pacifist Protagonist
+tag,Paizuri
+tag,Parallel Worlds
+tag,Parasites
+tag,Parent Complex
+tag,Parody
+tag,Part-Time Job
+tag,Past Plays a Big Role
+tag,Past Trauma
+tag,Persistent Love Interests
+tag,Personality Changes
+tag,Perverted Protagonist
+tag,Pets
+tag,Pharmacist
+tag,Philosophical
+tag,Phobias
+tag,Phoenixes
+tag,Photography
+tag,Pill Based Cultivation
+tag,Pill Concocting
+tag,Pilots
+tag,Pirates
+tag,Playboys
+tag,Playful Protagonist
+tag,Poetry
+tag,Poisons
+tag,Police
+tag,Polite Protagonist
+tag,Politics
+tag,Polyandry
+tag,Polygamy
+tag,Poor Protagonist
+tag,Poor to Rich
+tag,Popular Love Interests
+tag,Possession
+tag,Possessive Characters
+tag,Post-apocalyptic
+tag,Power Couple
+tag,Power Struggle
+tag,Pragmatic Protagonist
+tag,Precognition
+tag,Pregnancy
+tag,Pretend Lovers
+tag,Previous Life Talent
+tag,Priestesses
+tag,Priests
+tag,Prison
+tag,Proactive Protagonist
+tag,Programmer
+tag,Prophecies
+tag,Protagonist Falls in Love First
+tag,Protagonist Strong from the Start
+tag,Protagonist with Multiple Bodies
+tag,Psychic Powers
+tag,Psychopaths
+tag,Puppeteers
+tag,Quiet Characters
+tag,Quirky Characters
+tag,R-15
+tag,R-18
+tag,Race Change
+tag,Racism
+tag,Rape
+tag,Rape Victim Becomes Lover
+tag,Rebellion
+tag,Reincarnated as a Monster
+tag,Reincarnated as an Object
+tag,Reincarnated in a Game World
+tag,Reincarnated in Another World
+tag,Reincarnation
+tag,Religions
+tag,Reluctant Protagonist
+tag,Reporters
+tag,Restaurant
+tag,Resurrection
+tag,Returning from Another World
+tag,Revenge
+tag,Reverse Harem
+tag,Reverse Rape
+tag,Reversible Couple
+tag,Rich to Poor
+tag,Righteous Protagonist
+tag,Rivalry
+tag,Romantic Subplot
+tag,Roommates
+tag,Royalty
+tag,Ruthless Protagonist
+tag,Sadistic Characters
+tag,Saints
+tag,Salaryman
+tag,Samurai
+tag,Saving the World
+tag,Schemes And Conspiracies
+tag,Schizophrenia
+tag,Scientists
+tag,Sculptors
+tag,Sealed Power
+tag,Second Chance
+tag,Secret Crush
+tag,Secret Identity
+tag,Secret Organizations
+tag,Secret Relationship
+tag,Secretive Protagonist
+tag,Secrets
+tag,Sect Development
+tag,Seduction
+tag,Seeing Things Other Humans Can’t
+tag,Selfish Protagonist
+tag,Selfless Protagonist
+tag,Seme Protagonist
+tag,Senpai-Kouhai Relationship
+tag,Sentient Objects
+tag,Sentimental Protagonist
+tag,Serial Killers
+tag,Servants
+tag,Seven Deadly Sins
+tag,Seven Virtues
+tag,Sexual Abuse
+tag,Sexual Cultivation Technique
+tag,Shameless Protagonist
+tag,Shapeshifters
+tag,Sharing A Body
+tag,Sharp-tongued Characters
+tag,Shield User
+tag,Shikigami
+tag,Short Story
+tag,Shota
+tag,Shoujo-Ai Subplot
+tag,Shounen-Ai Subplot
+tag,Showbiz
+tag,Shy Characters
+tag,Sibling Rivalry
+tag,Sibling’s Care
+tag,Siblings
+tag,Siblings Not Related by Blood
+tag,Sickly Characters
+tag,Sign Language
+tag,Singers
+tag,Single Parent
+tag,Sister Complex
+tag,Skill Assimilation
+tag,Skill Books
+tag,Skill Creation
+tag,Slave Harem
+tag,Slave Protagonist
+tag,Slaves
+tag,Sleeping
+tag,Slow Growth at Start
+tag,Slow Romance
+tag,Smart Couple
+tag,Social Outcasts
+tag,Soldiers
+tag,Soul Power
+tag,Souls
+tag,Spatial Manipulation
+tag,Spear Wielder
+tag,Special Abilities
+tag,Spies
+tag,Spirit Advisor
+tag,Spirit Users
+tag,Spirits
+tag,Stalkers
+tag,Stockholm Syndrome
+tag,Stoic Characters
+tag,Store Owner
+tag,Straight Seme
+tag,Straight Uke
+tag,Strategic Battles
+tag,Strategist
+tag,Strength-based Social Hierarchy
+tag,Strong Love Interests
+tag,Strong to Stronger
+tag,Stubborn Protagonist
+tag,Student Council
+tag,Student-Teacher Relationship
+tag,Succubus
+tag,Sudden Strength Gain
+tag,Sudden Wealth
+tag,Suicides
+tag,Summoned Hero
+tag,Summoning Magic
+tag,Survival
+tag,Survival Game
+tag,Sword And Magic
+tag,Sword Wielder
+tag,System Administrator
+tag,Teachers
+tag,Teamwork
+tag,Technological Gap
+tag,Tentacles
+tag,Terminal Illness
+tag,Terrorists
+tag,Thieves
+tag,Threesome
+tag,Thriller
+tag,Time Loop
+tag,Time Manipulation
+tag,Time Paradox
+tag,Time Skip
+tag,Time Travel
+tag,Timid Protagonist
+tag,Tomboyish Female Lead
+tag,Torture
+tag,Toys
+tag,Tragic Past
+tag,Transformation Ability
+tag,Transmigration
+tag,Transplanted Memories
+tag,Transported into a Game World
+tag,Transported Modern Structure
+tag,Transported to Another World
+tag,Trap
+tag,Tribal Society
+tag,Trickster
+tag,Tsundere
+tag,Twins
+tag,Twisted Personality
+tag,Ugly Protagonist
+tag,Ugly to Beautiful
+tag,Unconditional Love
+tag,Underestimated Protagonist
+tag,Unique Cultivation Technique
+tag,Unique Weapon User
+tag,Unique Weapons
+tag,Unlimited Flow
+tag,Unlucky Protagonist
+tag,Unreliable Narrator
+tag,Unrequited Love
+tag,Valkyries
+tag,Vampires
+tag,Villainess Noble Girls
+tag,Virtual Reality
+tag,Vocaloid
+tag,Voice Actors
+tag,Voyeurism
+tag,Waiters
+tag,War Records
+tag,Wars
+tag,Weak Protagonist
+tag,Weak to Strong
+tag,Wealthy Characters
+tag,Werebeasts
+tag,Wishes
+tag,Witches
+tag,Wizards
+tag,World Hopping
+tag,World Travel
+tag,World Tree
+tag,Writers
+tag,Yandere
+tag,Youkai
+tag,Younger Brothers
+tag,Younger Love Interests
+tag,Younger Sisters
+tag,Zombies​​​​​​​​​​​​​​​​
