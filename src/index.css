@@ -480,3 +480,43 @@ label {
   margin: 8px 0 0;
   padding-left: 20px;
 }
+
+/* Atualização em massa */
+
+.atualizacao-massa {
+  max-width: 560px;
+}
+
+.atualizacao-massa p {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.upload-csv {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+
+.upload-csv input[type='file'] {
+  display: none;
+}
+
+.atualizacao-massa-resultado {
+  margin-top: 20px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atualizacao-massa-resultado ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}

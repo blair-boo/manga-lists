@@ -23,6 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/fontes-pendentes">Fontes pendentes</NavLink>
           <NavLink to="/nova-obra">Nova obra</NavLink>
           <NavLink to="/cadastro-rapido">Cadastro rápido</NavLink>
+          <NavLink to="/atualizacao-massa">Atualização em massa</NavLink>
         </nav>
         <div className="app-sync-status">
           <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />

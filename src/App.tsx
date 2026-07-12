@@ -8,6 +8,7 @@ import { DetalheObraPage } from './pages/DetalheObraPage';
 import { FontesPendentesPage } from './pages/FontesPendentesPage';
 import { CadastroObraPage } from './pages/CadastroObraPage';
 import { CadastroRapidoPage } from './pages/CadastroRapidoPage';
+import { AtualizacaoMassaPage } from './pages/AtualizacaoMassaPage';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
               <Route path="/fontes-pendentes" element={<FontesPendentesPage />} />
               <Route path="/nova-obra" element={<CadastroObraPage />} />
               <Route path="/cadastro-rapido" element={<CadastroRapidoPage />} />
+              <Route path="/atualizacao-massa" element={<AtualizacaoMassaPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
