@@ -17,6 +17,7 @@ scraper/.env
 capas_sem_match.csv
 __pycache__/
 *.pyc
+scripts/out-*.sql
 
 # Editor directories and files
 .vscode/*
