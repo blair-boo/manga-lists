@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createObra } from '../db/repo';
+import { createFonte, createObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
+import { deriveSite } from '../lib/site';
 import type { StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 export function CadastroObraPage() {
@@ -25,6 +26,19 @@ export function CadastroObraPage() {
   const [generos, setGeneros] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState('');
+  const [urlsFontes, setUrlsFontes] = useState<string[]>(['']);
+
+  function handleUrlChange(index: number, valor: string) {
+    setUrlsFontes((atual) => atual.map((u, i) => (i === index ? valor : u)));
+  }
+
+  function adicionarUrl() {
+    setUrlsFontes((atual) => [...atual, '']);
+  }
+
+  function removerUrl(index: number) {
+    setUrlsFontes((atual) => atual.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,6 +58,20 @@ export function CadastroObraPage() {
       tags: tags.length > 0 ? tags : null,
       observacoes: observacoes.trim() || null,
     });
+
+    for (const url of urlsFontes.map((u) => u.trim()).filter(Boolean)) {
+      await createFonte({
+        obra_id: obra.id,
+        site: deriveSite(url),
+        url,
+        ultimo_capitulo_detectado: null,
+        confiavel: true,
+        status_aprovacao: 'aprovado',
+        descoberta_automaticamente: false,
+        ultima_verificacao: null,
+      });
+    }
+
     navigate(`/obra/${obra.id}`);
   }
 
@@ -134,6 +162,23 @@ export function CadastroObraPage() {
         Observações
         <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
       </label>
+
+      <div className="urls-fontes">
+        <span className="urls-fontes-label">Url da fonte</span>
+        {urlsFontes.map((url, i) => (
+          <div key={i} className="urls-fontes-linha">
+            <input type="url" value={url} onChange={(e) => handleUrlChange(i, e.target.value)} placeholder="https://…" />
+            {urlsFontes.length > 1 && (
+              <button type="button" onClick={() => removerUrl(i)} aria-label="Remover URL">
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        <button type="button" onClick={adicionarUrl} className="adicionar-url">
+          + Adicionar outra fonte
+        </button>
+      </div>
 
       <button type="submit">Salvar</button>
     </form>

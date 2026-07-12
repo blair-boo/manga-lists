@@ -76,6 +76,11 @@ def main():
         except Exception as exc:  # noqa: BLE001 - uma fonte com erro não deve derrubar o resto do batch
             falhas += 1
             print(f"  falha ao verificar {fonte['url']}: {exc}", file=sys.stderr)
+            # Registra a tentativa mesmo com erro, pra usuária ver no app quando foi a última vez
+            # que o scraper tentou (e não conseguiu) verificar essa fonte.
+            supabase.table("fontes").update(
+                {"ultima_verificacao": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", fonte["id"]).execute()
             if fonte["ultimo_capitulo_detectado"] is not None:
                 capitulos_por_obra.setdefault(fonte["obra_id"], []).append(fonte["ultimo_capitulo_detectado"])
 

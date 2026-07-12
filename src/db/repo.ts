@@ -45,29 +45,31 @@ export async function createFonte(input: NovaFonte): Promise<Fonte> {
   return fonte;
 }
 
-export async function setFonteAprovacao(id: string, status: StatusAprovacao): Promise<void> {
-  await db.fontes.update(id, { status_aprovacao: status });
+export async function updateFonte(id: string, changes: Partial<NovaFonte>): Promise<void> {
+  await db.fontes.update(id, changes);
   const full = await db.fontes.get(id);
   if (!full) return;
   await enqueueMutation({ entity: 'fontes', op: 'update', recordId: id, payload: full });
   triggerBackgroundSync();
+  await recalcUltimoCapituloLancado(full.obra_id);
+}
 
-  if (status === 'aprovado') {
-    await recalcUltimoCapituloLancado(full.obra_id);
-  }
+export async function setFonteAprovacao(id: string, status: StatusAprovacao): Promise<void> {
+  await updateFonte(id, { status_aprovacao: status });
 }
 
 export async function deleteFonte(id: string): Promise<void> {
+  const fonte = await db.fontes.get(id);
   await db.fontes.delete(id);
   await enqueueMutation({ entity: 'fontes', op: 'delete', recordId: id, payload: null });
   triggerBackgroundSync();
+  if (fonte) await recalcUltimoCapituloLancado(fonte.obra_id);
 }
 
 async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
   const fontes = await db.fontes.where('obra_id').equals(obraId).toArray();
   const aprovadas = fontes.filter((f) => f.status_aprovacao === 'aprovado' && f.ultimo_capitulo_detectado != null);
-  if (aprovadas.length === 0) return;
-  const maior = Math.max(...aprovadas.map((f) => f.ultimo_capitulo_detectado as number));
+  const maior = aprovadas.length > 0 ? Math.max(...aprovadas.map((f) => f.ultimo_capitulo_detectado as number)) : null;
   await updateObra(obraId, { ultimo_capitulo_lancado: maior } as Partial<NovaObra>);
 }
 

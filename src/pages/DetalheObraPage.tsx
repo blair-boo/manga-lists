@@ -1,17 +1,97 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db/localDb';
-import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateObra, type NovaObra } from '../db/repo';
+import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateFonte, updateObra, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { deriveSite } from '../lib/site';
-import type { Obra, StatusAprovacao } from '../types';
+import type { Fonte, Obra, StatusAprovacao } from '../types';
 
 function statusBadgeClasse(status: StatusAprovacao): string {
   if (status === 'aprovado') return 'badge badge-aprovado';
   if (status === 'rejeitado') return 'badge badge-rejeitado';
   return 'badge badge-pendente';
+}
+
+function formatarDataHora(iso: string | null): string {
+  if (!iso) return 'nunca verificado';
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function StatusScraper({ fonte }: { fonte: Fonte }) {
+  if (fonte.ultima_verificacao == null) {
+    return (
+      <span className="scraper-status scraper-nunca" title="Nunca verificado pelo scraper">
+        —
+      </span>
+    );
+  }
+  const encontrou = fonte.ultimo_capitulo_detectado != null;
+  return (
+    <span className={`scraper-status ${encontrou ? 'scraper-ok' : 'scraper-falha'}`}>
+      {encontrou ? '✓' : '✕'}
+      <span className="scraper-data">{formatarDataHora(fonte.ultima_verificacao)}</span>
+    </span>
+  );
+}
+
+function FonteItem({ fonte }: { fonte: Fonte }) {
+  const [capitulo, setCapitulo] = useState(fonte.ultimo_capitulo_detectado?.toString() ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setCapitulo(fonte.ultimo_capitulo_detectado?.toString() ?? '');
+    }
+  }, [fonte.ultimo_capitulo_detectado]);
+
+  async function handleBlur() {
+    const valor = capitulo.trim() === '' ? null : Number(capitulo);
+    const novoValor = valor !== null && Number.isNaN(valor) ? null : valor;
+    if (novoValor !== fonte.ultimo_capitulo_detectado) {
+      await updateFonte(fonte.id, { ultimo_capitulo_detectado: novoValor });
+    }
+  }
+
+  return (
+    <li className="fonte-item">
+      <a href={fonte.url} target="_blank" rel="noreferrer">
+        {fonte.site || fonte.url}
+      </a>
+      <span className={statusBadgeClasse(fonte.status_aprovacao)}>{fonte.status_aprovacao}</span>
+      <label className="fonte-capitulo">
+        cap.
+        <input
+          ref={inputRef}
+          type="number"
+          step="any"
+          value={capitulo}
+          onChange={(e) => setCapitulo(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') inputRef.current?.blur();
+          }}
+        />
+      </label>
+      <StatusScraper fonte={fonte} />
+      <div className="fonte-acoes">
+        {fonte.status_aprovacao !== 'aprovado' && (
+          <button type="button" onClick={() => setFonteAprovacao(fonte.id, 'aprovado')}>
+            Aprovar
+          </button>
+        )}
+        {fonte.status_aprovacao !== 'rejeitado' && (
+          <button type="button" onClick={() => setFonteAprovacao(fonte.id, 'rejeitado')}>
+            Rejeitar
+          </button>
+        )}
+        <button type="button" onClick={() => deleteFonte(fonte.id)}>
+          Excluir
+        </button>
+      </div>
+    </li>
+  );
 }
 
 type Draft = Pick<
@@ -63,9 +143,7 @@ export function DetalheObraPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState<Draft | null>(null);
 
-  const [novaFonteSite, setNovaFonteSite] = useState('');
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
-  const [siteEditadoManualmente, setSiteEditadoManualmente] = useState(false);
 
   useEffect(() => {
     if (obra && obra.id !== obraIdCarregado) {
@@ -115,7 +193,7 @@ export function DetalheObraPage() {
     if (!novaFonteUrl.trim() || !id) return;
     await createFonte({
       obra_id: id,
-      site: novaFonteSite.trim() || null,
+      site: deriveSite(novaFonteUrl.trim()),
       url: novaFonteUrl.trim(),
       ultimo_capitulo_detectado: null,
       confiavel: true,
@@ -123,19 +201,7 @@ export function DetalheObraPage() {
       descoberta_automaticamente: false,
       ultima_verificacao: null,
     });
-    setNovaFonteSite('');
     setNovaFonteUrl('');
-    setSiteEditadoManualmente(false);
-  }
-
-  function handleUrlFonteChange(v: string) {
-    setNovaFonteUrl(v);
-    if (!siteEditadoManualmente) setNovaFonteSite(deriveSite(v) ?? '');
-  }
-
-  function handleSiteFonteChange(v: string) {
-    setNovaFonteSite(v);
-    setSiteEditadoManualmente(true);
   }
 
   async function handleExcluirObra() {
@@ -286,28 +352,7 @@ export function DetalheObraPage() {
         <h2>Fontes</h2>
         <ul className="fontes-lista">
           {(fontes ?? []).map((f) => (
-            <li key={f.id} className="fonte-item">
-              <a href={f.url} target="_blank" rel="noreferrer">
-                {f.site || f.url}
-              </a>
-              <span className={statusBadgeClasse(f.status_aprovacao)}>{f.status_aprovacao}</span>
-              {f.ultimo_capitulo_detectado != null && <span>cap. {f.ultimo_capitulo_detectado}</span>}
-              <div className="fonte-acoes">
-                {f.status_aprovacao !== 'aprovado' && (
-                  <button type="button" onClick={() => setFonteAprovacao(f.id, 'aprovado')}>
-                    Aprovar
-                  </button>
-                )}
-                {f.status_aprovacao !== 'rejeitado' && (
-                  <button type="button" onClick={() => setFonteAprovacao(f.id, 'rejeitado')}>
-                    Rejeitar
-                  </button>
-                )}
-                <button type="button" onClick={() => deleteFonte(f.id)}>
-                  Excluir
-                </button>
-              </div>
-            </li>
+            <FonteItem key={f.id} fonte={f} />
           ))}
           {(fontes ?? []).length === 0 && <li className="fontes-vazio">Nenhuma fonte cadastrada.</li>}
         </ul>
@@ -317,14 +362,8 @@ export function DetalheObraPage() {
             type="url"
             placeholder="URL da fonte"
             value={novaFonteUrl}
-            onChange={(e) => handleUrlFonteChange(e.target.value)}
+            onChange={(e) => setNovaFonteUrl(e.target.value)}
             required
-          />
-          <input
-            type="text"
-            placeholder="Site (auto)"
-            value={novaFonteSite}
-            onChange={(e) => handleSiteFonteChange(e.target.value)}
           />
           <button type="submit">Adicionar fonte</button>
         </form>
