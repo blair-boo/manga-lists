@@ -104,13 +104,35 @@ mesmo pra leitura simples). Rode manualmente pela aba Actions após configurar
 as secrets e ajuste `scraper/common.py`/`scraper/discover_fontes.py` se algum
 site precisar de um parser dedicado.
 
+## 7. Preenchimento em massa (autor, capítulo, status, nota, gênero, tag…)
+
+A maioria das obras importadas da planilha só tem título (e às vezes tipo)
+preenchido. Pra completar em lote, sem precisar editar obra por obra no app:
+
+1. No painel do Supabase, vá em **Table Editor → obras → Export data → CSV**.
+2. Abra o CSV no Excel/Google Sheets e preencha o que quiser (não precisa
+   fazer tudo de uma vez). Não mexa nas colunas `id` e `titulo` — são usadas
+   pra casar cada linha na hora de atualizar. Células vazias mantêm o valor
+   atual do banco (não apagam nada).
+3. Em **generos** e **tags**, separe múltiplos valores com `;`, por exemplo:
+   `Romance;Fantasy;Drama`.
+4. Rode:
+   ```bash
+   node scripts/update-from-csv.mjs caminho/para/obras-preenchido.csv
+   ```
+   (requer `scripts/.env` com `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`,
+   igual ao passo 3 de importação inicial)
+
+Esse fluxo é repetível — pode exportar, preencher um pouco, importar,
+exportar de novo mais tarde, etc.
+
 ## Estrutura do repositório
 
 ```
 src/            frontend (React + TS)
 supabase/       schema.sql, storage.sql
 data/           CSVs originais da planilha (listas, obras, fontes)
-scripts/        import-data.mjs (dados), migrate_capas.py (capas) — rodam uma vez, localmente
+scripts/        import-data.mjs / update-from-csv.mjs (dados), migrate_capas.py (capas) — rodam localmente
 scraper/        update_fontes.py, discover_fontes.py — rodam via cron no GitHub Actions
 .github/workflows/  deploy.yml (GitHub Pages), scraper.yml (cron)
 ```
