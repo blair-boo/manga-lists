@@ -14,6 +14,7 @@ export interface Obra {
   id: string;
   tipo: Tipo | null;
   titulo: string;
+  titulos_alternativos: string[] | null;
   autor: string | null;
   capa_url: string | null;
   capitulo_atual: number | null;

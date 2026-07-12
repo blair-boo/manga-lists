@@ -3,7 +3,7 @@ import type { NovaObra } from '../db/repo';
 
 const CAMPOS_TEXTO = ['tipo', 'autor', 'capa_url', 'status_leitura', 'status_publicacao', 'observacoes'] as const;
 const CAMPOS_NUMERO = ['capitulo_atual', 'nota'] as const;
-const CAMPOS_ARRAY = ['generos', 'tags'] as const;
+const CAMPOS_ARRAY = ['generos', 'tags', 'titulos_alternativos'] as const;
 
 function parseArrayCampo(valor: string | undefined): string[] | undefined {
   const v = (valor ?? '').trim();

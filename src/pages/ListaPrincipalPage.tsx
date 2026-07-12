@@ -3,9 +3,17 @@ import { useMemo, useState } from 'react';
 import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { useListasPorCategoria } from '../hooks/useListas';
+import type { Fonte } from '../types';
+
+type ViewMode = 'grid' | 'list';
+
+function lerViewModeSalvo(): ViewMode {
+  return localStorage.getItem('viewMode') === 'list' ? 'list' : 'grid';
+}
 
 export function ListaPrincipalPage() {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
+  const fontes = useLiveQuery(() => db.fontes.toArray(), []);
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
@@ -18,6 +26,22 @@ export function ListaPrincipalPage() {
   const [statusPublicacao, setStatusPublicacao] = useState('');
   const [genero, setGenero] = useState('');
   const [tag, setTag] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
+
+  function alternarViewMode(modo: ViewMode) {
+    setViewMode(modo);
+    localStorage.setItem('viewMode', modo);
+  }
+
+  const fontesPorObra = useMemo(() => {
+    const map = new Map<string, Fonte[]>();
+    for (const f of fontes ?? []) {
+      const lista = map.get(f.obra_id) ?? [];
+      lista.push(f);
+      map.set(f.obra_id, lista);
+    }
+    return map;
+  }, [fontes]);
 
   const filtradas = useMemo(() => {
     if (!obras) return [];
@@ -96,13 +120,33 @@ export function ListaPrincipalPage() {
         </button>
       </div>
 
-      <p className="contagem-resultados">
-        {filtradas.length} obra{filtradas.length === 1 ? '' : 's'}
-      </p>
+      <div className="lista-principal-toolbar">
+        <p className="contagem-resultados">
+          {filtradas.length} obra{filtradas.length === 1 ? '' : 's'}
+        </p>
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={viewMode === 'grid' ? 'ativo' : ''}
+            onClick={() => alternarViewMode('grid')}
+            aria-label="Ver em grade"
+          >
+            Grade
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'list' ? 'ativo' : ''}
+            onClick={() => alternarViewMode('list')}
+            aria-label="Ver em lista"
+          >
+            Lista
+          </button>
+        </div>
+      </div>
 
-      <div className="grid-obras">
+      <div className={`grid-obras ${viewMode === 'list' ? 'list-view' : ''}`}>
         {filtradas.map((obra) => (
-          <ObraCard key={obra.id} obra={obra} />
+          <ObraCard key={obra.id} obra={obra} fontes={fontesPorObra.get(obra.id) ?? []} />
         ))}
       </div>
     </div>

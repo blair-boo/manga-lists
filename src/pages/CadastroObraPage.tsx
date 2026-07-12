@@ -14,6 +14,7 @@ export function CadastroObraPage() {
   const tagsOpcoes = useListasPorCategoria('tag');
 
   const [titulo, setTitulo] = useState('');
+  const [titulosAlternativos, setTitulosAlternativos] = useState<string[]>([]);
   const [tipo, setTipo] = useState('');
   const [autor, setAutor] = useState('');
   const [capaUrl, setCapaUrl] = useState('');
@@ -30,6 +31,7 @@ export function CadastroObraPage() {
     if (!titulo.trim()) return;
     const obra = await createObra({
       titulo: titulo.trim(),
+      titulos_alternativos: titulosAlternativos.length > 0 ? titulosAlternativos : null,
       tipo: (tipo || null) as Tipo | null,
       autor: autor.trim() || null,
       capa_url: capaUrl.trim() || null,
@@ -52,6 +54,13 @@ export function CadastroObraPage() {
         Título *
         <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
       </label>
+
+      <TagPicker
+        label="Título alternativo"
+        value={titulosAlternativos}
+        options={[]}
+        onChange={setTitulosAlternativos}
+      />
 
       <label>
         Autor

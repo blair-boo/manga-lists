@@ -1,7 +1,8 @@
 import { db, enqueueMutation } from './localDb';
 import { newId } from '../lib/id';
+import { deriveSite } from '../lib/site';
 import { syncNow } from '../sync/sync';
-import type { Fonte, Obra, StatusAprovacao } from '../types';
+import type { Fonte, Obra, StatusAprovacao, StatusLeitura } from '../types';
 
 function triggerBackgroundSync(): void {
   void syncNow();
@@ -70,41 +71,54 @@ async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
   await updateObra(obraId, { ultimo_capitulo_lancado: maior } as Partial<NovaObra>);
 }
 
-/** Cadastro rápido: uma obra por linha, dedupe case-insensitive contra o que já existe localmente. */
-export async function cadastroRapido(
-  linhas: string[],
-  tipoPadrao: Obra['tipo'] = null
-): Promise<{ criadas: string[]; jaExistiam: string[] }> {
+export interface CadastroRapidoInput {
+  titulo: string;
+  titulosAlternativos: string[];
+  autor: string | null;
+  statusLeitura: StatusLeitura;
+  capituloAtual: number;
+  urlsFontes: string[];
+}
+
+/** Cadastro rápido: cria uma obra + suas fontes de uma vez. Dedupe de título case-insensitive. */
+export async function criarObraRapida(
+  input: CadastroRapidoInput
+): Promise<{ obra: Obra; jaExistia: boolean }> {
+  const tituloLower = input.titulo.trim().toLowerCase();
   const existentes = await db.obras.toArray();
-  const titulosExistentes = new Set(existentes.map((o) => o.titulo.trim().toLowerCase()));
-
-  const criadas: string[] = [];
-  const jaExistiam: string[] = [];
-
-  for (const linhaBruta of linhas) {
-    const titulo = linhaBruta.trim();
-    if (!titulo) continue;
-    if (titulosExistentes.has(titulo.toLowerCase())) {
-      jaExistiam.push(titulo);
-      continue;
-    }
-    await createObra({
-      tipo: tipoPadrao,
-      titulo,
-      autor: null,
-      capa_url: null,
-      capitulo_atual: null,
-      status_leitura: null,
-      status_publicacao: null,
-      ultimo_capitulo_lancado: null,
-      nota: null,
-      generos: null,
-      tags: null,
-      observacoes: null,
-    });
-    titulosExistentes.add(titulo.toLowerCase());
-    criadas.push(titulo);
+  const existente = existentes.find((o) => o.titulo.trim().toLowerCase() === tituloLower);
+  if (existente) {
+    return { obra: existente, jaExistia: true };
   }
 
-  return { criadas, jaExistiam };
+  const obra = await createObra({
+    tipo: null,
+    titulo: input.titulo.trim(),
+    titulos_alternativos: input.titulosAlternativos.length > 0 ? input.titulosAlternativos : null,
+    autor: input.autor,
+    capa_url: null,
+    capitulo_atual: input.capituloAtual,
+    status_leitura: input.statusLeitura,
+    status_publicacao: null,
+    ultimo_capitulo_lancado: null,
+    nota: null,
+    generos: null,
+    tags: null,
+    observacoes: null,
+  });
+
+  for (const url of input.urlsFontes) {
+    await createFonte({
+      obra_id: obra.id,
+      site: deriveSite(url),
+      url,
+      ultimo_capitulo_detectado: null,
+      confiavel: true,
+      status_aprovacao: 'aprovado',
+      descoberta_automaticamente: false,
+      ultima_verificacao: null,
+    });
+  }
+
+  return { obra, jaExistia: false };
 }

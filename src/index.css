@@ -208,15 +208,51 @@ label {
   flex: 1 1 220px;
 }
 
+.lista-principal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .contagem-resultados {
   font-size: 13px;
-  margin-bottom: 12px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.view-toggle button {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: none;
+}
+
+.view-toggle button.ativo {
+  background: var(--accent-bg);
 }
 
 .grid-obras {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
+}
+
+.grid-obras.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.grid-obras.list-view .obra-card {
+  flex-direction: row;
+}
+
+.grid-obras.list-view .obra-card-capa {
+  width: 90px;
+  flex-shrink: 0;
 }
 
 .obra-card {
@@ -273,6 +309,28 @@ label {
 .obra-card-titulo {
   font-size: 14px;
   line-height: 1.25;
+}
+
+.obra-card-titulo:hover {
+  text-decoration: underline;
+}
+
+.obra-card-fontes {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.obra-card-fontes a {
+  color: var(--accent);
+}
+
+.obra-card-fontes a:hover {
+  text-decoration: underline;
 }
 
 .obra-card-meta {
@@ -338,6 +396,45 @@ label {
   background: rgba(209, 38, 79, 0.1);
   border-color: rgba(209, 38, 79, 0.5);
   color: var(--danger);
+}
+
+.detalhe-obra-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alteracoes-pendentes {
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .fontes-section {
@@ -467,18 +564,34 @@ label {
   max-width: 480px;
 }
 
-.cadastro-rapido textarea {
-  font-family: var(--mono, monospace);
-}
-
 .cadastro-rapido-resultado {
   margin-top: 20px;
   font-size: 14px;
 }
 
-.cadastro-rapido-resultado ul {
-  margin: 8px 0 0;
-  padding-left: 20px;
+.urls-fontes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.urls-fontes-label {
+  font-size: 14px;
+}
+
+.urls-fontes-linha {
+  display: flex;
+  gap: 8px;
+}
+
+.urls-fontes-linha input {
+  flex: 1;
+}
+
+.adicionar-url {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 6px 10px;
 }
 
 /* Atualização em massa */

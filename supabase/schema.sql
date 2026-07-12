@@ -7,6 +7,7 @@ create table obras (
     id uuid primary key default gen_random_uuid(),
     tipo text, -- 'Manga' | 'Manwha' | 'Manhua' | 'Novel'
     titulo text not null,
+    titulos_alternativos text[],
     autor text,
     capa_url text,
     capitulo_atual numeric,

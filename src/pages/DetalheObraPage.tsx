@@ -1,16 +1,50 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db/localDb';
-import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateObra } from '../db/repo';
+import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateObra, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
-import type { StatusAprovacao } from '../types';
+import { deriveSite } from '../lib/site';
+import type { Obra, StatusAprovacao } from '../types';
 
 function statusBadgeClasse(status: StatusAprovacao): string {
   if (status === 'aprovado') return 'badge badge-aprovado';
   if (status === 'rejeitado') return 'badge badge-rejeitado';
   return 'badge badge-pendente';
+}
+
+type Draft = Pick<
+  Obra,
+  | 'titulo'
+  | 'titulos_alternativos'
+  | 'autor'
+  | 'capa_url'
+  | 'tipo'
+  | 'status_leitura'
+  | 'status_publicacao'
+  | 'capitulo_atual'
+  | 'nota'
+  | 'generos'
+  | 'tags'
+  | 'observacoes'
+>;
+
+function toDraft(obra: Obra): Draft {
+  return {
+    titulo: obra.titulo,
+    titulos_alternativos: obra.titulos_alternativos,
+    autor: obra.autor,
+    capa_url: obra.capa_url,
+    tipo: obra.tipo,
+    status_leitura: obra.status_leitura,
+    status_publicacao: obra.status_publicacao,
+    capitulo_atual: obra.capitulo_atual,
+    nota: obra.nota,
+    generos: obra.generos,
+    tags: obra.tags,
+    observacoes: obra.observacoes,
+  };
 }
 
 export function DetalheObraPage() {
@@ -25,11 +59,56 @@ export function DetalheObraPage() {
   const generos = useListasPorCategoria('genero');
   const tags = useListasPorCategoria('tag');
 
+  const [obraIdCarregado, setObraIdCarregado] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState<Draft | null>(null);
+
   const [novaFonteSite, setNovaFonteSite] = useState('');
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
+  const [siteEditadoManualmente, setSiteEditadoManualmente] = useState(false);
+
+  useEffect(() => {
+    if (obra && obra.id !== obraIdCarregado) {
+      const d = toDraft(obra);
+      setDraft(d);
+      setSavedSnapshot(d);
+      setObraIdCarregado(obra.id);
+    }
+  }, [obra, obraIdCarregado]);
+
+  const isDirty = draft !== null && savedSnapshot !== null && JSON.stringify(draft) !== JSON.stringify(savedSnapshot);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  useEffect(() => {
+    function handler(e: BeforeUnloadEvent) {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   if (!id) return null;
-  if (obra === undefined) return <p>Carregando…</p>;
+  if (obra === undefined || draft === null) return <p>Carregando…</p>;
+
+  function setCampo<K extends keyof Draft>(campo: K, valor: Draft[K]) {
+    setDraft((atual) => (atual ? { ...atual, [campo]: valor } : atual));
+  }
+
+  async function handleSalvar() {
+    if (!id || !draft) return;
+    await updateObra(id, draft as Partial<NovaObra>);
+    setSavedSnapshot(draft);
+  }
+
+  function handleCancelar() {
+    if (savedSnapshot) setDraft(savedSnapshot);
+  }
 
   async function handleAdicionarFonte(e: FormEvent) {
     e.preventDefault();
@@ -46,6 +125,17 @@ export function DetalheObraPage() {
     });
     setNovaFonteSite('');
     setNovaFonteUrl('');
+    setSiteEditadoManualmente(false);
+  }
+
+  function handleUrlFonteChange(v: string) {
+    setNovaFonteUrl(v);
+    if (!siteEditadoManualmente) setNovaFonteSite(deriveSite(v) ?? '');
+  }
+
+  function handleSiteFonteChange(v: string) {
+    setNovaFonteSite(v);
+    setSiteEditadoManualmente(true);
   }
 
   async function handleExcluirObra() {
@@ -64,38 +154,34 @@ export function DetalheObraPage() {
       <div className="detalhe-obra-form">
         <label>
           Título
-          <input
-            type="text"
-            value={obra.titulo}
-            onChange={(e) => updateObra(id, { titulo: e.target.value })}
-          />
+          <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
         </label>
+
+        <TagPicker
+          label="Título alternativo"
+          value={draft.titulos_alternativos ?? []}
+          options={[]}
+          onChange={(v) => setCampo('titulos_alternativos', v.length > 0 ? v : null)}
+        />
 
         <label>
           Autor
-          <input
-            type="text"
-            value={obra.autor ?? ''}
-            onChange={(e) => updateObra(id, { autor: e.target.value || null })}
-          />
+          <input type="text" value={draft.autor ?? ''} onChange={(e) => setCampo('autor', e.target.value || null)} />
         </label>
 
         <label>
           Capa (URL)
           <input
             type="text"
-            value={obra.capa_url ?? ''}
-            onChange={(e) => updateObra(id, { capa_url: e.target.value || null })}
+            value={draft.capa_url ?? ''}
+            onChange={(e) => setCampo('capa_url', e.target.value || null)}
           />
         </label>
 
         <div className="detalhe-obra-grid">
           <label>
             Tipo
-            <select
-              value={obra.tipo ?? ''}
-              onChange={(e) => updateObra(id, { tipo: (e.target.value || null) as typeof obra.tipo })}
-            >
+            <select value={draft.tipo ?? ''} onChange={(e) => setCampo('tipo', (e.target.value || null) as Draft['tipo'])}>
               <option value="">—</option>
               {tipos.map((v) => (
                 <option key={v} value={v}>
@@ -108,10 +194,8 @@ export function DetalheObraPage() {
           <label>
             Status de leitura
             <select
-              value={obra.status_leitura ?? ''}
-              onChange={(e) =>
-                updateObra(id, { status_leitura: (e.target.value || null) as typeof obra.status_leitura })
-              }
+              value={draft.status_leitura ?? ''}
+              onChange={(e) => setCampo('status_leitura', (e.target.value || null) as Draft['status_leitura'])}
             >
               <option value="">—</option>
               {statusLeituraOpcoes.map((v) => (
@@ -125,11 +209,9 @@ export function DetalheObraPage() {
           <label>
             Status de publicação
             <select
-              value={obra.status_publicacao ?? ''}
+              value={draft.status_publicacao ?? ''}
               onChange={(e) =>
-                updateObra(id, {
-                  status_publicacao: (e.target.value || null) as typeof obra.status_publicacao,
-                })
+                setCampo('status_publicacao', (e.target.value || null) as Draft['status_publicacao'])
               }
             >
               <option value="">—</option>
@@ -146,23 +228,16 @@ export function DetalheObraPage() {
             <input
               type="number"
               step="any"
-              value={obra.capitulo_atual ?? ''}
-              onChange={(e) =>
-                updateObra(id, { capitulo_atual: e.target.value === '' ? null : Number(e.target.value) })
-              }
+              value={draft.capitulo_atual ?? ''}
+              onChange={(e) => setCampo('capitulo_atual', e.target.value === '' ? null : Number(e.target.value))}
             />
-          </label>
-
-          <label>
-            Último capítulo disponível
-            <input type="text" value={obra.ultimo_capitulo_lancado ?? '—'} disabled />
           </label>
 
           <label>
             Nota
             <select
-              value={obra.nota ?? ''}
-              onChange={(e) => updateObra(id, { nota: e.target.value === '' ? null : Number(e.target.value) })}
+              value={draft.nota ?? ''}
+              onChange={(e) => setCampo('nota', e.target.value === '' ? null : Number(e.target.value))}
             >
               <option value="">—</option>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -176,21 +251,31 @@ export function DetalheObraPage() {
 
         <TagPicker
           label="Gêneros"
-          value={obra.generos ?? []}
+          value={draft.generos ?? []}
           options={generos}
-          onChange={(v) => updateObra(id, { generos: v })}
+          onChange={(v) => setCampo('generos', v)}
         />
 
-        <TagPicker label="Tags" value={obra.tags ?? []} options={tags} onChange={(v) => updateObra(id, { tags: v })} />
+        <TagPicker label="Tags" value={draft.tags ?? []} options={tags} onChange={(v) => setCampo('tags', v)} />
 
         <label>
           Observações
           <textarea
-            value={obra.observacoes ?? ''}
-            onChange={(e) => updateObra(id, { observacoes: e.target.value || null })}
+            value={draft.observacoes ?? ''}
+            onChange={(e) => setCampo('observacoes', e.target.value || null)}
             rows={4}
           />
         </label>
+
+        <div className="detalhe-obra-acoes">
+          <button type="button" onClick={handleSalvar} disabled={!isDirty}>
+            Salvar
+          </button>
+          <button type="button" onClick={handleCancelar} disabled={!isDirty}>
+            Cancelar
+          </button>
+          {isDirty && <span className="alteracoes-pendentes">alterações não salvas</span>}
+        </div>
 
         <button type="button" className="excluir-obra" onClick={handleExcluirObra}>
           Excluir obra
@@ -229,21 +314,52 @@ export function DetalheObraPage() {
 
         <form className="nova-fonte-form" onSubmit={handleAdicionarFonte}>
           <input
-            type="text"
-            placeholder="Site (ex: ezmanga)"
-            value={novaFonteSite}
-            onChange={(e) => setNovaFonteSite(e.target.value)}
-          />
-          <input
             type="url"
             placeholder="URL da fonte"
             value={novaFonteUrl}
-            onChange={(e) => setNovaFonteUrl(e.target.value)}
+            onChange={(e) => handleUrlFonteChange(e.target.value)}
             required
+          />
+          <input
+            type="text"
+            placeholder="Site (auto)"
+            value={novaFonteSite}
+            onChange={(e) => handleSiteFonteChange(e.target.value)}
           />
           <button type="submit">Adicionar fonte</button>
         </form>
       </section>
+
+      {blocker.state === 'blocked' && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <p>Você tem alterações não salvas nesta obra.</p>
+            <div className="modal-acoes">
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSalvar();
+                  blocker.proceed();
+                }}
+              >
+                Salvar e sair
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCancelar();
+                  blocker.proceed();
+                }}
+              >
+                Descartar e sair
+              </button>
+              <button type="button" onClick={() => blocker.reset()}>
+                Continuar editando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
