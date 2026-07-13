@@ -2,7 +2,7 @@ import { useState, type ChangeEvent } from 'react';
 import { db } from '../db/localDb';
 import { updateObra } from '../db/repo';
 import { buildUpdatePayload, parseCsvFile } from '../lib/csvBulkUpdate';
-import { controlarScraperFontes } from '../lib/scraperControl';
+import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { StatusExecucaoScraper } from '../components/StatusExecucaoScraper';
 import { FontesPendentesLista } from '../components/FontesPendentesLista';
@@ -14,8 +14,28 @@ interface Resultado {
   semId: number;
 }
 
+function mensagemErroAcao(err: unknown): string {
+  const detalhe = err instanceof Error ? err.message : String(err);
+  return `Não consegui falar com o controle do scraper (${detalhe}). Verifique se a Edge Function "scraper-control" já foi publicada e se o secret GH_ACTIONS_TOKEN está configurado.`;
+}
+
 function SecaoCapitulos() {
   const { run, carregando, erro, recarregar } = useScraperRun('capitulos');
+  const [acionando, setAcionando] = useState(false);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
+
+  async function handleAtualizarAgora() {
+    setAcionando(true);
+    setErroAcao(null);
+    try {
+      await controlarScraper('capitulos', 'start');
+      await recarregar();
+    } catch (err) {
+      setErroAcao(mensagemErroAcao(err));
+    } finally {
+      setAcionando(false);
+    }
+  }
 
   return (
     <section className="atualizacao-secao">
@@ -25,10 +45,21 @@ function SecaoCapitulos() {
         disponível de cada uma. O aviso de "novo capítulo" na lista só aparece quando esse valor foi atualizado por
         ele — se você editar o capítulo manualmente na página da obra, o aviso some até o scraper confirmar de novo.
       </p>
+
+      <div className="scraper-controles">
+        <button type="button" onClick={handleAtualizarAgora} disabled={acionando}>
+          {acionando ? 'Aguarde…' : 'Atualizar agora'}
+        </button>
+        <button type="button" onClick={recarregar} className="atualizar-status">
+          Atualizar status
+        </button>
+      </div>
+      <p className="execucao-nota">
+        "Atualizar agora" roda uma verificação extra, sem afetar o agendamento diário automático.
+      </p>
+      {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
+
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
-      <button type="button" onClick={recarregar} className="atualizar-status">
-        Atualizar status
-      </button>
     </section>
   );
 }
@@ -45,12 +76,10 @@ function SecaoFontes() {
     setAcionando(true);
     setErroAcao(null);
     try {
-      await controlarScraperFontes(rodando ? 'stop' : 'start');
+      await controlarScraper('fontes', rodando ? 'stop' : 'start');
       await recarregar();
-    } catch {
-      setErroAcao(
-        'Não consegui falar com o controle do scraper. Verifique se a Edge Function "scraper-control" já foi publicada.'
-      );
+    } catch (err) {
+      setErroAcao(mensagemErroAcao(err));
     } finally {
       setAcionando(false);
     }

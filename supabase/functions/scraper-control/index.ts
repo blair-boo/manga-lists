@@ -1,33 +1,53 @@
-// Edge Function: inicia/para o workflow "Scraper - Fontes" no GitHub Actions.
+// Edge Function: inicia/para os workflows do scraper no GitHub Actions.
 //
 // O token do GitHub (GH_ACTIONS_TOKEN) fica só aqui no servidor, nunca é
 // exposto ao navegador. Exige usuária autenticada (Supabase já valida o JWT
 // antes de invocar esta função).
 //
-// Body esperado: { "acao": "start" | "stop" }
+// Body esperado: { "acao": "start" | "stop", "alvo": "capitulos" | "fontes" }
 
 const GITHUB_OWNER = 'blair-boo';
 const GITHUB_REPO = 'manga-lists';
-const WORKFLOW_FILE = 'scraper-fontes.yml';
 const REF = 'main';
+
+const WORKFLOW_FILES: Record<string, string> = {
+  capitulos: 'scraper-capitulos.yml',
+  fontes: 'scraper-fontes.yml',
+};
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   });
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
   let acao: string;
+  let alvo: string;
   try {
-    ({ acao } = await req.json());
+    ({ acao, alvo } = await req.json());
   } catch {
     return jsonResponse({ error: 'corpo da requisição inválido' }, 400);
   }
 
   if (acao !== 'start' && acao !== 'stop') {
     return jsonResponse({ error: 'ação inválida, use "start" ou "stop"' }, 400);
+  }
+
+  const workflowFile = WORKFLOW_FILES[alvo];
+  if (!workflowFile) {
+    return jsonResponse({ error: 'alvo inválido, use "capitulos" ou "fontes"' }, 400);
   }
 
   const token = Deno.env.get('GH_ACTIONS_TOKEN');
@@ -44,7 +64,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (acao === 'start') {
       const resp = await fetch(
-        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflowFile}/dispatches`,
         {
           method: 'POST',
           headers: { ...ghHeaders, 'Content-Type': 'application/json' },
@@ -59,7 +79,7 @@ Deno.serve(async (req: Request) => {
 
     // acao === 'stop': cancela a execução em andamento, se houver
     const runsResp = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${workflowFile}/runs?per_page=1`,
       { headers: ghHeaders }
     );
     if (!runsResp.ok) {
