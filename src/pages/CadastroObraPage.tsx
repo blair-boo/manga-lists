@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createFonte, createObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
+import { CapaUploader } from '../components/CapaUploader';
 import { deriveSite } from '../lib/site';
 import type { StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
@@ -53,6 +54,7 @@ export function CadastroObraPage() {
       status_leitura: (statusLeitura || null) as StatusLeitura | null,
       status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
       ultimo_capitulo_lancado: null,
+      ultimo_capitulo_via_scraper: false,
       nota: nota === '' ? null : Number(nota),
       generos: generos.length > 0 ? generos : null,
       tags: tags.length > 0 ? tags : null,
@@ -65,6 +67,7 @@ export function CadastroObraPage() {
         site: deriveSite(url),
         url,
         ultimo_capitulo_detectado: null,
+        atualizado_por_scraper: false,
         confiavel: true,
         status_aprovacao: 'aprovado',
         descoberta_automaticamente: false,
@@ -99,6 +102,8 @@ export function CadastroObraPage() {
         Capa (URL)
         <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
       </label>
+      <CapaUploader onUploaded={setCapaUrl} />
+      {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="capa-preview" />}
 
       <div className="detalhe-obra-grid">
         <label>

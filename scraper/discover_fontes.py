@@ -13,13 +13,14 @@ Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env loc
 
 import sys
 import time
+import traceback
 from difflib import SequenceMatcher
 from urllib.parse import quote, urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
-from common import HEADERS, get_supabase
+from common import HEADERS, finalizar_run, get_supabase, iniciar_run
 
 TIMEOUT = 20
 DELAY_ENTRE_REQUESTS = 1.5
@@ -87,9 +88,8 @@ def buscar_fallback_web(titulo: str) -> str | None:
     return None
 
 
-def main():
-    supabase = get_supabase()
-
+def executar(supabase) -> int:
+    """Retorna o número de novas fontes descobertas."""
     obras = supabase.table("obras").select("id, titulo").execute().data
     fontes_existentes = supabase.table("fontes").select("obra_id, site").execute().data
     sites = supabase.table("sites_suportados").select("nome, url_base, ativo").eq("ativo", True).execute().data
@@ -149,6 +149,18 @@ def main():
     if novas_fontes:
         supabase.table("fontes").insert(novas_fontes).execute()
     print(f"\n{len(novas_fontes)} nova(s) fonte(s) pendente(s) de aprovação inserida(s).")
+    return len(novas_fontes)
+
+
+def main():
+    supabase = get_supabase()
+    run_id = iniciar_run(supabase, "fontes")
+    try:
+        quantidade = executar(supabase)
+        finalizar_run(supabase, run_id, "concluido", f"{quantidade} nova(s) fonte(s) encontrada(s)")
+    except Exception as exc:
+        finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
+        raise
 
 
 if __name__ == "__main__":

@@ -38,6 +38,21 @@ def get_supabase():
     return create_client(url, key)
 
 
+def iniciar_run(supabase, tipo: str) -> str:
+    """Registra o início de uma execução do scraper (tipo: 'capitulos' | 'fontes'). Retorna o id da run."""
+    resp = supabase.table("scraper_runs").insert({"tipo": tipo, "status": "rodando"}).execute()
+    return resp.data[0]["id"]
+
+
+def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None) -> None:
+    """status: 'concluido' | 'erro'."""
+    from datetime import datetime, timezone
+
+    supabase.table("scraper_runs").update(
+        {"status": status, "finalizado_em": datetime.now(timezone.utc).isoformat(), "mensagem": mensagem}
+    ).eq("id", run_id).execute()
+
+
 def extrair_maior_capitulo(html: str) -> float | None:
     """
     Extração genérica do maior número de capítulo encontrado no HTML (href + texto dos links).

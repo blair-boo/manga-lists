@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { StatusScraper } from './StatusScraper';
 import type { Fonte, Obra } from '../types';
 
 function Estrelas({ nota }: { nota: number | null }) {
@@ -8,6 +9,7 @@ function Estrelas({ nota }: { nota: number | null }) {
 
 export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
   const temNovoCapitulo =
+    obra.ultimo_capitulo_via_scraper &&
     obra.ultimo_capitulo_lancado != null &&
     obra.capitulo_atual != null &&
     obra.ultimo_capitulo_lancado > obra.capitulo_atual;
@@ -44,6 +46,7 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
                   {f.site || f.url}
                 </a>
                 {f.ultimo_capitulo_detectado != null && <span> · cap. {f.ultimo_capitulo_detectado}</span>}
+                <StatusScraper fonte={f} compact />
               </li>
             ))}
           </ul>

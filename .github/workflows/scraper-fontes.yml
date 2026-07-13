@@ -1,12 +1,16 @@
-name: Scraper de capítulos
+name: Scraper - Fontes
 
+# Sem agendamento de propósito: essa busca é disparada manualmente pelo botão
+# "Iniciar busca" na aba Atualizações do app (via Supabase Edge Function).
 on:
-  schedule:
-    - cron: '0 12 * * *'
   workflow_dispatch: {}
 
+concurrency:
+  group: scraper-fontes
+  cancel-in-progress: false
+
 jobs:
-  scrape:
+  discover:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,16 +22,7 @@ jobs:
           cache-dependency-path: scraper/requirements.txt
 
       - name: Instalar dependências
-        run: |
-          pip install -r scraper/requirements.txt
-          playwright install --with-deps chromium
-
-      - name: Atualizar fontes já cadastradas
-        working-directory: scraper
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python update_fontes.py
+        run: pip install -r scraper/requirements.txt
 
       - name: Descobrir novas fontes
         working-directory: scraper

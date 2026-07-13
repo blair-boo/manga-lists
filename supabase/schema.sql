@@ -14,6 +14,7 @@ create table obras (
     status_leitura text, -- 'To read' | 'Reading' | 'Complete' | 'Paused' | 'Dropped'
     status_publicacao text, -- 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' | 'Canceled'
     ultimo_capitulo_lancado numeric,
+    ultimo_capitulo_via_scraper boolean not null default false,
     nota int check (nota between 1 and 5),
     generos text[],
     tags text[],
@@ -36,6 +37,7 @@ create table fontes (
     site text,
     url text not null,
     ultimo_capitulo_detectado numeric,
+    atualizado_por_scraper boolean not null default false,
     confiavel boolean not null default true,
     status_aprovacao text not null default 'aprovado', -- 'aprovado' | 'pendente' | 'rejeitado'
     descoberta_automaticamente boolean not null default false,
@@ -48,6 +50,15 @@ create table listas (
     categoria text not null, -- 'tipo' | 'status_leitura' | 'status_publicacao' | 'rating' | 'genero' | 'tag'
     valor text not null,
     unique (categoria, valor)
+);
+
+create table scraper_runs (
+    id uuid primary key default gen_random_uuid(),
+    tipo text not null, -- 'capitulos' | 'fontes'
+    status text not null default 'rodando', -- 'rodando' | 'concluido' | 'erro'
+    iniciado_em timestamptz not null default now(),
+    finalizado_em timestamptz,
+    mensagem text
 );
 
 create index idx_fontes_obra_id on fontes(obra_id);
@@ -103,4 +114,9 @@ create policy "authenticated_full_access_sites_suportados" on sites_suportados
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 create policy "authenticated_full_access_listas" on listas
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table scraper_runs enable row level security;
+
+create policy "authenticated_full_access_scraper_runs" on scraper_runs
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

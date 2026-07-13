@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { criarObraRapida } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
+import { CapaUploader } from '../components/CapaUploader';
 import type { Obra, StatusLeitura } from '../types';
 
 interface Resultado {
@@ -16,6 +17,7 @@ export function CadastroRapidoPage() {
   const [titulo, setTitulo] = useState('');
   const [titulosAlternativos, setTitulosAlternativos] = useState<string[]>([]);
   const [autor, setAutor] = useState('');
+  const [capaUrl, setCapaUrl] = useState('');
   const [statusLeitura, setStatusLeitura] = useState('');
   const [capituloAtual, setCapituloAtual] = useState('');
   const [urlsFontes, setUrlsFontes] = useState<string[]>(['']);
@@ -26,6 +28,7 @@ export function CadastroRapidoPage() {
     setTitulo('');
     setTitulosAlternativos([]);
     setAutor('');
+    setCapaUrl('');
     setStatusLeitura('');
     setCapituloAtual('');
     setUrlsFontes(['']);
@@ -53,6 +56,7 @@ export function CadastroRapidoPage() {
       titulo: titulo.trim(),
       titulosAlternativos,
       autor: autor.trim() || null,
+      capaUrl: capaUrl || null,
       statusLeitura: statusLeitura as StatusLeitura,
       capituloAtual: Number(capituloAtual),
       urlsFontes: urlsValidas,
@@ -84,6 +88,13 @@ export function CadastroRapidoPage() {
           Autor
           <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
         </label>
+
+        <label>
+          Capa (URL)
+          <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
+        </label>
+        <CapaUploader onUploaded={setCapaUrl} />
+        {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="capa-preview" />}
 
         <label>
           Status de leitura *

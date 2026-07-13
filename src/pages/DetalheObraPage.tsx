@@ -5,6 +5,8 @@ import { db } from '../db/localDb';
 import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateFonte, updateObra, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
+import { CapaUploader } from '../components/CapaUploader';
+import { StatusScraper } from '../components/StatusScraper';
 import { deriveSite } from '../lib/site';
 import type { Fonte, Obra, StatusAprovacao } from '../types';
 
@@ -12,28 +14,6 @@ function statusBadgeClasse(status: StatusAprovacao): string {
   if (status === 'aprovado') return 'badge badge-aprovado';
   if (status === 'rejeitado') return 'badge badge-rejeitado';
   return 'badge badge-pendente';
-}
-
-function formatarDataHora(iso: string | null): string {
-  if (!iso) return 'nunca verificado';
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function StatusScraper({ fonte }: { fonte: Fonte }) {
-  if (fonte.ultima_verificacao == null) {
-    return (
-      <span className="scraper-status scraper-nunca" title="Nunca verificado pelo scraper">
-        —
-      </span>
-    );
-  }
-  const encontrou = fonte.ultimo_capitulo_detectado != null;
-  return (
-    <span className={`scraper-status ${encontrou ? 'scraper-ok' : 'scraper-falha'}`}>
-      {encontrou ? '✓' : '✕'}
-      <span className="scraper-data">{formatarDataHora(fonte.ultima_verificacao)}</span>
-    </span>
-  );
 }
 
 function FonteItem({ fonte }: { fonte: Fonte }) {
@@ -196,6 +176,7 @@ export function DetalheObraPage() {
       site: deriveSite(novaFonteUrl.trim()),
       url: novaFonteUrl.trim(),
       ultimo_capitulo_detectado: null,
+      atualizado_por_scraper: false,
       confiavel: true,
       status_aprovacao: 'aprovado',
       descoberta_automaticamente: false,
@@ -243,6 +224,10 @@ export function DetalheObraPage() {
             onChange={(e) => setCampo('capa_url', e.target.value || null)}
           />
         </label>
+        <CapaUploader onUploaded={(url) => setCampo('capa_url', url)} />
+        {draft.capa_url && (
+          <img src={draft.capa_url} alt="Prévia da capa" className="capa-preview" />
+        )}
 
         <div className="detalhe-obra-grid">
           <label>

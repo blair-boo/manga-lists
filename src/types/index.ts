@@ -21,6 +21,7 @@ export interface Obra {
   status_leitura: StatusLeitura | null;
   status_publicacao: StatusPublicacao | null;
   ultimo_capitulo_lancado: number | null;
+  ultimo_capitulo_via_scraper: boolean;
   nota: number | null;
   generos: string[] | null;
   tags: string[] | null;
@@ -35,6 +36,7 @@ export interface Fonte {
   site: string | null;
   url: string;
   ultimo_capitulo_detectado: number | null;
+  atualizado_por_scraper: boolean;
   confiavel: boolean;
   status_aprovacao: StatusAprovacao;
   descoberta_automaticamente: boolean;
@@ -54,6 +56,18 @@ export interface ListaItem {
   id: string;
   categoria: Categoria;
   valor: string;
+}
+
+export type ScraperTipo = 'capitulos' | 'fontes';
+export type ScraperStatus = 'rodando' | 'concluido' | 'erro';
+
+export interface ScraperRun {
+  id: string;
+  tipo: ScraperTipo;
+  status: ScraperStatus;
+  iniciado_em: string;
+  finalizado_em: string | null;
+  mensagem: string | null;
 }
 
 export type SyncEntity = 'obras' | 'fontes';

@@ -20,10 +20,9 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/" end>
             Lista
           </NavLink>
-          <NavLink to="/fontes-pendentes">Fontes pendentes</NavLink>
           <NavLink to="/nova-obra">Nova obra</NavLink>
           <NavLink to="/cadastro-rapido">Cadastro rápido</NavLink>
-          <NavLink to="/atualizacao-massa">Atualização em massa</NavLink>
+          <NavLink to="/atualizacoes">Atualizações</NavLink>
         </nav>
         <div className="app-sync-status">
           <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />

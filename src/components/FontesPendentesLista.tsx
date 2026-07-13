@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../db/localDb';
 import { setFonteAprovacao } from '../db/repo';
 
-export function FontesPendentesPage() {
+export function FontesPendentesLista() {
   const fontes = useLiveQuery(() => db.fontes.where('status_aprovacao').equals('pendente').toArray(), []);
   const obras = useLiveQuery(() => db.obras.toArray(), []);
 
@@ -27,7 +27,6 @@ export function FontesPendentesPage() {
 
   return (
     <div className="fontes-pendentes">
-      <h2>Fontes pendentes de aprovação</h2>
       {grupos.length === 0 && <p>Nenhuma fonte pendente. O scraper avisa aqui quando encontrar uma fonte nova.</p>}
       {grupos.map(({ obra, fontes: lista }) => (
         <div key={obra!.id} className="fontes-pendentes-grupo">
