@@ -20,7 +20,13 @@ from urllib.parse import quote, urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from common import HEADERS, finalizar_run, get_supabase, iniciar_run
+from common import (
+    HEADERS,
+    buscar_candidatos_nyxscans,
+    finalizar_run,
+    get_supabase,
+    iniciar_run,
+)
 
 TIMEOUT = 20
 DELAY_ENTRE_REQUESTS = 1.5
@@ -35,12 +41,33 @@ def similaridade(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 
+def buscar_nyxscans(titulo: str) -> str | None:
+    """
+    Descoberta no nyxscans via API de busca (/api/posts). Retorna a URL da obra
+    (https://nyxscans.com/series/{slug}) do resultado mais parecido, ou None.
+    """
+    candidatos = buscar_candidatos_nyxscans(titulo)
+    melhor_slug = None
+    melhor_score = 0.0
+    for titulo_resultado, slug in candidatos:
+        score = similaridade(titulo_resultado, titulo)
+        if score > melhor_score:
+            melhor_score = score
+            melhor_slug = slug
+    if melhor_slug and melhor_score >= LIMIAR_SIMILARIDADE:
+        return f"https://nyxscans.com/series/{melhor_slug}"
+    return None
+
+
 def buscar_no_site(url_base: str, titulo: str) -> str | None:
     """
-    Busca interna genérica no padrão `?s=` (comum em temas WordPress tipo Madara,
-    usado por vários agregadores de manga). Retorna a URL do resultado mais
-    parecido com o título, se a similaridade passar do limiar.
+    Busca interna no site. nyxscans usa a API dedicada; os demais caem no padrão
+    genérico `?s=` (comum em temas WordPress tipo Madara). Retorna a URL do
+    resultado mais parecido com o título, se a similaridade passar do limiar.
     """
+    if "nyxscans" in url_base:
+        return buscar_nyxscans(titulo)
+
     busca_url = urljoin(url_base, f"/?s={quote(titulo)}")
     try:
         resp = requests.get(busca_url, headers=HEADERS, timeout=TIMEOUT)

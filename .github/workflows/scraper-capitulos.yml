@@ -18,9 +18,7 @@ jobs:
           cache-dependency-path: scraper/requirements.txt
 
       - name: Instalar dependências
-        run: |
-          pip install -r scraper/requirements.txt
-          playwright install --with-deps chromium
+        run: pip install -r scraper/requirements.txt
 
       - name: Atualizar último capítulo das fontes já cadastradas
         working-directory: scraper

@@ -12,38 +12,38 @@ from datetime import datetime, timezone
 
 import requests
 
-from common import HEADERS, extrair_maior_capitulo, finalizar_run, get_supabase, iniciar_run
+from common import (
+    HEADERS,
+    TIMEOUT,
+    buscar_ultimo_capitulo_nyxscans,
+    eh_nyxscans,
+    extrair_maior_capitulo,
+    finalizar_run,
+    get_supabase,
+    iniciar_run,
+    slug_de_url_nyxscans,
+)
 
-TIMEOUT = 25
 
+def obter_capitulo(url: str) -> float | None:
+    """
+    Descobre o último capítulo de uma fonte. nyxscans tem parser dedicado (uma
+    requisição HTTP simples, lê o payload embutido do Next.js). Qualquer outro
+    site cai na heurística genérica de extração de HTML.
+    """
+    if eh_nyxscans(url):
+        slug = slug_de_url_nyxscans(url)
+        if slug:
+            return buscar_ultimo_capitulo_nyxscans(slug)
+        # sem slug reconhecível: cai pro genérico abaixo
 
-def buscar_html_fetch_direto(url: str) -> str:
     resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
     resp.raise_for_status()
-    return resp.text
-
-
-def buscar_html_busca_workaround(url: str) -> str:
-    """
-    Sites com proteção anti-bot/JS (ex: nyxscans) não respondem a requests simples.
-    Renderiza com Playwright headless antes de extrair o HTML final.
-    """
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(user_agent=HEADERS["User-Agent"])
-        page.goto(url, timeout=TIMEOUT * 1000, wait_until="networkidle")
-        html = page.content()
-        browser.close()
-        return html
+    return extrair_maior_capitulo(resp.text)
 
 
 def executar(supabase) -> int:
     """Retorna o número de falhas."""
-    sites = supabase.table("sites_suportados").select("nome, estrategia").execute().data
-    estrategia_por_site = {s["nome"]: s["estrategia"] for s in sites}
-
     fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
     print(f"{len(fontes)} fontes aprovadas para verificar.")
 
@@ -53,14 +53,8 @@ def executar(supabase) -> int:
     falhas = 0
 
     for fonte in fontes:
-        estrategia = estrategia_por_site.get(fonte["site"], "fetch_direto")
         try:
-            if estrategia == "busca_workaround":
-                html = buscar_html_busca_workaround(fonte["url"])
-            else:
-                html = buscar_html_fetch_direto(fonte["url"])
-
-            capitulo = extrair_maior_capitulo(html)
+            capitulo = obter_capitulo(fonte["url"])
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:

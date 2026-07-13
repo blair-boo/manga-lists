@@ -27,7 +27,7 @@ create table sites_suportados (
     id uuid primary key default gen_random_uuid(),
     nome text not null unique,
     url_base text,
-    estrategia text not null default 'fetch_direto', -- 'fetch_direto' | 'busca_workaround'
+    estrategia text not null default 'fetch_direto', -- informativo; o scraper roteia por host (parser dedicado p/ nyxscans)
     ativo boolean not null default true
 );
 
@@ -80,9 +80,12 @@ before update on obras
 for each row execute function set_atualizado_em();
 
 -- Seed inicial de sites_suportados (ajustar conforme necessário)
+-- Obs: nyxscans tem parser dedicado no scraper (lê o payload embutido do
+-- Next.js via requests simples), então não precisa mais de 'busca_workaround'
+-- nem de Playwright.
 insert into sites_suportados (nome, url_base, estrategia) values
     ('ezmanga', 'https://ezmanga.org', 'fetch_direto'),
-    ('nyxscans', 'https://nyxscans.com', 'busca_workaround');
+    ('nyxscans', 'https://nyxscans.com', 'fetch_direto');
 
 -- ---------------------------------------------------------------------------
 -- Segurança (RLS)
