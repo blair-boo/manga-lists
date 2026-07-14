@@ -16,7 +16,7 @@ interface Resultado {
 
 function mensagemErroAcao(err: unknown): string {
   const detalhe = err instanceof Error ? err.message : String(err);
-  return `Não consegui falar com o controle do scraper (${detalhe}). Verifique se a Edge Function "scraper-control" já foi publicada e se o secret GH_ACTIONS_TOKEN está configurado.`;
+  return `Could not reach the scraper control (${detalhe}). Check that the "scraper-control" Edge Function is deployed and that the GH_ACTIONS_TOKEN secret is set.`;
 }
 
 function SecaoCapitulos() {
@@ -39,23 +39,23 @@ function SecaoCapitulos() {
 
   return (
     <section className="atualizacao-secao">
-      <h3>Atualização automática — Capítulos</h3>
+      <h3>Automatic update — Chapters</h3>
       <p>
-        Todo dia, um scraper agendado visita as fontes já aprovadas de cada obra e atualiza o último capítulo
-        disponível de cada uma. O aviso de "novo capítulo" na lista só aparece quando esse valor foi atualizado por
-        ele — se você editar o capítulo manualmente na página da obra, o aviso some até o scraper confirmar de novo.
+        Every day a scheduled scraper visits each work's approved sources and updates the latest available chapter of
+        each one. The "new chapter" flag in the list only shows up when that value was updated by the scraper — if you
+        edit the chapter manually on a work's page, the flag disappears until the scraper confirms it again.
       </p>
 
       <div className="scraper-controles">
         <button type="button" onClick={handleAtualizarAgora} disabled={acionando}>
-          {acionando ? 'Aguarde…' : 'Atualizar agora'}
+          {acionando ? 'Please wait…' : 'Update now'}
         </button>
         <button type="button" onClick={recarregar} className="atualizar-status">
-          Atualizar status
+          Refresh status
         </button>
       </div>
       <p className="execucao-nota">
-        "Atualizar agora" roda uma verificação extra, sem afetar o agendamento diário automático.
+        "Update now" runs an extra check without affecting the automatic daily schedule.
       </p>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
@@ -87,15 +87,15 @@ function SecaoFontes() {
 
   return (
     <section className="atualizacao-secao">
-      <h3>Atualização automática — Fontes</h3>
-      <p>Busca novas fontes (sites) pra obras que ainda não têm, ou pra sites novos que uma obra ainda não usa.</p>
+      <h3>Automatic update — Sources</h3>
+      <p>Finds new sources (sites) for works that don't have any yet, or new sites a work isn't using yet.</p>
 
       <div className="scraper-controles">
         <button type="button" onClick={handleAcao} disabled={acionando}>
-          {acionando ? 'Aguarde…' : rodando ? 'Parar busca' : 'Iniciar busca'}
+          {acionando ? 'Please wait…' : rodando ? 'Stop search' : 'Start search'}
         </button>
         <button type="button" onClick={recarregar} className="atualizar-status">
-          Atualizar status
+          Refresh status
         </button>
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
@@ -103,7 +103,7 @@ function SecaoFontes() {
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
 
       <button type="button" className="toggle-pendentes" onClick={() => setMostrarPendentes((v) => !v)}>
-        {mostrarPendentes ? 'Ocultar' : 'Mostrar'} fontes pendentes
+        {mostrarPendentes ? 'Hide' : 'Show'} pending sources
       </button>
       {mostrarPendentes && <FontesPendentesLista />}
     </section>
@@ -159,33 +159,33 @@ export function AtualizacoesPage() {
 
   return (
     <div className="atualizacao-massa">
-      <h2>Atualizações</h2>
+      <h2>Updates</h2>
 
       <SecaoCapitulos />
       <SecaoFontes />
 
       <section className="atualizacao-secao">
-        <h3>Preenchimento em massa via CSV</h3>
+        <h3>Bulk fill via CSV</h3>
         <p>
-          Exporte a tabela <code>obras</code> pelo Table Editor do Supabase (Export data → CSV), preencha os campos
-          que quiser no Excel/Google Sheets e envie o arquivo aqui. Não altere as colunas <code>id</code> e{' '}
-          <code>titulo</code>. Células vazias mantêm o valor atual; em <code>generos</code>/<code>tags</code>, separe
-          múltiplos valores com <code>;</code>.
+          Export the <code>obras</code> table from the Supabase Table Editor (Export data → CSV), fill in whatever
+          fields you want in Excel/Google Sheets and upload the file here. Do not change the <code>id</code> and{' '}
+          <code>titulo</code> columns. Empty cells keep the current value; in <code>generos</code>/<code>tags</code>,
+          separate multiple values with <code>;</code>.
         </p>
 
         <label className="upload-csv">
           <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={processando} />
-          {processando ? 'Processando…' : 'Escolher arquivo CSV'}
+          {processando ? 'Processing…' : 'Choose CSV file'}
         </label>
 
         {resultado && (
           <div className="atualizacao-massa-resultado">
-            <p>{resultado.atualizadas} obra(s) atualizada(s).</p>
-            <p>{resultado.semMudanca} linha(s) sem nenhum campo preenchido (ignoradas).</p>
-            {resultado.semId > 0 && <p>{resultado.semId} linha(s) sem coluna id (ignoradas).</p>}
+            <p>{resultado.atualizadas} work(s) updated.</p>
+            <p>{resultado.semMudanca} row(s) with no field filled (ignored).</p>
+            {resultado.semId > 0 && <p>{resultado.semId} row(s) without an id column (ignored).</p>}
             {resultado.naoEncontradas.length > 0 && (
               <div>
-                <p>Não encontradas localmente (sincronize e tente de novo):</p>
+                <p>Not found locally (sync and try again):</p>
                 <ul>
                   {resultado.naoEncontradas.map((t) => (
                     <li key={t}>{t}</li>

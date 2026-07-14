@@ -20,10 +20,10 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-form" onSubmit={handleSubmit}>
-        <h1>Minha Lista</h1>
-        <p className="login-subtitle">Controle de leitura de mangás, manwhas, manhuas e novels</p>
+        <h1>Ratsnest</h1>
+        <p className="login-subtitle">Reading tracker for manga, manhwa, manhua and novels</p>
         <label>
-          E-mail
+          Email
           <input
             type="email"
             value={email}
@@ -33,7 +33,7 @@ export function LoginPage() {
           />
         </label>
         <label>
-          Senha
+          Password
           <input
             type="password"
             value={password}
@@ -44,7 +44,7 @@ export function LoginPage() {
         </label>
         {error && <p className="login-error">{error}</p>}
         <button type="submit" disabled={loading}>
-          {loading ? 'Entrando…' : 'Entrar'}
+          {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </div>

@@ -11,11 +11,11 @@ type ViewMode = 'grid' | 'list';
 type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
 
 const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
-  { valor: 'titulo', rotulo: 'Título (A–Z)' },
-  { valor: 'atualizado', rotulo: 'Atualizadas recentemente' },
-  { valor: 'atrasados', rotulo: 'Mais capítulos atrasados' },
-  { valor: 'nota', rotulo: 'Maior nota' },
-  { valor: 'criado', rotulo: 'Cadastradas recentemente' },
+  { valor: 'titulo', rotulo: 'Title (A–Z)' },
+  { valor: 'atualizado', rotulo: 'Recently updated' },
+  { valor: 'atrasados', rotulo: 'Most chapters behind' },
+  { valor: 'nota', rotulo: 'Highest rating' },
+  { valor: 'criado', rotulo: 'Recently added' },
 ];
 
 function lerViewModeSalvo(): ViewMode {
@@ -144,12 +144,12 @@ export function ListaPrincipalPage() {
           onClick={() => setFiltrosAbertos((v) => !v)}
           aria-expanded={filtrosAbertos}
         >
-          {filtrosAbertos ? 'Ocultar filtros' : 'Filtros'}
+          {filtrosAbertos ? 'Hide filters' : 'Filters'}
           {temFiltroAtivo && <span className="filtros-toggle-dot" />}
         </button>
         {temFiltroAtivo && (
-          <button type="button" className="filtros-limpar-mobile" onClick={limparFiltros}>
-            Limpar filtros
+          <button type="button" className="filtros-limpar" onClick={limparFiltros}>
+            Clear filters
           </button>
         )}
       </div>
@@ -157,13 +157,13 @@ export function ListaPrincipalPage() {
       <div className={`filtros ${filtrosAbertos ? 'filtros-aberto' : ''}`}>
         <input
           type="search"
-          placeholder="Buscar por título…"
+          placeholder="Search by title…"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           className="filtro-busca"
         />
         <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-          <option value="">Tipo (todos)</option>
+          <option value="">Type (all)</option>
           {tipos.map((v) => (
             <option key={v} value={v}>
               {v}
@@ -171,7 +171,7 @@ export function ListaPrincipalPage() {
           ))}
         </select>
         <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
-          <option value="">Status de leitura (todos)</option>
+          <option value="">Reading status (all)</option>
           {statusLeituraOpcoes.map((v) => (
             <option key={v} value={v}>
               {v}
@@ -179,21 +179,26 @@ export function ListaPrincipalPage() {
           ))}
         </select>
         <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
-          <option value="">Status de publicação (todos)</option>
+          <option value="">Publication status (all)</option>
           {statusPublicacaoOpcoes.map((v) => (
             <option key={v} value={v}>
               {v}
             </option>
           ))}
         </select>
-        <TagPicker label="Gêneros" value={generosSel} options={generos} onChange={setGenerosSel} />
+        <TagPicker label="Genres" value={generosSel} options={generos} onChange={setGenerosSel} />
         <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
-        <button type="button" onClick={limparFiltros} disabled={!temFiltroAtivo}>
-          Limpar filtros
-        </button>
       </div>
 
       <div className="status-chips">
+        <button
+          type="button"
+          className={`status-chip status-chip-novo ${soNovoCapitulo ? 'ativo' : ''}`}
+          onClick={() => setSoNovoCapitulo((v) => !v)}
+        >
+          New chapters
+          <span className="status-chip-contagem">{contagemNovoCapitulo}</span>
+        </button>
         {statusLeituraOpcoes.map((v) => (
           <button
             key={v}
@@ -205,23 +210,15 @@ export function ListaPrincipalPage() {
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
           </button>
         ))}
-        <button
-          type="button"
-          className={`status-chip status-chip-novo ${soNovoCapitulo ? 'ativo' : ''}`}
-          onClick={() => setSoNovoCapitulo((v) => !v)}
-        >
-          Novos capítulos
-          <span className="status-chip-contagem">{contagemNovoCapitulo}</span>
-        </button>
       </div>
 
       <div className="lista-principal-toolbar">
         <p className="contagem-resultados">
-          {filtradas.length} obra{filtradas.length === 1 ? '' : 's'}
+          {filtradas.length} work{filtradas.length === 1 ? '' : 's'}
         </p>
         <div className="toolbar-direita">
           <label className="ordenacao-controle">
-            Ordenar:
+            Sort:
             <select value={ordenacao} onChange={(e) => alternarOrdenacao(e.target.value as Ordenacao)}>
               {ORDENACOES.map((o) => (
                 <option key={o.valor} value={o.valor}>
@@ -235,17 +232,17 @@ export function ListaPrincipalPage() {
               type="button"
               className={viewMode === 'grid' ? 'ativo' : ''}
               onClick={() => alternarViewMode('grid')}
-              aria-label="Ver em grade"
+              aria-label="Grid view"
             >
-              Grade
+              Grid
             </button>
             <button
               type="button"
               className={viewMode === 'list' ? 'ativo' : ''}
               onClick={() => alternarViewMode('list')}
-              aria-label="Ver em lista"
+              aria-label="List view"
             >
-              Lista
+              List
             </button>
           </div>
         </div>
@@ -260,13 +257,13 @@ export function ListaPrincipalPage() {
       ) : filtradas.length === 0 ? (
         <div className="lista-vazia">
           {acervoVazio ? (
-            <p>Nenhuma obra cadastrada ainda. Comece pelo cadastro rápido.</p>
+            <p>No works added yet. Start from the Add tab.</p>
           ) : (
             <>
-              <p>Nenhuma obra corresponde aos filtros.</p>
+              <p>No works match the filters.</p>
               {temFiltroAtivo && (
                 <button type="button" onClick={limparFiltros}>
-                  Limpar filtros
+                  Clear filters
                 </button>
               )}
             </>

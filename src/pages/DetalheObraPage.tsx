@@ -17,6 +17,12 @@ function statusBadgeClasse(status: StatusAprovacao): string {
   return 'badge badge-pendente';
 }
 
+function statusAprovacaoLabel(status: StatusAprovacao): string {
+  if (status === 'aprovado') return 'approved';
+  if (status === 'rejeitado') return 'rejected';
+  return 'pending';
+}
+
 function FonteItem({ fonte }: { fonte: Fonte }) {
   const [capitulo, setCapitulo] = useState(fonte.ultimo_capitulo_detectado?.toString() ?? '');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,9 +46,9 @@ function FonteItem({ fonte }: { fonte: Fonte }) {
       <a href={fonte.url} target="_blank" rel="noreferrer">
         {fonte.site || fonte.url}
       </a>
-      <span className={statusBadgeClasse(fonte.status_aprovacao)}>{fonte.status_aprovacao}</span>
+      <span className={statusBadgeClasse(fonte.status_aprovacao)}>{statusAprovacaoLabel(fonte.status_aprovacao)}</span>
       <label className="fonte-capitulo">
-        cap.
+        ch.
         <input
           ref={inputRef}
           type="number"
@@ -59,16 +65,16 @@ function FonteItem({ fonte }: { fonte: Fonte }) {
       <div className="fonte-acoes">
         {fonte.status_aprovacao !== 'aprovado' && (
           <button type="button" onClick={() => setFonteAprovacao(fonte.id, 'aprovado')}>
-            Aprovar
+            Approve
           </button>
         )}
         {fonte.status_aprovacao !== 'rejeitado' && (
           <button type="button" onClick={() => setFonteAprovacao(fonte.id, 'rejeitado')}>
-            Rejeitar
+            Reject
           </button>
         )}
         <button type="button" onClick={() => deleteFonte(fonte.id)}>
-          Excluir
+          Delete
         </button>
       </div>
     </li>
@@ -154,7 +160,7 @@ export function DetalheObraPage() {
   }, [isDirty]);
 
   if (!id) return null;
-  if (obra === undefined || draft === null) return <p>Carregando…</p>;
+  if (obra === undefined || draft === null) return <p>Loading…</p>;
 
   function setCampo<K extends keyof Draft>(campo: K, valor: Draft[K]) {
     setDraft((atual) => (atual ? { ...atual, [campo]: valor } : atual));
@@ -164,7 +170,7 @@ export function DetalheObraPage() {
     if (!id || !draft) return;
     await updateObra(id, draft as Partial<NovaObra>);
     setSavedSnapshot(draft);
-    mostrarToast('Salvo ✓');
+    mostrarToast('Saved ✓');
   }
 
   function handleCancelar() {
@@ -190,7 +196,7 @@ export function DetalheObraPage() {
 
   async function handleExcluirObra() {
     if (!id) return;
-    if (!confirm(`Excluir "${obra?.titulo}" e todas as suas fontes?`)) return;
+    if (!confirm(`Delete "${obra?.titulo}" and all its sources?`)) return;
     await deleteObra(id);
     navigate('/');
   }
@@ -198,29 +204,29 @@ export function DetalheObraPage() {
   return (
     <div className="detalhe-obra">
       <button type="button" className="voltar" onClick={() => navigate(-1)}>
-        ← Voltar
+        ← Back
       </button>
 
       <div className="detalhe-obra-form">
         <label>
-          Título
+          Title
           <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
         </label>
 
         <TagPicker
-          label="Título alternativo"
+          label="Alternative title"
           value={draft.titulos_alternativos ?? []}
           options={[]}
           onChange={(v) => setCampo('titulos_alternativos', v.length > 0 ? v : null)}
         />
 
         <label>
-          Autor
+          Author
           <input type="text" value={draft.autor ?? ''} onChange={(e) => setCampo('autor', e.target.value || null)} />
         </label>
 
         <label>
-          Capa (URL)
+          Cover (URL)
           <input
             type="text"
             value={draft.capa_url ?? ''}
@@ -229,12 +235,12 @@ export function DetalheObraPage() {
         </label>
         <CapaUploader onUploaded={(url) => setCampo('capa_url', url)} />
         {draft.capa_url && (
-          <img src={draft.capa_url} alt="Prévia da capa" className="capa-preview" />
+          <img src={draft.capa_url} alt="Cover preview" className="capa-preview" />
         )}
 
         <div className="detalhe-obra-grid">
           <label>
-            Tipo
+            Type
             <select value={draft.tipo ?? ''} onChange={(e) => setCampo('tipo', (e.target.value || null) as Draft['tipo'])}>
               <option value="">—</option>
               {tipos.map((v) => (
@@ -246,7 +252,7 @@ export function DetalheObraPage() {
           </label>
 
           <label>
-            Status de leitura
+            Reading status
             <select
               value={draft.status_leitura ?? ''}
               onChange={(e) => setCampo('status_leitura', (e.target.value || null) as Draft['status_leitura'])}
@@ -261,7 +267,7 @@ export function DetalheObraPage() {
           </label>
 
           <label>
-            Status de publicação
+            Publication status
             <select
               value={draft.status_publicacao ?? ''}
               onChange={(e) =>
@@ -278,7 +284,7 @@ export function DetalheObraPage() {
           </label>
 
           <label>
-            Capítulo atual
+            Current chapter
             <input
               type="number"
               step="any"
@@ -288,7 +294,7 @@ export function DetalheObraPage() {
           </label>
 
           <label>
-            Nota
+            Rating
             <select
               value={draft.nota ?? ''}
               onChange={(e) => setCampo('nota', e.target.value === '' ? null : Number(e.target.value))}
@@ -304,7 +310,7 @@ export function DetalheObraPage() {
         </div>
 
         <TagPicker
-          label="Gêneros"
+          label="Genres"
           value={draft.generos ?? []}
           options={generos}
           onChange={(v) => setCampo('generos', v)}
@@ -313,7 +319,7 @@ export function DetalheObraPage() {
         <TagPicker label="Tags" value={draft.tags ?? []} options={tags} onChange={(v) => setCampo('tags', v)} />
 
         <label>
-          Observações
+          Notes
           <textarea
             value={draft.observacoes ?? ''}
             onChange={(e) => setCampo('observacoes', e.target.value || null)}
@@ -323,44 +329,44 @@ export function DetalheObraPage() {
 
         <div className="detalhe-obra-acoes">
           <button type="button" onClick={handleSalvar} disabled={!isDirty}>
-            Salvar
+            Save
           </button>
           <button type="button" onClick={handleCancelar} disabled={!isDirty}>
-            Cancelar
+            Cancel
           </button>
-          {isDirty && <span className="alteracoes-pendentes">alterações não salvas</span>}
+          {isDirty && <span className="alteracoes-pendentes">unsaved changes</span>}
         </div>
 
         <button type="button" className="excluir-obra" onClick={handleExcluirObra}>
-          Excluir obra
+          Delete work
         </button>
       </div>
 
       <section className="fontes-section">
-        <h2>Fontes</h2>
+        <h2>Sources</h2>
         <ul className="fontes-lista">
           {(fontes ?? []).map((f) => (
             <FonteItem key={f.id} fonte={f} />
           ))}
-          {(fontes ?? []).length === 0 && <li className="fontes-vazio">Nenhuma fonte cadastrada.</li>}
+          {(fontes ?? []).length === 0 && <li className="fontes-vazio">No sources yet.</li>}
         </ul>
 
         <form className="nova-fonte-form" onSubmit={handleAdicionarFonte}>
           <input
             type="url"
-            placeholder="URL da fonte"
+            placeholder="Source URL"
             value={novaFonteUrl}
             onChange={(e) => setNovaFonteUrl(e.target.value)}
             required
           />
-          <button type="submit">Adicionar fonte</button>
+          <button type="submit">Add source</button>
         </form>
       </section>
 
       {blocker.state === 'blocked' && (
         <div className="modal-backdrop">
           <div className="modal">
-            <p>Você tem alterações não salvas nesta obra.</p>
+            <p>You have unsaved changes on this work.</p>
             <div className="modal-acoes">
               <button
                 type="button"
@@ -369,7 +375,7 @@ export function DetalheObraPage() {
                   blocker.proceed();
                 }}
               >
-                Salvar e sair
+                Save and leave
               </button>
               <button
                 type="button"
@@ -378,10 +384,10 @@ export function DetalheObraPage() {
                   blocker.proceed();
                 }}
               >
-                Descartar e sair
+                Discard and leave
               </button>
               <button type="button" onClick={() => blocker.reset()}>
-                Continuar editando
+                Keep editing
               </button>
             </div>
           </div>

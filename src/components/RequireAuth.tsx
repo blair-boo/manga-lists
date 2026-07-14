@@ -5,7 +5,7 @@ import { LoginPage } from '../pages/LoginPage';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
 
-  if (loading) return <div className="loading-screen">Carregando…</div>;
+  if (loading) return <div className="loading-screen">Loading…</div>;
   if (!session) return <LoginPage />;
   return <>{children}</>;
 }

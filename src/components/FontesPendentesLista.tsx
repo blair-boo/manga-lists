@@ -23,11 +23,11 @@ export function FontesPendentesLista() {
       .sort((a, b) => a.obra!.titulo.localeCompare(b.obra!.titulo));
   }, [fontes, obras]);
 
-  if (fontes === undefined || obras === undefined) return <p>Carregando…</p>;
+  if (fontes === undefined || obras === undefined) return <p>Loading…</p>;
 
   return (
     <div className="fontes-pendentes">
-      {grupos.length === 0 && <p>Nenhuma fonte pendente. O scraper avisa aqui quando encontrar uma fonte nova.</p>}
+      {grupos.length === 0 && <p>No pending sources. The scraper will notify here when it finds a new source.</p>}
       {grupos.map(({ obra, fontes: lista }) => (
         <div key={obra!.id} className="fontes-pendentes-grupo">
           <Link to={`/obra/${obra!.id}`} className="fontes-pendentes-titulo">
@@ -39,14 +39,14 @@ export function FontesPendentesLista() {
                 <a href={f.url} target="_blank" rel="noreferrer">
                   {f.site || f.url}
                 </a>
-                {f.ultimo_capitulo_detectado != null && <span>cap. {f.ultimo_capitulo_detectado}</span>}
-                {f.descoberta_automaticamente && <span className="badge">descoberta automática</span>}
+                {f.ultimo_capitulo_detectado != null && <span>ch. {f.ultimo_capitulo_detectado}</span>}
+                {f.descoberta_automaticamente && <span className="badge">auto-discovered</span>}
                 <div className="fonte-acoes">
                   <button type="button" onClick={() => setFonteAprovacao(f.id, 'aprovado')}>
-                    Aprovar
+                    Approve
                   </button>
                   <button type="button" onClick={() => setFonteAprovacao(f.id, 'rejeitado')}>
-                    Rejeitar
+                    Reject
                   </button>
                 </div>
               </li>

@@ -16,7 +16,7 @@ export function CapaUploader({ onUploaded }: { onUploaded: (url: string) => void
       const url = await uploadCapa(file);
       onUploaded(url);
     } catch {
-      setErro('Falha ao enviar imagem.');
+      setErro('Failed to upload image.');
     } finally {
       setEnviando(false);
     }
@@ -26,7 +26,7 @@ export function CapaUploader({ onUploaded }: { onUploaded: (url: string) => void
     <div className="capa-uploader">
       <label className="upload-capa-botao">
         <input type="file" accept="image/*" onChange={handleChange} disabled={enviando} />
-        {enviando ? 'Enviando…' : 'Enviar imagem'}
+        {enviando ? 'Uploading…' : 'Upload image'}
       </label>
       {erro && <span className="upload-erro">{erro}</span>}
     </div>

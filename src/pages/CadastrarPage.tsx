@@ -95,9 +95,9 @@ export function CadastrarPage() {
     setSalvando(false);
     setResultado(r);
     if (r.jaExistia) {
-      mostrarToast('Obra já existente', 'info');
+      mostrarToast('Work already exists', 'info');
     } else {
-      mostrarToast('Obra cadastrada ✓');
+      mostrarToast('Work added ✓');
       limparFormulario();
       setCompleto(false);
     }
@@ -105,33 +105,33 @@ export function CadastrarPage() {
 
   return (
     <div className="cadastrar">
-      <h2>Cadastrar</h2>
-      <p>Campos com * são obrigatórios.</p>
+      <h2>Add</h2>
+      <p>Fields marked with * are required.</p>
 
       <form className="cadastro-obra-form" onSubmit={handleSubmit}>
         <label>
-          Título *
+          Title *
           <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
         </label>
 
         <TagPicker
-          label="Título alternativo"
+          label="Alternative title"
           value={titulosAlternativos}
           options={[]}
           onChange={setTitulosAlternativos}
         />
 
         <label>
-          Autor
+          Author
           <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
         </label>
 
         <label>
-          Capa (URL)
+          Cover (URL)
           <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
         </label>
         <CapaUploader onUploaded={setCapaUrl} />
-        {capaUrl && <img src={capaUrl} alt="Prévia da capa" className="capa-preview" />}
+        {capaUrl && <img src={capaUrl} alt="Cover preview" className="capa-preview" />}
 
         <button
           type="button"
@@ -139,13 +139,13 @@ export function CadastrarPage() {
           onClick={() => setCompleto((v) => !v)}
           aria-expanded={completo}
         >
-          {completo ? '− Cadastro rápido' : '+ Cadastro completo'}
+          {completo ? '− Quick add' : '+ Full details'}
         </button>
 
         <div className="detalhe-obra-grid">
           {completo && (
             <label>
-              Tipo
+              Type
               <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
                 <option value="">—</option>
                 {tipos.map((v) => (
@@ -158,7 +158,7 @@ export function CadastrarPage() {
           )}
 
           <label>
-            Status de leitura *
+            Reading status *
             <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)} required>
               <option value="">—</option>
               {statusLeituraOpcoes.map((v) => (
@@ -171,7 +171,7 @@ export function CadastrarPage() {
 
           {completo && (
             <label>
-              Status de publicação
+              Publication status
               <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
                 <option value="">—</option>
                 {statusPublicacaoOpcoes.map((v) => (
@@ -184,7 +184,7 @@ export function CadastrarPage() {
           )}
 
           <label>
-            Capítulo atual *
+            Current chapter *
             <input
               type="number"
               step="any"
@@ -196,7 +196,7 @@ export function CadastrarPage() {
 
           {completo && (
             <label>
-              Nota
+              Rating
               <select value={nota} onChange={(e) => setNota(e.target.value)}>
                 <option value="">—</option>
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -211,17 +211,17 @@ export function CadastrarPage() {
 
         {completo && (
           <>
-            <TagPicker label="Gêneros" value={generos} options={generosOpcoes} onChange={setGeneros} />
+            <TagPicker label="Genres" value={generos} options={generosOpcoes} onChange={setGeneros} />
             <TagPicker label="Tags" value={tags} options={tagsOpcoes} onChange={setTags} />
             <label>
-              Observações
+              Notes
               <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
             </label>
           </>
         )}
 
         <div className="urls-fontes">
-          <span className="urls-fontes-label">Url da fonte *</span>
+          <span className="urls-fontes-label">Source URL *</span>
           {urlsFontes.map((url, i) => (
             <div key={i} className="urls-fontes-linha">
               <input
@@ -232,19 +232,19 @@ export function CadastrarPage() {
                 required={i === 0}
               />
               {urlsFontes.length > 1 && (
-                <button type="button" onClick={() => removerUrl(i)} aria-label="Remover URL">
+                <button type="button" onClick={() => removerUrl(i)} aria-label="Remove URL">
                   ×
                 </button>
               )}
             </div>
           ))}
           <button type="button" onClick={adicionarUrl} className="adicionar-url">
-            + Adicionar outra fonte
+            + Add another source
           </button>
         </div>
 
         <button type="submit" disabled={salvando}>
-          {salvando ? 'Salvando…' : 'Cadastrar'}
+          {salvando ? 'Saving…' : 'Add'}
         </button>
       </form>
 
@@ -252,12 +252,12 @@ export function CadastrarPage() {
         <div className="cadastro-rapido-resultado">
           {resultado.jaExistia ? (
             <p>
-              Já existe uma obra com o título "{resultado.obra.titulo}".{' '}
-              <Link to={`/obra/${resultado.obra.id}`}>Ver obra existente</Link>
+              A work titled "{resultado.obra.titulo}" already exists.{' '}
+              <Link to={`/obra/${resultado.obra.id}`}>View existing work</Link>
             </p>
           ) : (
             <p>
-              "{resultado.obra.titulo}" cadastrada. <Link to={`/obra/${resultado.obra.id}`}>Ver obra</Link>
+              "{resultado.obra.titulo}" added. <Link to={`/obra/${resultado.obra.id}`}>View work</Link>
             </p>
           )}
         </div>

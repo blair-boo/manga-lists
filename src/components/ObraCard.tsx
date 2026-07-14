@@ -36,7 +36,7 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
         ) : (
           <div className="obra-card-capa-placeholder">{obra.titulo.slice(0, 1).toUpperCase()}</div>
         )}
-        {novoCapitulo && <span className="badge-novo-capitulo">novo cap.</span>}
+        {novoCapitulo && <span className="badge-novo-capitulo">new ch.</span>}
       </div>
       <div className="obra-card-info">
         <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
@@ -47,8 +47,8 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
           {obra.status_leitura && <span className="badge badge-status">{obra.status_leitura}</span>}
         </div>
         <div className="obra-card-progresso">
-          cap. {obra.capitulo_atual ?? '—'}
-          {obra.ultimo_capitulo_lancado != null && ` / ${obra.ultimo_capitulo_lancado} disponível`}
+          ch. {obra.capitulo_atual ?? '—'}
+          {obra.ultimo_capitulo_lancado != null && ` / ${obra.ultimo_capitulo_lancado} available`}
         </div>
         <ProgressoBarra obra={obra} />
         <Estrelas nota={obra.nota} />

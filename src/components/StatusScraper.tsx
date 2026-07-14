@@ -1,14 +1,14 @@
 import type { Fonte } from '../types';
 
 function formatarDataHora(iso: string | null): string {
-  if (!iso) return 'nunca verificado';
-  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  if (!iso) return 'never checked';
+  return new Date(iso).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 export function StatusScraper({ fonte, compact = false }: { fonte: Fonte; compact?: boolean }) {
   if (fonte.ultima_verificacao == null) {
     return (
-      <span className="scraper-status scraper-nunca" title="Nunca verificado pelo scraper">
+      <span className="scraper-status scraper-nunca" title="Never checked by the scraper">
         —
       </span>
     );

@@ -13,9 +13,9 @@ export default defineConfig(({ command }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Minha Lista — Mangás e Novels',
-        short_name: 'Minha Lista',
-        description: 'Controle pessoal de leitura de mangás, manwhas, manhuas e novels',
+        name: 'Ratsnest — Manga & Novels',
+        short_name: 'Ratsnest',
+        description: 'Personal reading tracker for manga, manhwa, manhua and novels',
         theme_color: '#aa3bff',
         background_color: '#16171d',
         display: 'standalone',

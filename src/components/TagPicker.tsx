@@ -39,7 +39,7 @@ export function TagPicker({ label, value, options, onChange }: TagPickerProps) {
         {value.map((item) => (
           <span key={item} className="tag-chip">
             {item}
-            <button type="button" onClick={() => remover(item)} aria-label={`Remover ${item}`}>
+            <button type="button" onClick={() => remover(item)} aria-label={`Remove ${item}`}>
               ×
             </button>
           </span>
@@ -51,7 +51,7 @@ export function TagPicker({ label, value, options, onChange }: TagPickerProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`Adicionar ${label.toLowerCase()}…`}
+          placeholder={`Add ${label.toLowerCase()}…`}
         />
         <datalist id={datalistId}>
           {options.map((o) => (
@@ -59,7 +59,7 @@ export function TagPicker({ label, value, options, onChange }: TagPickerProps) {
           ))}
         </datalist>
         <button type="button" onClick={adicionar}>
-          Adicionar
+          Add
         </button>
       </div>
     </div>

@@ -133,9 +133,9 @@ label {
 
 .app-header-main {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .app-title {
@@ -247,11 +247,6 @@ label {
   flex: 1 1 200px;
 }
 
-.filtros .filtro-novo-cap,
-.filtros > button {
-  margin-top: 6px;
-}
-
 .filtro-busca {
   flex: 1 1 220px;
 }
@@ -300,22 +295,30 @@ label {
   font-size: 13px;
 }
 
-/* Linha do botão de filtros + limpar (visível só no mobile) */
+/* Linha do botão de filtros + limpar filtros */
 .filtros-toggle-row {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
 }
 
+/* O botão "Filters" (recolher) só aparece no mobile; no desktop os filtros
+   ficam sempre visíveis. Mesmo tamanho de fonte do "Clear filters". */
 .filtros-toggle {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 6px;
+  font-size: 13px;
 }
 
-.filtros-limpar-mobile {
+.filtros-limpar {
   font-size: 13px;
+}
+
+/* Desktop sem filtro ativo (nem toggle nem limpar visíveis): esconde a linha. */
+.filtros-toggle-row:not(:has(.filtros-limpar)) {
+  display: none;
 }
 
 .filtros-toggle-dot {
@@ -1031,8 +1034,12 @@ label {
     gap: 8px;
   }
 
-  /* Filtros recolhidos atrás do botão "Filtros" no mobile */
-  .filtros-toggle-row {
+  /* Filtros recolhidos atrás do botão "Filters" no mobile */
+  .filtros-toggle {
+    display: inline-flex;
+  }
+  .filtros-toggle-row,
+  .filtros-toggle-row:not(:has(.filtros-limpar)) {
     display: flex;
   }
 

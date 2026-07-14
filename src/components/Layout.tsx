@@ -5,14 +5,14 @@ import { useSync } from '../sync/SyncContext';
 import { useTema, type TemaPref } from '../hooks/useTema';
 
 function formatHora(date: Date | null): string {
-  if (!date) return 'nunca';
-  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (!date) return 'never';
+  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 const TEMA_INFO: Record<TemaPref, { icone: string; titulo: string }> = {
-  light: { icone: '☀️', titulo: 'Tema: claro (clique para escuro)' },
-  dark: { icone: '🌙', titulo: 'Tema: escuro (clique para sistema)' },
-  system: { icone: '🖥️', titulo: 'Tema: sistema (clique para claro)' },
+  light: { icone: '☀️', titulo: 'Theme: light (click for dark)' },
+  dark: { icone: '🌙', titulo: 'Theme: dark (click for system)' },
+  system: { icone: '🖥️', titulo: 'Theme: system (click for light)' },
 };
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -35,21 +35,21 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
           <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
           <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
-            {syncing ? 'Sincronizando…' : `Sincronizado às ${formatHora(lastSyncAt)}`}
+            {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
           </button>
-          {lastError !== null && <span className="sync-error" title={String(lastError)}>erro na sync</span>}
+          {lastError !== null && <span className="sync-error" title={String(lastError)}>sync error</span>}
           <button type="button" onClick={signOut} className="logout-button">
-            Sair
+            Sign out
           </button>
         </div>
         <div className="app-header-main">
-          <h1 className="app-title">Minha Lista</h1>
+          <h1 className="app-title">Ratsnest</h1>
           <nav className="app-nav">
             <NavLink to="/" end>
-              Lista
+              List
             </NavLink>
-            <NavLink to="/atualizacoes">Atualizações</NavLink>
-            <NavLink to="/cadastrar">Cadastrar</NavLink>
+            <NavLink to="/atualizacoes">Updates</NavLink>
+            <NavLink to="/cadastrar">Add</NavLink>
           </nav>
         </div>
       </header>
