@@ -7,6 +7,7 @@ import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
+import { useToast } from '../components/Toast';
 import { deriveSite } from '../lib/site';
 import type { Fonte, Obra, StatusAprovacao } from '../types';
 
@@ -110,6 +111,7 @@ function toDraft(obra: Obra): Draft {
 export function DetalheObraPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { mostrarToast } = useToast();
   const obra = useLiveQuery(() => (id ? db.obras.get(id) : undefined), [id]);
   const fontes = useLiveQuery(() => (id ? db.fontes.where('obra_id').equals(id).toArray() : []), [id]);
 
@@ -162,6 +164,7 @@ export function DetalheObraPage() {
     if (!id || !draft) return;
     await updateObra(id, draft as Partial<NovaObra>);
     setSavedSnapshot(draft);
+    mostrarToast('Salvo ✓');
   }
 
   function handleCancelar() {

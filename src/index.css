@@ -10,6 +10,8 @@
   --danger: #d1264f;
   --ok: #1f9d55;
   --warn: #c98a12;
+  --shadow: 0 1px 2px rgba(8, 6, 13, 0.06), 0 2px 8px rgba(8, 6, 13, 0.06);
+  --shadow-hover: 0 4px 14px rgba(8, 6, 13, 0.12);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
@@ -20,17 +22,38 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Tokens do tema escuro. Aplicados quando o SO pede escuro (só no modo
+   "sistema", i.e. sem data-theme) OU quando o toggle força data-theme=dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
+  :root:not([data-theme]) {
+    --text: #aeb4c0;
     --text-h: #f3f4f6;
-    --bg: #16171d;
-    --bg-raised: #1f2028;
-    --border: #2e303a;
+    --bg: #14151b;
+    --bg-raised: #22242e;
+    --border: #33353f;
     --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
+    --accent-bg: rgba(192, 132, 252, 0.16);
+    --accent-border: rgba(192, 132, 252, 0.55);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.35);
+    --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
   }
+}
+
+:root[data-theme='dark'] {
+  --text: #aeb4c0;
+  --text-h: #f3f4f6;
+  --bg: #14151b;
+  --bg-raised: #22242e;
+  --border: #33353f;
+  --accent: #c084fc;
+  --accent-bg: rgba(192, 132, 252, 0.16);
+  --accent-border: rgba(192, 132, 252, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'] .badge-novo-capitulo {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -150,6 +173,15 @@ label {
   font-size: 13px;
 }
 
+.tema-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .sync-error {
   color: var(--danger);
 }
@@ -200,8 +232,18 @@ label {
 .filtros {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.filtros .tag-picker {
+  flex: 1 1 200px;
+}
+
+.filtros .filtro-novo-cap,
+.filtros > button {
+  margin-top: 6px;
 }
 
 .filtro-busca {
@@ -234,6 +276,107 @@ label {
   background: var(--accent-bg);
 }
 
+.toolbar-direita {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ordenacao-controle {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.ordenacao-controle select {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+/* Botão que recolhe os filtros (visível só no mobile) */
+.filtros-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.filtros-toggle-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.filtro-novo-cap {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.filtro-novo-cap input {
+  width: auto;
+}
+
+/* Chips de status de leitura com contagem */
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.status-chip.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.status-chip-contagem {
+  font-size: 11px;
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 0 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.lista-vazia {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.obra-card-skeleton {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  aspect-ratio: 2 / 3.4;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .grid-obras {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -263,6 +406,17 @@ label {
   border-radius: 8px;
   overflow: hidden;
   background: var(--bg-raised);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.obra-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.grid-obras.list-view .obra-card:hover {
+  transform: none;
 }
 
 .obra-card-capa {
@@ -284,8 +438,24 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  color: var(--text-h);
+  font-size: 40px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #7c6ff0, #4a3fb0);
+}
+
+/* Gradiente do placeholder varia por tipo de obra. */
+.obra-card-capa[data-tipo='Manga'] .obra-card-capa-placeholder {
+  background: linear-gradient(135deg, #f0709a, #b03f6a);
+}
+.obra-card-capa[data-tipo='Manwha'] .obra-card-capa-placeholder {
+  background: linear-gradient(135deg, #6fb0f0, #3f6ab0);
+}
+.obra-card-capa[data-tipo='Manhua'] .obra-card-capa-placeholder {
+  background: linear-gradient(135deg, #6fd0a0, #3f9070);
+}
+.obra-card-capa[data-tipo='Novel'] .obra-card-capa-placeholder {
+  background: linear-gradient(135deg, #f0b06f, #b0803f);
 }
 
 .badge-novo-capitulo {
@@ -295,8 +465,24 @@ label {
   background: var(--ok);
   color: #fff;
   font-size: 11px;
-  padding: 2px 6px;
+  font-weight: 600;
+  padding: 2px 7px;
   border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.obra-card-barra {
+  height: 4px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+  margin: 2px 0;
+}
+
+.obra-card-barra-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
 }
 
 .obra-card-info {
@@ -771,4 +957,98 @@ label {
 .atualizacao-massa-resultado ul {
   margin: 4px 0 0;
   padding-left: 20px;
+}
+
+/* Toasts */
+
+.toast-container {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 180px;
+  max-width: 90vw;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-hover);
+  animation: toast-in 0.2s ease;
+}
+
+.toast-ok {
+  border-color: var(--accent-border);
+}
+.toast-erro {
+  border-color: rgba(209, 38, 79, 0.6);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsivo mobile */
+
+@media (max-width: 640px) {
+  .app-main {
+    padding: 16px 14px;
+  }
+
+  .app-header {
+    gap: 12px 16px;
+    padding: 10px 14px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .app-sync-status {
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  /* Filtros recolhidos atrás do botão "Filtros" no mobile */
+  .filtros-toggle {
+    display: inline-flex;
+  }
+
+  .filtros {
+    display: none;
+    flex-direction: column;
+  }
+
+  .filtros.filtros-aberto {
+    display: flex;
+  }
+
+  .filtros .filtro-busca,
+  .filtros select {
+    width: 100%;
+  }
+
+  .toolbar-direita {
+    gap: 8px;
+  }
+
+  .ordenacao-controle select {
+    max-width: 46vw;
+  }
+
+  .grid-obras {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+  }
 }

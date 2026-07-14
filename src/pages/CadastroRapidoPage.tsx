@@ -4,6 +4,7 @@ import { criarObraRapida } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
+import { useToast } from '../components/Toast';
 import type { Obra, StatusLeitura } from '../types';
 
 interface Resultado {
@@ -13,6 +14,7 @@ interface Resultado {
 
 export function CadastroRapidoPage() {
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
+  const { mostrarToast } = useToast();
 
   const [titulo, setTitulo] = useState('');
   const [titulosAlternativos, setTitulosAlternativos] = useState<string[]>([]);
@@ -63,7 +65,12 @@ export function CadastroRapidoPage() {
     });
     setSalvando(false);
     setResultado(r);
-    if (!r.jaExistia) limparFormulario();
+    if (r.jaExistia) {
+      mostrarToast('Obra já existente', 'info');
+    } else {
+      mostrarToast('Obra cadastrada ✓');
+      limparFormulario();
+    }
   }
 
   return (

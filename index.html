@@ -10,6 +10,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Controle pessoal de leitura de mangás, manwhas, manhuas e novels" />
     <title>Minha Lista</title>
+    <script>
+      // Aplica o tema salvo antes do 1º paint para evitar flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('tema');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.setAttribute('data-theme', t);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -2,15 +2,23 @@ import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSync } from '../sync/SyncContext';
+import { useTema, type TemaPref } from '../hooks/useTema';
 
 function formatHora(date: Date | null): string {
   if (!date) return 'nunca';
   return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+const TEMA_INFO: Record<TemaPref, { icone: string; titulo: string }> = {
+  light: { icone: '☀️', titulo: 'Tema: claro (clique para escuro)' },
+  dark: { icone: '🌙', titulo: 'Tema: escuro (clique para sistema)' },
+  system: { icone: '🖥️', titulo: 'Tema: sistema (clique para claro)' },
+};
+
 export function Layout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth();
   const { online, syncing, lastSyncAt, lastError, syncAgora } = useSync();
+  const { tema, ciclarTema } = useTema();
 
   return (
     <div className="app-layout">
@@ -25,6 +33,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/atualizacoes">Atualizações</NavLink>
         </nav>
         <div className="app-sync-status">
+          <button
+            type="button"
+            onClick={ciclarTema}
+            className="tema-toggle"
+            title={TEMA_INFO[tema].titulo}
+            aria-label={TEMA_INFO[tema].titulo}
+          >
+            {TEMA_INFO[tema].icone}
+          </button>
           <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
           <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
             {syncing ? 'Sincronizando…' : `Sincronizado às ${formatHora(lastSyncAt)}`}
