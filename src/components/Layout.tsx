@@ -23,16 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app-layout">
       <header className="app-header">
-        <h1 className="app-title">Minha Lista</h1>
-        <nav className="app-nav">
-          <NavLink to="/" end>
-            Lista
-          </NavLink>
-          <NavLink to="/nova-obra">Nova obra</NavLink>
-          <NavLink to="/cadastro-rapido">Cadastro rápido</NavLink>
-          <NavLink to="/atualizacoes">Atualizações</NavLink>
-        </nav>
-        <div className="app-sync-status">
+        <div className="app-header-top">
           <button
             type="button"
             onClick={ciclarTema}
@@ -50,6 +41,16 @@ export function Layout({ children }: { children: ReactNode }) {
           <button type="button" onClick={signOut} className="logout-button">
             Sair
           </button>
+        </div>
+        <div className="app-header-main">
+          <h1 className="app-title">Minha Lista</h1>
+          <nav className="app-nav">
+            <NavLink to="/" end>
+              Lista
+            </NavLink>
+            <NavLink to="/atualizacoes">Atualizações</NavLink>
+            <NavLink to="/cadastrar">Cadastrar</NavLink>
+          </nav>
         </div>
       </header>
       <main className="app-main">{children}</main>

@@ -94,6 +94,11 @@ export function ListaPrincipalPage() {
     return map;
   }, [obras]);
 
+  const contagemNovoCapitulo = useMemo(
+    () => (obras ?? []).filter(temNovoCapitulo).length,
+    [obras]
+  );
+
   const filtradas = useMemo(() => {
     if (!obras) return [];
     const buscaLower = busca.trim().toLowerCase();
@@ -132,15 +137,22 @@ export function ListaPrincipalPage() {
 
   return (
     <div className="lista-principal">
-      <button
-        type="button"
-        className="filtros-toggle"
-        onClick={() => setFiltrosAbertos((v) => !v)}
-        aria-expanded={filtrosAbertos}
-      >
-        {filtrosAbertos ? 'Ocultar filtros' : 'Filtros'}
-        {temFiltroAtivo && <span className="filtros-toggle-dot" />}
-      </button>
+      <div className="filtros-toggle-row">
+        <button
+          type="button"
+          className="filtros-toggle"
+          onClick={() => setFiltrosAbertos((v) => !v)}
+          aria-expanded={filtrosAbertos}
+        >
+          {filtrosAbertos ? 'Ocultar filtros' : 'Filtros'}
+          {temFiltroAtivo && <span className="filtros-toggle-dot" />}
+        </button>
+        {temFiltroAtivo && (
+          <button type="button" className="filtros-limpar-mobile" onClick={limparFiltros}>
+            Limpar filtros
+          </button>
+        )}
+      </div>
 
       <div className={`filtros ${filtrosAbertos ? 'filtros-aberto' : ''}`}>
         <input
@@ -176,34 +188,32 @@ export function ListaPrincipalPage() {
         </select>
         <TagPicker label="Gêneros" value={generosSel} options={generos} onChange={setGenerosSel} />
         <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
-        <label className="filtro-novo-cap">
-          <input
-            type="checkbox"
-            checked={soNovoCapitulo}
-            onChange={(e) => setSoNovoCapitulo(e.target.checked)}
-          />
-          Só com capítulo novo
-        </label>
         <button type="button" onClick={limparFiltros} disabled={!temFiltroAtivo}>
           Limpar filtros
         </button>
       </div>
 
-      {statusLeituraOpcoes.length > 0 && (
-        <div className="status-chips">
-          {statusLeituraOpcoes.map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`status-chip ${statusLeitura === v ? 'ativo' : ''}`}
-              onClick={() => alternarStatusChip(v)}
-            >
-              {v}
-              <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="status-chips">
+        {statusLeituraOpcoes.map((v) => (
+          <button
+            key={v}
+            type="button"
+            className={`status-chip ${statusLeitura === v ? 'ativo' : ''}`}
+            onClick={() => alternarStatusChip(v)}
+          >
+            {v}
+            <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`status-chip status-chip-novo ${soNovoCapitulo ? 'ativo' : ''}`}
+          onClick={() => setSoNovoCapitulo((v) => !v)}
+        >
+          Novos capítulos
+          <span className="status-chip-contagem">{contagemNovoCapitulo}</span>
+        </button>
+      </div>
 
       <div className="lista-principal-toolbar">
         <p className="contagem-resultados">

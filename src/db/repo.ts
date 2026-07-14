@@ -2,7 +2,7 @@ import { db, enqueueMutation } from './localDb';
 import { newId } from '../lib/id';
 import { deriveSite } from '../lib/site';
 import { syncNow } from '../sync/sync';
-import type { Fonte, Obra, StatusAprovacao, StatusLeitura } from '../types';
+import type { Fonte, Obra, StatusAprovacao } from '../types';
 
 function triggerBackgroundSync(): void {
   void syncNow();
@@ -83,47 +83,27 @@ async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
   } as Partial<NovaObra>);
 }
 
-export interface CadastroRapidoInput {
-  titulo: string;
-  titulosAlternativos: string[];
-  autor: string | null;
-  capaUrl: string | null;
-  statusLeitura: StatusLeitura;
-  capituloAtual: number;
-  urlsFontes: string[];
-}
-
-/** Cadastro rápido: cria uma obra + suas fontes de uma vez. Dedupe de título case-insensitive. */
-export async function criarObraRapida(
-  input: CadastroRapidoInput
+/**
+ * Cria uma obra + suas fontes de uma vez. Dedupe de título case-insensitive:
+ * se já existe uma obra com o mesmo título, retorna a existente sem criar nada.
+ * Usada pela tela de Cadastrar (tanto no modo rápido quanto no completo).
+ */
+export async function criarObraComFontes(
+  obra: NovaObra,
+  urlsFontes: string[]
 ): Promise<{ obra: Obra; jaExistia: boolean }> {
-  const tituloLower = input.titulo.trim().toLowerCase();
+  const tituloLower = obra.titulo.trim().toLowerCase();
   const existentes = await db.obras.toArray();
   const existente = existentes.find((o) => o.titulo.trim().toLowerCase() === tituloLower);
   if (existente) {
     return { obra: existente, jaExistia: true };
   }
 
-  const obra = await createObra({
-    tipo: null,
-    titulo: input.titulo.trim(),
-    titulos_alternativos: input.titulosAlternativos.length > 0 ? input.titulosAlternativos : null,
-    autor: input.autor,
-    capa_url: input.capaUrl,
-    capitulo_atual: input.capituloAtual,
-    status_leitura: input.statusLeitura,
-    status_publicacao: null,
-    ultimo_capitulo_lancado: null,
-    ultimo_capitulo_via_scraper: false,
-    nota: null,
-    generos: null,
-    tags: null,
-    observacoes: null,
-  });
+  const criada = await createObra(obra);
 
-  for (const url of input.urlsFontes) {
+  for (const url of urlsFontes) {
     await createFonte({
-      obra_id: obra.id,
+      obra_id: criada.id,
       site: deriveSite(url),
       url,
       ultimo_capitulo_detectado: null,
@@ -135,5 +115,5 @@ export async function criarObraRapida(
     });
   }
 
-  return { obra, jaExistia: false };
+  return { obra: criada, jaExistia: false };
 }
