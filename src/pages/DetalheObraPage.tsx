@@ -9,6 +9,7 @@ import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
 import { useToast } from '../components/Toast';
 import { deriveSite } from '../lib/site';
+import { registrarDominioManual } from '../lib/scraperConfig';
 import type { Fonte, Obra, StatusAprovacao } from '../types';
 
 function statusBadgeClasse(status: StatusAprovacao): string {
@@ -90,6 +91,7 @@ type Draft = Pick<
   | 'tipo'
   | 'status_leitura'
   | 'status_publicacao'
+  | 'fim_de_temporada'
   | 'capitulo_atual'
   | 'nota'
   | 'generos'
@@ -106,6 +108,7 @@ function toDraft(obra: Obra): Draft {
     tipo: obra.tipo,
     status_leitura: obra.status_leitura,
     status_publicacao: obra.status_publicacao,
+    fim_de_temporada: obra.fim_de_temporada,
     capitulo_atual: obra.capitulo_atual,
     nota: obra.nota,
     generos: obra.generos,
@@ -180,10 +183,11 @@ export function DetalheObraPage() {
   async function handleAdicionarFonte(e: FormEvent) {
     e.preventDefault();
     if (!novaFonteUrl.trim() || !id) return;
+    const url = novaFonteUrl.trim();
     await createFonte({
       obra_id: id,
-      site: deriveSite(novaFonteUrl.trim()),
-      url: novaFonteUrl.trim(),
+      site: deriveSite(url),
+      url,
       ultimo_capitulo_detectado: null,
       atualizado_por_scraper: false,
       confiavel: true,
@@ -191,6 +195,7 @@ export function DetalheObraPage() {
       descoberta_automaticamente: false,
       ultima_verificacao: null,
     });
+    void registrarDominioManual(url); // domínio novo inserido à mão vira site suportado
     setNovaFonteUrl('');
   }
 
@@ -270,9 +275,14 @@ export function DetalheObraPage() {
             Publication status
             <select
               value={draft.status_publicacao ?? ''}
-              onChange={(e) =>
-                setCampo('status_publicacao', (e.target.value || null) as Draft['status_publicacao'])
-              }
+              onChange={(e) => {
+                const v = (e.target.value || null) as Draft['status_publicacao'];
+                setDraft((atual) =>
+                  atual
+                    ? { ...atual, status_publicacao: v, fim_de_temporada: v === 'Hiatus' ? atual.fim_de_temporada : false }
+                    : atual
+                );
+              }}
             >
               <option value="">—</option>
               {statusPublicacaoOpcoes.map((v) => (
@@ -282,6 +292,17 @@ export function DetalheObraPage() {
               ))}
             </select>
           </label>
+
+          {draft.status_publicacao === 'Hiatus' && (
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={draft.fim_de_temporada}
+                onChange={(e) => setCampo('fim_de_temporada', e.target.checked)}
+              />
+              End of Season
+            </label>
+          )}
 
           <label>
             Current chapter

@@ -1,5 +1,7 @@
+import { useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
+import { updateObra } from '../db/repo';
 import { temNovoCapitulo } from '../lib/obra';
 import type { Fonte, Obra } from '../types';
 
@@ -25,6 +27,56 @@ function ProgressoBarra({ obra }: { obra: Obra }) {
   );
 }
 
+/** Edição inline do capítulo lido (capitulo_atual) direto na lista, sem abrir o formulário. */
+function CapituloAtualEditavel({ obra }: { obra: Obra }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState('');
+
+  function abrir() {
+    setValor(obra.capitulo_atual != null ? String(obra.capitulo_atual) : '');
+    setEditando(true);
+  }
+
+  async function salvar() {
+    const bruto = valor.trim();
+    const novo = bruto === '' ? null : Number(bruto);
+    if (novo !== null && Number.isNaN(novo)) {
+      setEditando(false);
+      return;
+    }
+    if (novo !== obra.capitulo_atual) {
+      await updateObra(obra.id, { capitulo_atual: novo });
+    }
+    setEditando(false);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') void salvar();
+    else if (e.key === 'Escape') setEditando(false);
+  }
+
+  if (editando) {
+    return (
+      <input
+        className="cap-atual-input"
+        type="number"
+        step="any"
+        autoFocus
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        onKeyDown={onKeyDown}
+        onBlur={salvar}
+      />
+    );
+  }
+
+  return (
+    <button type="button" className="cap-atual-botao" onClick={abrir} title="Edit current chapter">
+      ch. {obra.capitulo_atual ?? '—'}
+    </button>
+  );
+}
+
 export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
   const novoCapitulo = temNovoCapitulo(obra);
 
@@ -43,11 +95,13 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
           {obra.titulo}
         </Link>
         <div className="obra-card-meta">
+          {obra.status_publicacao && <span className="badge badge-pub">{obra.status_publicacao}</span>}
+          {obra.fim_de_temporada && <span className="badge badge-eos">End of Season</span>}
           {obra.tipo && <span className="badge">{obra.tipo}</span>}
           {obra.status_leitura && <span className="badge badge-status">{obra.status_leitura}</span>}
         </div>
         <div className="obra-card-progresso">
-          ch. {obra.capitulo_atual ?? '—'}
+          <CapituloAtualEditavel obra={obra} />
           {obra.ultimo_capitulo_lancado != null && ` / ${obra.ultimo_capitulo_lancado} available`}
         </div>
         <ProgressoBarra obra={obra} />
@@ -60,7 +114,7 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
                 <a href={f.url} target="_blank" rel="noreferrer">
                   {f.site || f.url}
                 </a>
-                {f.ultimo_capitulo_detectado != null && <span> · cap. {f.ultimo_capitulo_detectado}</span>}
+                {f.ultimo_capitulo_detectado != null && <span> · ch. {f.ultimo_capitulo_detectado}</span>}
                 <StatusScraper fonte={f} compact />
               </li>
             ))}

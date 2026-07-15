@@ -235,6 +235,12 @@ label {
 
 /* Lista principal */
 
+/* Busca por título: elemento próprio, sempre visível no topo (fora dos filtros). */
+.busca-topo {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
 .filtros {
   display: flex;
   flex-wrap: wrap;
@@ -247,8 +253,8 @@ label {
   flex: 1 1 200px;
 }
 
-.filtro-busca {
-  flex: 1 1 220px;
+.filtros select {
+  flex: 1 1 180px;
 }
 
 .lista-principal-toolbar {
@@ -303,10 +309,10 @@ label {
   margin-bottom: 12px;
 }
 
-/* O botão "Filters" (recolher) só aparece no mobile; no desktop os filtros
-   ficam sempre visíveis. Mesmo tamanho de fonte do "Clear filters". */
+/* O botão "Filters" abre/fecha o painel completo em qualquer tamanho de tela
+   (a busca e os chips de status ficam sempre visíveis, fora do painel). */
 .filtros-toggle {
-  display: none;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
@@ -314,11 +320,6 @@ label {
 
 .filtros-limpar {
   font-size: 13px;
-}
-
-/* Desktop sem filtro ativo (nem toggle nem limpar visíveis): esconde a linha. */
-.filtros-toggle-row:not(:has(.filtros-limpar)) {
-  display: none;
 }
 
 .filtros-toggle-dot {
@@ -567,6 +568,37 @@ label {
 
 .obra-card-progresso {
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Edição inline do capítulo lido, direto no card */
+.cap-atual-botao {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  border-bottom: 1px dashed var(--accent-border);
+}
+
+.cap-atual-input {
+  width: 64px;
+  padding: 1px 4px;
+  font-size: 12px;
+}
+
+.badge-pub {
+  background: rgba(31, 157, 85, 0.12);
+  border-color: rgba(31, 157, 85, 0.4);
+}
+
+.badge-eos {
+  background: rgba(201, 138, 18, 0.16);
+  border-color: rgba(201, 138, 18, 0.6);
 }
 
 .estrelas {
@@ -792,6 +824,10 @@ label {
   line-height: 1;
 }
 
+.tag-picker-input-wrap {
+  position: relative;
+}
+
 .tag-picker-input-row {
   display: flex;
   gap: 8px;
@@ -799,6 +835,50 @@ label {
 
 .tag-picker-input-row input {
   flex: 1;
+}
+
+/* Dropdown de sugestões próprio (substitui o <datalist>, que falha no iOS). */
+.tag-picker-sugestoes {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-hover);
+}
+
+.tag-picker-sugestoes li button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.tag-picker-sugestoes li button:hover {
+  background: var(--accent-bg);
+}
+
+/* Checkbox inline (ex.: End of Season) */
+.check-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.check-inline input {
+  width: auto;
 }
 
 /* Cadastrar */
@@ -1230,34 +1310,20 @@ label {
     gap: 8px;
   }
 
-  /* Filtros recolhidos atrás do botão "Filters" no mobile */
-  .filtros-toggle {
-    display: inline-flex;
-  }
-  .filtros-toggle-row,
-  .filtros-toggle-row:not(:has(.filtros-limpar)) {
-    display: flex;
-  }
-
+  /* No mobile, o painel de filtros empilha em coluna. */
   .filtros {
-    display: none;
     flex-direction: column;
-  }
-
-  .filtros.filtros-aberto {
-    display: flex;
   }
 
   /* Em coluna, o flex-basis define a ALTURA — zera para os campos não
      esticarem verticalmente. */
-  .filtros .filtro-busca,
   .filtros .tag-picker {
     flex: 0 0 auto;
   }
 
-  .filtros .filtro-busca,
   .filtros select {
     width: 100%;
+    flex: 0 0 auto;
   }
 
   .toolbar-direita {

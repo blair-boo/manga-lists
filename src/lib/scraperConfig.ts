@@ -49,6 +49,40 @@ export async function removerDominioBloqueado(dominio: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Quando a usuária insere manualmente uma fonte de um domínio ainda não
+ * cadastrado em `sites_suportados`, registra esse domínio automaticamente (já
+ * aprovado, pois houve ação humana explícita). Entra com `ativo=false` — sem
+ * varredura automática por padrão, já que não se sabe se o site permite fetch
+ * direto; a usuária pode ligar depois. Best-effort: silencioso em erro/offline.
+ */
+export async function registrarDominioManual(url: string): Promise<void> {
+  const dominio = dominioDeUrl(url);
+  if (!dominio) return;
+  try {
+    const { data } = await supabase.from('sites_suportados').select('nome, url_base');
+    const conhecidos = new Set<string>();
+    for (const s of data ?? []) {
+      if (s.nome) conhecidos.add(String(s.nome).toLowerCase());
+      const h = dominioDeUrl(s.url_base ?? '');
+      if (h) conhecidos.add(h);
+    }
+    if (conhecidos.has(dominio)) return;
+
+    let origin = `https://${dominio}`;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      /* usa o fallback */
+    }
+    await supabase
+      .from('sites_suportados')
+      .insert({ nome: dominio, url_base: origin, estrategia: 'fetch_direto', ativo: false });
+  } catch {
+    /* best-effort: não bloqueia o cadastro da fonte */
+  }
+}
+
 // --- Limiares de match de título (configuracoes_scraper) --------------------
 
 export interface LimiaresOperacao {

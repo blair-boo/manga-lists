@@ -20,6 +20,7 @@ export interface Obra {
   capitulo_atual: number | null;
   status_leitura: StatusLeitura | null;
   status_publicacao: StatusPublicacao | null;
+  fim_de_temporada: boolean;
   ultimo_capitulo_lancado: number | null;
   ultimo_capitulo_via_scraper: boolean;
   nota: number | null;

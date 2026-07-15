@@ -5,6 +5,7 @@ import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { useToast } from '../components/Toast';
+import { registrarDominioManual } from '../lib/scraperConfig';
 import type { Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 interface Resultado {
@@ -32,7 +33,13 @@ export function CadastrarPage() {
   // Campos exclusivos do cadastro completo (revelados pelo botão)
   const [tipo, setTipo] = useState('');
   const [statusPublicacao, setStatusPublicacao] = useState('');
+  const [fimDeTemporada, setFimDeTemporada] = useState(false);
   const [nota, setNota] = useState('');
+
+  function handleStatusPublicacao(v: string) {
+    setStatusPublicacao(v);
+    if (v !== 'Hiatus') setFimDeTemporada(false); // não deixa "End of Season" órfão
+  }
   const [generos, setGeneros] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState('');
@@ -51,6 +58,7 @@ export function CadastrarPage() {
     setUrlsFontes(['']);
     setTipo('');
     setStatusPublicacao('');
+    setFimDeTemporada(false);
     setNota('');
     setGeneros([]);
     setTags([]);
@@ -84,6 +92,7 @@ export function CadastrarPage() {
       capitulo_atual: Number(capituloAtual),
       status_leitura: statusLeitura as StatusLeitura,
       status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
+      fim_de_temporada: statusPublicacao === 'Hiatus' ? fimDeTemporada : false,
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,
       nota: nota === '' ? null : Number(nota),
@@ -97,6 +106,8 @@ export function CadastrarPage() {
     if (r.jaExistia) {
       mostrarToast('Work already exists', 'info');
     } else {
+      // Fontes inseridas manualmente: registra domínios novos como sites suportados.
+      for (const url of urlsValidas) void registrarDominioManual(url);
       mostrarToast('Work added ✓');
       limparFormulario();
       setCompleto(false);
@@ -172,7 +183,7 @@ export function CadastrarPage() {
           {completo && (
             <label>
               Publication status
-              <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
+              <select value={statusPublicacao} onChange={(e) => handleStatusPublicacao(e.target.value)}>
                 <option value="">—</option>
                 {statusPublicacaoOpcoes.map((v) => (
                   <option key={v} value={v}>
@@ -180,6 +191,17 @@ export function CadastrarPage() {
                   </option>
                 ))}
               </select>
+            </label>
+          )}
+
+          {completo && statusPublicacao === 'Hiatus' && (
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={fimDeTemporada}
+                onChange={(e) => setFimDeTemporada(e.target.checked)}
+              />
+              End of Season
             </label>
           )}
 

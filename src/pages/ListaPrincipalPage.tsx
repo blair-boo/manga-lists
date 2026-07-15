@@ -151,58 +151,13 @@ export function ListaPrincipalPage() {
 
   return (
     <div className="lista-principal">
-      <div className="filtros-toggle-row">
-        <button
-          type="button"
-          className="filtros-toggle"
-          onClick={() => setFiltrosAbertos((v) => !v)}
-          aria-expanded={filtrosAbertos}
-        >
-          {filtrosAbertos ? 'Hide filters' : 'Filters'}
-          {temFiltroAtivo && <span className="filtros-toggle-dot" />}
-        </button>
-        {temFiltroAtivo && (
-          <button type="button" className="filtros-limpar" onClick={limparFiltros}>
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      <div className={`filtros ${filtrosAbertos ? 'filtros-aberto' : ''}`}>
-        <input
-          type="search"
-          placeholder="Search by title…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          className="filtro-busca"
-        />
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-          <option value="">Type (all)</option>
-          {tipos.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
-          <option value="">Reading status (all)</option>
-          {statusLeituraOpcoes.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
-          <option value="">Publication status (all)</option>
-          {statusPublicacaoOpcoes.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <TagPicker label="Genres" value={generosSel} options={generos} onChange={setGenerosSel} />
-        <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
-      </div>
+      <input
+        type="search"
+        placeholder="Search by title…"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        className="busca-topo"
+      />
 
       <div className="status-chips">
         <button
@@ -233,6 +188,54 @@ export function ListaPrincipalPage() {
           <span className="status-chip-contagem">{contagemUnsourced}</span>
         </button>
       </div>
+
+      <div className="filtros-toggle-row">
+        <button
+          type="button"
+          className="filtros-toggle"
+          onClick={() => setFiltrosAbertos((v) => !v)}
+          aria-expanded={filtrosAbertos}
+        >
+          {filtrosAbertos ? 'Hide filters' : 'Filters'}
+          {temFiltroAtivo && <span className="filtros-toggle-dot" />}
+        </button>
+        {temFiltroAtivo && (
+          <button type="button" className="filtros-limpar" onClick={limparFiltros}>
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {filtrosAbertos && (
+        <div className="filtros filtros-aberto">
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="">Type (all)</option>
+            {tipos.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
+            <option value="">Reading status (all)</option>
+            {statusLeituraOpcoes.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <select value={statusPublicacao} onChange={(e) => setStatusPublicacao(e.target.value)}>
+            <option value="">Publication status (all)</option>
+            {statusPublicacaoOpcoes.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+          <TagPicker label="Genres" value={generosSel} options={generos} onChange={setGenerosSel} />
+          <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
+        </div>
+      )}
 
       <div className="lista-principal-toolbar">
         <p className="contagem-resultados">
