@@ -10,12 +10,12 @@ function triggerBackgroundSync(): void {
 
 export type NovaObra = Omit<Obra, 'id' | 'criado_em' | 'atualizado_em'>;
 
-export async function createObra(input: NovaObra): Promise<Obra> {
+export async function createObra(input: NovaObra, dispararSync = true): Promise<Obra> {
   const now = new Date().toISOString();
   const obra: Obra = { ...input, id: newId(), criado_em: now, atualizado_em: now };
   await db.obras.put(obra);
   await enqueueMutation({ entity: 'obras', op: 'insert', recordId: obra.id, payload: obra });
-  triggerBackgroundSync();
+  if (dispararSync) triggerBackgroundSync();
   return obra;
 }
 
@@ -37,11 +37,11 @@ export async function deleteObra(id: string): Promise<void> {
 
 export type NovaFonte = Omit<Fonte, 'id' | 'criado_em'>;
 
-export async function createFonte(input: NovaFonte): Promise<Fonte> {
+export async function createFonte(input: NovaFonte, dispararSync = true): Promise<Fonte> {
   const fonte: Fonte = { ...input, id: newId(), criado_em: new Date().toISOString() };
   await db.fontes.put(fonte);
   await enqueueMutation({ entity: 'fontes', op: 'insert', recordId: fonte.id, payload: fonte });
-  triggerBackgroundSync();
+  if (dispararSync) triggerBackgroundSync();
   return fonte;
 }
 
@@ -99,21 +99,29 @@ export async function criarObraComFontes(
     return { obra: existente, jaExistia: true };
   }
 
-  const criada = await createObra(obra);
+  // Adia o sync até obra + todas as fontes estarem enfileiradas, disparando uma
+  // vez só no fim. Se disparasse durante o loop, o pullFontes (que faz clear +
+  // refill do servidor) rodaria antes de as fontes serem enviadas e apagaria as
+  // fontes locais recém-criadas — corrida que fazia as fontes "sumirem".
+  const criada = await createObra(obra, false);
 
   for (const url of urlsFontes) {
-    await createFonte({
-      obra_id: criada.id,
-      site: deriveSite(url),
-      url,
-      ultimo_capitulo_detectado: null,
-      atualizado_por_scraper: false,
-      confiavel: true,
-      status_aprovacao: 'aprovado',
-      descoberta_automaticamente: false,
-      ultima_verificacao: null,
-    });
+    await createFonte(
+      {
+        obra_id: criada.id,
+        site: deriveSite(url),
+        url,
+        ultimo_capitulo_detectado: null,
+        atualizado_por_scraper: false,
+        confiavel: true,
+        status_aprovacao: 'aprovado',
+        descoberta_automaticamente: false,
+        ultima_verificacao: null,
+      },
+      false
+    );
   }
 
+  triggerBackgroundSync();
   return { obra: criada, jaExistia: false };
 }
