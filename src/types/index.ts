@@ -45,12 +45,27 @@ export interface Fonte {
   criado_em: string;
 }
 
+export interface DiagnosticoEntrada {
+  adapter_id: string;
+  matched: boolean;
+  parse_status: string;
+  mensagem: string;
+}
+
+export interface DiagnosticoAdaptador {
+  gerado_em: string;
+  entradas: DiagnosticoEntrada[];
+}
+
 export interface SiteSuportado {
   id: string;
   nome: string;
   url_base: string | null;
   estrategia: Estrategia;
   ativo: boolean;
+  adaptador: string | null;
+  access_strategy: string | null;
+  diagnostico: DiagnosticoAdaptador | null;
 }
 
 export interface ListaItem {
@@ -59,7 +74,7 @@ export interface ListaItem {
   valor: string;
 }
 
-export type ScraperTipo = 'capitulos' | 'obras' | 'fontes';
+export type ScraperTipo = 'capitulos' | 'obras' | 'fontes' | 'designar';
 export type ScraperStatus = 'rodando' | 'concluido' | 'erro';
 
 export interface ScraperRun {

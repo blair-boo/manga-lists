@@ -31,7 +31,8 @@ create table sites_suportados (
     estrategia text not null default 'fetch_direto', -- informativo; o scraper roteia por host (parser dedicado p/ nyxscans)
     ativo boolean not null default true,
     adaptador text, -- id do adaptador designado (NULL = sem adaptador ainda)
-    access_strategy text -- 'http' | 'playwright' | 'flaresolverr'; sobrescreve o padrão do adaptador
+    access_strategy text, -- 'http' | 'playwright' | 'flaresolverr'; sobrescreve o padrão do adaptador
+    diagnostico jsonb -- relatório do modo diagnóstico quando nenhum adaptador se designou (NULL = designado/ok)
 );
 
 create table fontes (
@@ -57,7 +58,7 @@ create table listas (
 
 create table scraper_runs (
     id uuid primary key default gen_random_uuid(),
-    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes')),
+    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes', 'designar')),
     status text not null default 'rodando', -- 'rodando' | 'concluido' | 'erro'
     site_dominio text, -- nulo p/ 'capitulos'/'fontes' (globais); preenchido por 'obras'
     iniciado_em timestamptz not null default now(),

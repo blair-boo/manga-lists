@@ -1,0 +1,33 @@
+name: Scraper - Designar adaptadores
+
+# Sem agendamento: disparado manualmente pelo botão "Detect adapters" na aba
+# Updates (via Supabase Edge Function) e automaticamente quando uma fonte manual
+# introduz um domínio novo em sites_suportados.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: scraper-designar
+  cancel-in-progress: false
+
+jobs:
+  designar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r scraper/requirements.txt
+
+      - name: Detectar e designar adaptadores
+        working-directory: scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python designar_adaptadores.py

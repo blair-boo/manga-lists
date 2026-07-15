@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { controlarScraper } from './scraperControl';
 
 /**
  * Extrai o domínio (host sem "www.") de uma URL. Retorna '' se for inválida.
@@ -52,9 +53,11 @@ export async function removerDominioBloqueado(dominio: string): Promise<void> {
 /**
  * Quando a usuária insere manualmente uma fonte de um domínio ainda não
  * cadastrado em `sites_suportados`, registra esse domínio automaticamente (já
- * aprovado, pois houve ação humana explícita). Entra com `ativo=false` — sem
- * varredura automática por padrão, já que não se sabe se o site permite fetch
- * direto; a usuária pode ligar depois. Best-effort: silencioso em erro/offline.
+ * aprovado, pois houve ação humana explícita). Entra com `ativo=false` e sem
+ * adaptador; em seguida dispara o estágio "designar", que roda a auto-detecção
+ * e, se algum adaptador reconhecer o site, grava o vínculo e ativa a varredura
+ * (ou anexa um diagnóstico se nenhum reconhecer). Best-effort: silencioso em
+ * erro/offline, nunca bloqueia o cadastro da fonte.
  */
 export async function registrarDominioManual(url: string): Promise<void> {
   const dominio = dominioDeUrl(url);
@@ -78,6 +81,15 @@ export async function registrarDominioManual(url: string): Promise<void> {
     await supabase
       .from('sites_suportados')
       .insert({ nome: dominio, url_base: origin, estrategia: 'fetch_direto', ativo: false });
+
+    // Domínio novo: dispara a auto-detecção/designação de adaptador em segundo
+    // plano. Se falhar (offline, função indisponível), o domínio fica na fila
+    // "domains without adapter" e pode ser detectado depois pelo botão manual.
+    try {
+      await controlarScraper('designar', 'start');
+    } catch {
+      /* best-effort */
+    }
   } catch {
     /* best-effort: não bloqueia o cadastro da fonte */
   }

@@ -7,6 +7,7 @@ import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { StatusExecucaoScraper } from '../components/StatusExecucaoScraper';
 import { ListaSitesSuportados } from '../components/ListaSitesSuportados';
+import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
 import type { ScraperTipo } from '../types';
@@ -64,6 +65,9 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
 
       <h4 className="atualizacao-subtitulo">Works — by site</h4>
       <ListaSitesSuportados />
+
+      <h4 className="atualizacao-subtitulo">Domains without adapter</h4>
+      <DominiosSemAdaptador />
 
       <FilaAprovacoes titulo="Approvals" escopo="suportados" sitesSuportados={sitesSuportados} />
     </section>
