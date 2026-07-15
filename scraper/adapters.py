@@ -18,7 +18,6 @@ import requests
 
 from common import (
     _extrair_array_balanceado,
-    _extrair_posts,
     buscar_candidatos_cms,
     host_de_url,
     http_get,
@@ -254,3 +253,29 @@ class AdapterRegistry:
 
 # Registry global com os adaptadores disponíveis.
 REGISTRY = AdapterRegistry([CmsGenericoAdapter()])
+
+
+def carregar_designacoes(supabase) -> dict[str, dict]:
+    """
+    Mapa host/nome -> {'adaptador', 'access_strategy'} a partir de sites_suportados.
+    Usado pelos scrapers para rotear cada fonte pelo adaptador designado ao seu
+    domínio, sem redetectar toda vez.
+    """
+    try:
+        rows = (
+            supabase.table("sites_suportados")
+            .select("nome, url_base, adaptador, access_strategy")
+            .execute()
+            .data
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+    mapa: dict[str, dict] = {}
+    for s in rows or []:
+        info = {"adaptador": s.get("adaptador"), "access_strategy": s.get("access_strategy")}
+        host = host_de_url(s.get("url_base") or "")
+        if host:
+            mapa[host] = info
+        if s.get("nome"):
+            mapa[str(s["nome"]).lower()] = info
+    return mapa

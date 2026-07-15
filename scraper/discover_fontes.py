@@ -1,14 +1,13 @@
 """
-Estágio "fontes" do scraper: descobre novas fontes para obras. Primeiro varre
-`sites_suportados` ativos (busca interna no site), depois cai num fallback de
-busca web genérica (DuckDuckGo), ignorando domínios em `dominios_bloqueados`.
+Estágio "fontes" do scraper: descobre novas fontes para obras. Para cada site
+suportado, busca pelo adaptador designado (quando o acesso é 'http'); os demais
+sites caem no padrão genérico `?s=`. Sem resultado nos sites, tenta um fallback
+de busca web (DuckDuckGo), ignorando domínios em `dominios_bloqueados`.
 
-O status de cada fonte encontrada é decidido pelo score de similaridade de
-título (rapidfuzz), usando os limiares de `configuracoes_scraper`
-(chave 'match_titulo' -> 'buscar_novas_fontes').
+Status de cada fonte decidido pelo score de título (rapidfuzz) com os limiares de
+`configuracoes_scraper` (chave 'match_titulo' -> 'buscar_novas_fontes').
 
 Uso: python scraper/discover_fontes.py
-Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env local).
 """
 
 import sys
@@ -19,11 +18,10 @@ from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
+from adapters import ACCESS_HTTP, REGISTRY, resolver_access_strategy
 from common import (
-    buscar_candidatos_cms,
     carregar_config_match,
     carregar_dominios_bloqueados,
-    cms_por_url,
     finalizar_run,
     get_supabase,
     http_get,
@@ -47,27 +45,33 @@ def dominio_de_url(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
-def buscar_cms(cfg: dict, obra: dict) -> tuple[str, float] | None:
-    """Melhor resultado na API do CMS (nyxscans/ezmanga) para a obra: (url, score) ou None."""
+def buscar_via_adapter(adapter, url_base: str, obra: dict) -> tuple[str, float] | None:
+    """Melhor resultado da busca do adaptador (ex.: api/posts do CMS): (url, score) ou None."""
     melhor_url = None
     melhor_score = 0.0
-    for titulo_resultado, slug in buscar_candidatos_cms(cfg, obra["titulo"]):
+    for titulo_resultado, slug in adapter.buscar(url_base, obra["titulo"]):
         score = melhor_match(titulo_resultado, obra)
         if score > melhor_score:
             melhor_score = score
-            melhor_url = f"{cfg['site']}/series/{slug}"
+            melhor_url = adapter.url_da_fonte(url_base, slug)
     return (melhor_url, melhor_score) if melhor_url else None
 
 
-def buscar_no_site(url_base: str, obra: dict) -> tuple[str, float] | None:
+def buscar_no_site(site: dict, obra: dict) -> tuple[str, float] | None:
     """
-    Busca interna no site. Sites do CMS Next.js usam a API dedicada; os demais
-    caem no padrão genérico `?s=` (comum em temas WordPress tipo Madara). Retorna
-    (url absoluta, score) do resultado mais parecido, ou None.
+    Busca interna no site. Se o domínio tem adaptador designado (e acesso 'http'),
+    usa a busca do adaptador; senão cai no padrão genérico `?s=`. Retorna
+    (url absoluta, score) do melhor resultado, ou None.
     """
-    cms = cms_por_url(url_base)
-    if cms is not None:
-        return buscar_cms(cms[1], obra)
+    url_base = site["url_base"]
+    adaptador_id = site.get("adaptador")
+    if adaptador_id:
+        adapter = REGISTRY.por_id(adaptador_id)
+        if adapter is not None and hasattr(adapter, "buscar"):
+            estrategia = resolver_access_strategy(site.get("access_strategy"), adapter)
+            if estrategia != ACCESS_HTTP:
+                return None  # acesso ainda não disponível (ex.: flaresolverr)
+            return buscar_via_adapter(adapter, url_base, obra)
 
     busca_url = urljoin(url_base, f"/?s={quote(obra['titulo'])}")
     try:
@@ -92,10 +96,7 @@ def buscar_no_site(url_base: str, obra: dict) -> tuple[str, float] | None:
 
 
 def _resolver_href_ddg(href: str) -> str:
-    """
-    O DuckDuckGo HTML envolve o link real num redirect
-    (//duckduckgo.com/l/?uddg=<url-encodada>). Extrai a URL de destino real.
-    """
+    """Extrai a URL real de um link de resultado do DuckDuckGo (redirect //duckduckgo.com/l/?uddg=)."""
     if href.startswith("//"):
         href = "https:" + href
     p = urlparse(href)
@@ -107,11 +108,7 @@ def _resolver_href_ddg(href: str) -> str:
 
 
 def buscar_fallback_web(obra: dict, dominios_bloqueados: set[str]) -> tuple[str, float] | None:
-    """
-    Fallback de busca web (DuckDuckGo HTML, sem API key). Resolve o redirect do
-    DDG pra URL real, ignora domínios em blacklist e só considera domínios que
-    parecem agregadores. Retorna (url, score) do melhor, ou None.
-    """
+    """Fallback de busca web (DuckDuckGo HTML). Ignora blacklist e domínios não-agregadores."""
     query = quote(f"{obra['titulo']} manga read online")
     try:
         resp = http_get(f"https://html.duckduckgo.com/html/?q={query}")
@@ -146,7 +143,13 @@ def executar(supabase) -> int:
 
     obras = supabase.table("obras").select("id, titulo, titulos_alternativos").execute().data
     fontes_existentes = supabase.table("fontes").select("obra_id, site").execute().data
-    sites = supabase.table("sites_suportados").select("nome, url_base, ativo").eq("ativo", True).execute().data
+    sites = (
+        supabase.table("sites_suportados")
+        .select("nome, url_base, ativo, adaptador, access_strategy")
+        .eq("ativo", True)
+        .execute()
+        .data
+    )
 
     sites_por_obra: dict[str, set[str]] = {}
     for f in fontes_existentes:
@@ -180,7 +183,7 @@ def executar(supabase) -> int:
             if site["nome"] in ja_tem:
                 continue
             time.sleep(DELAY_ENTRE_REQUESTS)
-            resultado = buscar_no_site(site["url_base"], obra)
+            resultado = buscar_no_site(site, obra)
             if resultado and registrar(obra["id"], site["nome"], resultado[0], resultado[1]):
                 print(f"  {obra['titulo']}: {site['nome']} {resultado[1]:.2f} -> {resultado[0]}")
                 encontrou_em_site_fixo = True

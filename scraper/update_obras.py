@@ -2,37 +2,37 @@
 Estágio "obras" do scraper: varre o catálogo completo de cada site suportado e
 casa os títulos com obras já cadastradas que ainda não têm fonte naquele site.
 
-Cobre qualquer site do mesmo CMS Next.js mapeado em SITES_NEXTJS_CMS
-(hoje nyxscans e ezmanga) — catálogo via {api}/api/posts.
+Roteia por adaptador designado ao domínio (sites_suportados.adaptador) e resolve
+a estratégia de acesso (domínio > padrão do adaptador). Só varre quando a
+estratégia é 'http' (única implementada); domínios em flaresolverr/playwright
+ficam registrados como "acesso pendente" até o fetcher existir.
 
 Cada fonte encontrada entra em `fontes` com o status decidido pelo score de
-título (auto-aprovada, pendente, ou descartada) usando os limiares de
+título (auto-aprovada, pendente, ou descartada) — limiares de
 `configuracoes_scraper` (chave 'match_titulo' -> 'atualizar_obras').
 
 Uso: python scraper/update_obras.py
-Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env local).
 """
 
 import traceback
 
+from adapters import ACCESS_HTTP, REGISTRY, carregar_designacoes, resolver_access_strategy
 from common import (
-    SITES_NEXTJS_CMS,
     carregar_config_match,
     finalizar_run,
     get_supabase,
     host_de_url,
     iniciar_run,
-    listar_todos_posts_cms,
 )
 from match_titulo import decidir_status, melhor_match
 
 
-def obras_sem_fonte_no_site(supabase, nome_site: str, cfg: dict) -> list[dict]:
+def obras_sem_fonte_no_site(supabase, nome_site: str, url_base: str) -> list[dict]:
     """Obras que ainda não têm nenhuma fonte nesse site (por nome de site ou host da url)."""
     obras = supabase.table("obras").select("id, titulo, titulos_alternativos").execute().data
     fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
 
-    host_site = host_de_url(cfg["site"])
+    host_site = host_de_url(url_base)
     obra_ids_com_fonte = set()
     for f in fontes:
         if f.get("site") == nome_site or host_de_url(f.get("url") or "") == host_site:
@@ -41,14 +41,14 @@ def obras_sem_fonte_no_site(supabase, nome_site: str, cfg: dict) -> list[dict]:
     return [o for o in obras if o["id"] not in obra_ids_com_fonte]
 
 
-def processar_site(supabase, nome_site: str, cfg: dict, limiares: dict) -> int:
-    """Varre o catálogo de um site e insere fontes casadas. Retorna quantas inseriu."""
-    catalogo = listar_todos_posts_cms(cfg)
+def processar_site(supabase, nome_site: str, adapter, url_base: str, limiares: dict) -> int:
+    """Varre o catálogo de um site (via adaptador) e insere fontes casadas."""
+    catalogo = adapter.listar_catalogo(url_base)
     print(f"  {nome_site}: {len(catalogo)} títulos no catálogo.")
     if not catalogo:
         return 0
 
-    obras = obras_sem_fonte_no_site(supabase, nome_site, cfg)
+    obras = obras_sem_fonte_no_site(supabase, nome_site, url_base)
     print(f"  {len(obras)} obra(s) ainda sem fonte no {nome_site}.")
 
     novas_fontes = []
@@ -72,7 +72,7 @@ def processar_site(supabase, nome_site: str, cfg: dict, limiares: dict) -> int:
             {
                 "obra_id": obra["id"],
                 "site": nome_site,
-                "url": f"{cfg['site']}/series/{melhor_slug}",
+                "url": adapter.url_da_fonte(url_base, melhor_slug),
                 "ultimo_capitulo_detectado": None,
                 "confiavel": True,
                 "status_aprovacao": status,
@@ -91,19 +91,34 @@ def main():
     config = carregar_config_match(supabase)
     limiares = config.get("atualizar_obras", {"limiar_auto_aprovacao": 0.95, "limiar_minimo_pendencia": 0.70})
 
-    sites = supabase.table("sites_suportados").select("nome, ativo").eq("ativo", True).execute().data
+    sites = (
+        supabase.table("sites_suportados")
+        .select("nome, url_base, ativo, adaptador, access_strategy")
+        .eq("ativo", True)
+        .execute()
+        .data
+    )
 
     total = 0
     for site in sites:
         nome = site["nome"]
-        cfg = SITES_NEXTJS_CMS.get(nome)
-        if cfg is None:
-            print(f"{nome}: catálogo não mapeado (não é um CMS conhecido), pulando.")
+        adaptador_id = site.get("adaptador")
+        adapter = REGISTRY.por_id(adaptador_id) if adaptador_id else None
+        if adapter is None or not hasattr(adapter, "listar_catalogo"):
+            print(f"{nome}: sem adaptador com catálogo, pulando.")
             continue
 
+        url_base = site.get("url_base") or f"https://{nome}"
+        estrategia = resolver_access_strategy(site.get("access_strategy"), adapter)
         run_id = iniciar_run(supabase, "obras", site_dominio=nome)
+
+        if estrategia != ACCESS_HTTP:
+            finalizar_run(supabase, run_id, "concluido", f"acesso '{estrategia}' ainda não disponível — catálogo não varrido")
+            print(f"{nome}: acesso '{estrategia}' não implementado, catálogo não varrido.")
+            continue
+
         try:
-            quantidade = processar_site(supabase, nome, cfg, limiares)
+            quantidade = processar_site(supabase, nome, adapter, url_base, limiares)
             total += quantidade
             finalizar_run(supabase, run_id, "concluido", f"{quantidade} nova(s) fonte(s) casada(s)")
         except Exception as exc:  # noqa: BLE001 - um site com erro não derruba os outros

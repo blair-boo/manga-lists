@@ -2,6 +2,10 @@
 Estágio "capítulos" do scraper: para cada fonte aprovada, busca o capítulo mais
 recente disponível e recalcula `obras.ultimo_capitulo_lancado`.
 
+Roteia cada fonte pelo adaptador designado ao seu domínio (sites_suportados),
+resolvendo a estratégia de acesso (domínio > padrão do adaptador). Domínios sem
+adaptador caem na heurística genérica de HTML.
+
 Uso: python scraper/update_fontes.py
 Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env local).
 """
@@ -10,32 +14,34 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
+from adapters import REGISTRY, STATUS_OK, carregar_designacoes, resolver_access_strategy
 from common import (
     SITES_NEXTJS_CMS,
-    buscar_ultimo_capitulo_cms,
-    cms_por_url,
     extrair_maior_capitulo,
     finalizar_run,
     get_supabase,
+    host_de_url,
     http_get,
     iniciar_run,
     resolver_url,
-    slug_de_url_series,
 )
 
 
-def obter_capitulo(url: str) -> float | None:
+def obter_capitulo(url: str, designacoes: dict) -> float | None:
     """
-    Descobre o último capítulo de uma fonte (URL já resolvida como absoluta).
-    Sites do mesmo CMS Next.js (nyxscans, ezmanga, …) usam o parser dedicado (lê o
-    payload embutido); qualquer outro cai na heurística genérica de HTML.
+    Último capítulo de uma fonte (URL já absoluta). Se o domínio tem adaptador
+    designado, usa-o com a estratégia de acesso resolvida; senão cai na heurística
+    genérica de HTML. Retornos que não são capítulo (vazio/bloqueado/inválido) não
+    são exceção — apenas devolvem None (não contam como falha).
     """
-    cms = cms_por_url(url)
-    if cms is not None:
-        _, cfg = cms
-        slug = slug_de_url_series(url)
-        if slug:
-            return buscar_ultimo_capitulo_cms(cfg, slug)
+    desig = designacoes.get(host_de_url(url)) or {}
+    adaptador_id = desig.get("adaptador")
+    if adaptador_id:
+        adapter = REGISTRY.por_id(adaptador_id)
+        if adapter is not None:
+            estrategia = resolver_access_strategy(desig.get("access_strategy"), adapter)
+            resultado = adapter.parse(adapter.fetch(url, estrategia))
+            return resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
 
     resp = http_get(url)
     resp.raise_for_status()
@@ -46,6 +52,8 @@ def executar(supabase) -> int:
     """Retorna o número de falhas."""
     fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
     print(f"{len(fontes)} fontes aprovadas para verificar.")
+
+    designacoes = carregar_designacoes(supabase)
 
     # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
     sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
@@ -61,7 +69,7 @@ def executar(supabase) -> int:
     for fonte in fontes:
         try:
             url = resolver_url(fonte["url"], base_por_site.get(fonte.get("site")))
-            capitulo = obter_capitulo(url)
+            capitulo = obter_capitulo(url, designacoes)
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:
