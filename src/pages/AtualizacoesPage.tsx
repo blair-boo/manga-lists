@@ -1,11 +1,15 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { db } from '../db/localDb';
 import { updateObra } from '../db/repo';
+import { supabase } from '../lib/supabaseClient';
 import { buildUpdatePayload, parseCsvFile } from '../lib/csvBulkUpdate';
 import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { StatusExecucaoScraper } from '../components/StatusExecucaoScraper';
-import { FontesPendentesLista } from '../components/FontesPendentesLista';
+import { ListaSitesSuportados } from '../components/ListaSitesSuportados';
+import { FilaAprovacoes } from '../components/FilaAprovacoes';
+import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
+import type { ScraperTipo } from '../types';
 
 interface Resultado {
   atualizadas: number;
@@ -19,97 +23,57 @@ function mensagemErroAcao(err: unknown): string {
   return `Could not reach the scraper control (${detalhe}). Check that the "scraper-control" Edge Function is deployed and that the GH_ACTIONS_TOKEN secret is set.`;
 }
 
-function SecaoCapitulos() {
-  const { run, carregando, erro, recarregar } = useScraperRun('capitulos');
-  const [acionando, setAcionando] = useState(false);
+function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }) {
+  const capitulos = useScraperRun('capitulos');
+  const [acionando, setAcionando] = useState<ScraperTipo | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
-  async function handleAtualizarAgora() {
-    setAcionando(true);
+  async function disparar(tipo: ScraperTipo) {
+    setAcionando(tipo);
     setErroAcao(null);
     try {
-      await controlarScraper('capitulos', 'start');
-      await recarregar();
+      await controlarScraper(tipo, 'start');
+      if (tipo === 'capitulos') await capitulos.recarregar();
     } catch (err) {
       setErroAcao(mensagemErroAcao(err));
     } finally {
-      setAcionando(false);
+      setAcionando(null);
     }
   }
 
   return (
     <section className="atualizacao-secao">
-      <h3>Automatic update — Chapters</h3>
+      <h3>Supported sites</h3>
       <p>
-        Every day a scheduled scraper visits each work's approved sources and updates the latest available chapter of
-        each one. The "new chapter" flag in the list only shows up when that value was updated by the scraper — if you
-        edit the chapter manually on a work's page, the flag disappears until the scraper confirms it again.
+        Update the latest chapter of your approved sources, and scan supported sites' catalogs to link works you
+        already track but don't have a source on that site yet.
       </p>
 
       <div className="scraper-controles">
-        <button type="button" onClick={handleAtualizarAgora} disabled={acionando}>
-          {acionando ? 'Please wait…' : 'Update now'}
+        <button type="button" onClick={() => disparar('capitulos')} disabled={acionando !== null}>
+          {acionando === 'capitulos' ? 'Please wait…' : 'Update chapters'}
         </button>
-        <button type="button" onClick={recarregar} className="atualizar-status">
-          Refresh status
-        </button>
-      </div>
-      <p className="execucao-nota">
-        "Update now" runs an extra check without affecting the automatic daily schedule.
-      </p>
-      {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
-
-      <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
-    </section>
-  );
-}
-
-function SecaoObras() {
-  const { run, carregando, erro, recarregar } = useScraperRun('obras');
-  const [acionando, setAcionando] = useState(false);
-  const [erroAcao, setErroAcao] = useState<string | null>(null);
-
-  async function handleAtualizar() {
-    setAcionando(true);
-    setErroAcao(null);
-    try {
-      await controlarScraper('obras', 'start');
-      await recarregar();
-    } catch (err) {
-      setErroAcao(mensagemErroAcao(err));
-    } finally {
-      setAcionando(false);
-    }
-  }
-
-  return (
-    <section className="atualizacao-secao">
-      <h3>Automatic update — Works</h3>
-      <p>
-        Scans each supported site's full catalog and links titles that match works you already track but don't have a
-        source on that site yet — the opposite direction of "find new sources". Only nyxscans is mapped for now.
-      </p>
-
-      <div className="scraper-controles">
-        <button type="button" onClick={handleAtualizar} disabled={acionando}>
-          {acionando ? 'Please wait…' : 'Update works'}
-        </button>
-        <button type="button" onClick={recarregar} className="atualizar-status">
-          Refresh status
+        <button type="button" onClick={() => disparar('obras')} disabled={acionando !== null}>
+          {acionando === 'obras' ? 'Please wait…' : 'Update works'}
         </button>
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
-      <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
+      <h4 className="atualizacao-subtitulo">Chapters — latest run</h4>
+      <StatusExecucaoScraper run={capitulos.run} carregando={capitulos.carregando} erro={capitulos.erro} />
+
+      <h4 className="atualizacao-subtitulo">Works — by site</h4>
+      <ListaSitesSuportados />
+
+      <FilaAprovacoes titulo="Approvals" escopo="suportados" sitesSuportados={sitesSuportados} />
     </section>
   );
 }
 
-function SecaoFontes() {
+function SecaoNovasFontes({ sitesSuportados }: { sitesSuportados: string[] }) {
   const { run, carregando, erro, recarregar } = useScraperRun('fontes');
   const [acionando, setAcionando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
-  const [mostrarPendentes, setMostrarPendentes] = useState(false);
 
   const rodando = run?.status === 'rodando';
 
@@ -128,12 +92,15 @@ function SecaoFontes() {
 
   return (
     <section className="atualizacao-secao">
-      <h3>Automatic update — Sources</h3>
-      <p>Finds new sources (sites) for works that don't have any yet, or new sites a work isn't using yet.</p>
+      <h3>New sources</h3>
+      <p>
+        Search for brand-new sources (outside your supported sites) for works that don't have any yet. Web results go
+        through a stricter title-match threshold and land in the approvals queue below.
+      </p>
 
       <div className="scraper-controles">
         <button type="button" onClick={handleAcao} disabled={acionando}>
-          {acionando ? 'Please wait…' : rodando ? 'Stop search' : 'Start search'}
+          {acionando ? 'Please wait…' : rodando ? 'Stop search' : 'Find new sources'}
         </button>
         <button type="button" onClick={recarregar} className="atualizar-status">
           Refresh status
@@ -143,17 +110,23 @@ function SecaoFontes() {
 
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
 
-      <button type="button" className="toggle-pendentes" onClick={() => setMostrarPendentes((v) => !v)}>
-        {mostrarPendentes ? 'Hide' : 'Show'} pending sources
-      </button>
-      {mostrarPendentes && <FontesPendentesLista />}
+      <FilaAprovacoes titulo="Approvals" escopo="novas" sitesSuportados={sitesSuportados} comBlacklist />
     </section>
   );
 }
 
 export function AtualizacoesPage() {
+  const [sitesSuportados, setSitesSuportados] = useState<string[]>([]);
   const [processando, setProcessando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('sites_suportados')
+      .select('nome')
+      .eq('ativo', true)
+      .then(({ data }) => setSitesSuportados((data ?? []).map((r) => r.nome as string)));
+  }, []);
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -202,9 +175,13 @@ export function AtualizacoesPage() {
     <div className="atualizacao-massa">
       <h2>Updates</h2>
 
-      <SecaoCapitulos />
-      <SecaoObras />
-      <SecaoFontes />
+      <SecaoSitesSuportados sitesSuportados={sitesSuportados} />
+      <SecaoNovasFontes sitesSuportados={sitesSuportados} />
+
+      <section className="atualizacao-secao">
+        <h3>Match settings</h3>
+        <ConfigMatchTitulo />
+      </section>
 
       <section className="atualizacao-secao">
         <h3>Bulk fill via CSV</h3>
