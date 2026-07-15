@@ -58,13 +58,14 @@ export interface ListaItem {
   valor: string;
 }
 
-export type ScraperTipo = 'capitulos' | 'fontes';
+export type ScraperTipo = 'capitulos' | 'obras' | 'fontes';
 export type ScraperStatus = 'rodando' | 'concluido' | 'erro';
 
 export interface ScraperRun {
   id: string;
   tipo: ScraperTipo;
   status: ScraperStatus;
+  site_dominio: string | null;
   iniciado_em: string;
   finalizado_em: string | null;
   mensagem: string | null;

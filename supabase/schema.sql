@@ -54,11 +54,30 @@ create table listas (
 
 create table scraper_runs (
     id uuid primary key default gen_random_uuid(),
-    tipo text not null, -- 'capitulos' | 'fontes'
+    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes')),
     status text not null default 'rodando', -- 'rodando' | 'concluido' | 'erro'
+    site_dominio text, -- nulo p/ 'capitulos'/'fontes' (globais); preenchido por 'obras'
     iniciado_em timestamptz not null default now(),
     finalizado_em timestamptz,
     mensagem text
+);
+
+-- Blacklist de domínios: usada pela descoberta de fontes (discover_fontes.py)
+-- para nunca sugerir de novo um site inteiro. Diferente de 'rejeitado', que é
+-- por fonte específica.
+create table dominios_bloqueados (
+    id uuid primary key default gen_random_uuid(),
+    dominio text not null unique,
+    motivo text,
+    criado_em timestamptz not null default now()
+);
+
+-- Configurações dos scrapers lidas em runtime (sem redeploy). Hoje guarda os
+-- limiares de similaridade de título (chave 'match_titulo').
+create table configuracoes_scraper (
+    chave text primary key,
+    valor jsonb not null,
+    atualizado_em timestamptz not null default now()
 );
 
 create index idx_fontes_obra_id on fontes(obra_id);

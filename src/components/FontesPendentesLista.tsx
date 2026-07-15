@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/localDb';
 import { setFonteAprovacao } from '../db/repo';
+import { adicionarDominioBloqueado, dominioDeUrl } from '../lib/scraperConfig';
 
 export function FontesPendentesLista() {
   const fontes = useLiveQuery(() => db.fontes.where('status_aprovacao').equals('pendente').toArray(), []);
@@ -22,6 +23,14 @@ export function FontesPendentesLista() {
       .filter((g) => g.obra)
       .sort((a, b) => a.obra!.titulo.localeCompare(b.obra!.titulo));
   }, [fontes, obras]);
+
+  async function handleBlacklist(url: string, fonteId: string) {
+    const dominio = dominioDeUrl(url);
+    if (!dominio) return;
+    if (!confirm(`Blacklist ${dominio}? It won't be suggested again for any work.`)) return;
+    await adicionarDominioBloqueado(dominio, 'Blacklisted from pending sources');
+    await setFonteAprovacao(fonteId, 'rejeitado');
+  }
 
   if (fontes === undefined || obras === undefined) return <p>Loading…</p>;
 
@@ -47,6 +56,9 @@ export function FontesPendentesLista() {
                   </button>
                   <button type="button" onClick={() => setFonteAprovacao(f.id, 'rejeitado')}>
                     Reject
+                  </button>
+                  <button type="button" onClick={() => handleBlacklist(f.url, f.id)}>
+                    Blacklist
                   </button>
                 </div>
               </li>

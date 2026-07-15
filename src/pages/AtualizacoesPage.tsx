@@ -64,6 +64,47 @@ function SecaoCapitulos() {
   );
 }
 
+function SecaoObras() {
+  const { run, carregando, erro, recarregar } = useScraperRun('obras');
+  const [acionando, setAcionando] = useState(false);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
+
+  async function handleAtualizar() {
+    setAcionando(true);
+    setErroAcao(null);
+    try {
+      await controlarScraper('obras', 'start');
+      await recarregar();
+    } catch (err) {
+      setErroAcao(mensagemErroAcao(err));
+    } finally {
+      setAcionando(false);
+    }
+  }
+
+  return (
+    <section className="atualizacao-secao">
+      <h3>Automatic update — Works</h3>
+      <p>
+        Scans each supported site's full catalog and links titles that match works you already track but don't have a
+        source on that site yet — the opposite direction of "find new sources". Only nyxscans is mapped for now.
+      </p>
+
+      <div className="scraper-controles">
+        <button type="button" onClick={handleAtualizar} disabled={acionando}>
+          {acionando ? 'Please wait…' : 'Update works'}
+        </button>
+        <button type="button" onClick={recarregar} className="atualizar-status">
+          Refresh status
+        </button>
+      </div>
+      {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
+
+      <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
+    </section>
+  );
+}
+
 function SecaoFontes() {
   const { run, carregando, erro, recarregar } = useScraperRun('fontes');
   const [acionando, setAcionando] = useState(false);
@@ -162,6 +203,7 @@ export function AtualizacoesPage() {
       <h2>Updates</h2>
 
       <SecaoCapitulos />
+      <SecaoObras />
       <SecaoFontes />
 
       <section className="atualizacao-secao">

@@ -43,10 +43,44 @@ def get_supabase():
     return create_client(url, key)
 
 
-def iniciar_run(supabase, tipo: str) -> str:
-    """Registra o início de uma execução do scraper (tipo: 'capitulos' | 'fontes'). Retorna o id da run."""
-    resp = supabase.table("scraper_runs").insert({"tipo": tipo, "status": "rodando"}).execute()
+def iniciar_run(supabase, tipo: str, site_dominio: str | None = None) -> str:
+    """
+    Registra o início de uma execução do scraper. tipo: 'capitulos' | 'obras' | 'fontes'.
+    site_dominio é preenchido pelas runs por site (ex.: 'obras' varre um site por vez);
+    fica nulo nas buscas globais. Retorna o id da run.
+    """
+    registro = {"tipo": tipo, "status": "rodando"}
+    if site_dominio is not None:
+        registro["site_dominio"] = site_dominio
+    resp = supabase.table("scraper_runs").insert(registro).execute()
     return resp.data[0]["id"]
+
+
+def carregar_config_match(supabase) -> dict:
+    """
+    Lê os limiares de match de título de `configuracoes_scraper` (chave 'match_titulo').
+    Se a linha não existir, cai num default seguro (mesmos valores do seed da migração).
+    """
+    default = {
+        "atualizar_obras": {"limiar_auto_aprovacao": 0.95, "limiar_minimo_pendencia": 0.70},
+        "buscar_novas_fontes": {"limiar_auto_aprovacao": 0.95, "limiar_minimo_pendencia": 0.85},
+    }
+    try:
+        resp = supabase.table("configuracoes_scraper").select("valor").eq("chave", "match_titulo").execute()
+    except Exception:  # noqa: BLE001 - tabela pode não existir ainda; usa default
+        return default
+    if resp.data and isinstance(resp.data[0].get("valor"), dict):
+        return resp.data[0]["valor"]
+    return default
+
+
+def carregar_dominios_bloqueados(supabase) -> set[str]:
+    """Conjunto de domínios em blacklist (dominios_bloqueados). Vazio se a tabela não existir."""
+    try:
+        resp = supabase.table("dominios_bloqueados").select("dominio").execute()
+    except Exception:  # noqa: BLE001
+        return set()
+    return {row["dominio"] for row in (resp.data or []) if row.get("dominio")}
 
 
 def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None) -> None:
@@ -207,3 +241,46 @@ def buscar_candidatos_nyxscans(titulo: str) -> list[tuple[str, str]]:
         if slug:
             candidatos.append((str(titulo_p), str(slug)))
     return candidatos
+
+
+def _extrair_posts(data) -> list[dict]:
+    """Normaliza a resposta de /api/posts para uma lista de dicts (defensivo)."""
+    if isinstance(data, list):
+        return [p for p in data if isinstance(p, dict)]
+    if isinstance(data, dict):
+        posts = data.get("posts") or data.get("data") or data.get("results") or []
+        return [p for p in posts if isinstance(p, dict)]
+    return []
+
+
+def listar_todos_posts_nyxscans(per_page: int = 50, max_paginas: int = 200) -> list[tuple[str, str]]:
+    """
+    Catálogo completo do nyxscans: pagina /api/posts (sem searchTerm) e retorna
+    uma lista de (postTitle, slug). Usado pelo update_obras para casar títulos do
+    catálogo com obras já cadastradas. Para quando uma página vem vazia ou repete
+    os mesmos slugs (proteção contra paginação que não termina).
+    """
+    catalogo: list[tuple[str, str]] = []
+    vistos: set[str] = set()
+    for page in range(1, max_paginas + 1):
+        url = f"https://api.nyxscans.com/api/posts?perPage={per_page}&page={page}"
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+            resp.raise_for_status()
+            posts = _extrair_posts(resp.json())
+        except (requests.RequestException, ValueError):
+            break
+        if not posts:
+            break
+        novos = 0
+        for p in posts:
+            slug = p.get("slug")
+            if not slug or slug in vistos:
+                continue
+            vistos.add(str(slug))
+            titulo_p = p.get("postTitle") or p.get("title") or ""
+            catalogo.append((str(titulo_p), str(slug)))
+            novos += 1
+        if novos == 0:  # página só com slugs repetidos: fim do catálogo
+            break
+    return catalogo
