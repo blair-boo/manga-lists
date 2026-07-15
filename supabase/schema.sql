@@ -29,7 +29,9 @@ create table sites_suportados (
     nome text not null unique,
     url_base text,
     estrategia text not null default 'fetch_direto', -- informativo; o scraper roteia por host (parser dedicado p/ nyxscans)
-    ativo boolean not null default true
+    ativo boolean not null default true,
+    adaptador text, -- id do adaptador designado (NULL = sem adaptador ainda)
+    access_strategy text -- 'http' | 'playwright' | 'flaresolverr'; sobrescreve o padrão do adaptador
 );
 
 create table fontes (
