@@ -102,9 +102,6 @@ function SecaoNovasFontes({ sitesSuportados }: { sitesSuportados: string[] }) {
         <button type="button" onClick={handleAcao} disabled={acionando}>
           {acionando ? 'Please wait…' : rodando ? 'Stop search' : 'Find new sources'}
         </button>
-        <button type="button" onClick={recarregar} className="atualizar-status">
-          Refresh status
-        </button>
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 

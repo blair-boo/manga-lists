@@ -1,6 +1,6 @@
 """
-Estágio 1 do scraper: para cada fonte aprovada, busca o capítulo mais recente
-disponível e recalcula `obras.ultimo_capitulo_lancado`.
+Estágio "capítulos" do scraper: para cada fonte aprovada, busca o capítulo mais
+recente disponível e recalcula `obras.ultimo_capitulo_lancado`.
 
 Uso: python scraper/update_fontes.py
 Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env local).
@@ -10,34 +10,34 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
-import requests
-
 from common import (
-    HEADERS,
-    TIMEOUT,
-    buscar_ultimo_capitulo_nyxscans,
-    eh_nyxscans,
+    SITES_NEXTJS_CMS,
+    buscar_ultimo_capitulo_cms,
+    cms_por_url,
     extrair_maior_capitulo,
     finalizar_run,
     get_supabase,
+    http_get,
     iniciar_run,
-    slug_de_url_nyxscans,
+    resolver_url,
+    slug_de_url_series,
 )
 
 
 def obter_capitulo(url: str) -> float | None:
     """
-    Descobre o último capítulo de uma fonte. nyxscans tem parser dedicado (uma
-    requisição HTTP simples, lê o payload embutido do Next.js). Qualquer outro
-    site cai na heurística genérica de extração de HTML.
+    Descobre o último capítulo de uma fonte (URL já resolvida como absoluta).
+    Sites do mesmo CMS Next.js (nyxscans, ezmanga, …) usam o parser dedicado (lê o
+    payload embutido); qualquer outro cai na heurística genérica de HTML.
     """
-    if eh_nyxscans(url):
-        slug = slug_de_url_nyxscans(url)
+    cms = cms_por_url(url)
+    if cms is not None:
+        _, cfg = cms
+        slug = slug_de_url_series(url)
         if slug:
-            return buscar_ultimo_capitulo_nyxscans(slug)
-        # sem slug reconhecível: cai pro genérico abaixo
+            return buscar_ultimo_capitulo_cms(cfg, slug)
 
-    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = http_get(url)
     resp.raise_for_status()
     return extrair_maior_capitulo(resp.text)
 
@@ -47,6 +47,12 @@ def executar(supabase) -> int:
     fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
     print(f"{len(fontes)} fontes aprovadas para verificar.")
 
+    # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
+    sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
+    base_por_site = {s["nome"]: s.get("url_base") for s in sites}
+    for nome, cfg in SITES_NEXTJS_CMS.items():
+        base_por_site.setdefault(nome, cfg["site"])
+
     # lista de (capitulo, veio_do_scraper) por obra, pra saber depois se o maior
     # valor de cada obra foi atualizado pelo scraper ou é um valor manual antigo.
     capitulos_por_obra: dict[str, list[tuple[float, bool]]] = {}
@@ -54,7 +60,8 @@ def executar(supabase) -> int:
 
     for fonte in fontes:
         try:
-            capitulo = obter_capitulo(fonte["url"])
+            url = resolver_url(fonte["url"], base_por_site.get(fonte.get("site")))
+            capitulo = obter_capitulo(url)
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:
@@ -66,10 +73,10 @@ def executar(supabase) -> int:
                     }
                 ).eq("id", fonte["id"]).execute()
                 capitulos_por_obra.setdefault(fonte["obra_id"], []).append((capitulo, True))
-                print(f"  ok: {fonte['url']} -> cap. {capitulo}")
+                print(f"  ok: {url} -> cap. {capitulo}")
             else:
                 supabase.table("fontes").update({"ultima_verificacao": agora}).eq("id", fonte["id"]).execute()
-                print(f"  aviso: não achei número de capítulo em {fonte['url']}")
+                print(f"  aviso: não achei número de capítulo em {url}")
                 if fonte["ultimo_capitulo_detectado"] is not None:
                     capitulos_por_obra.setdefault(fonte["obra_id"], []).append(
                         (fonte["ultimo_capitulo_detectado"], fonte["atualizado_por_scraper"])

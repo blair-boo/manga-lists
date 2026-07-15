@@ -58,6 +58,7 @@ export function ListaPrincipalPage() {
   const [generosSel, setGenerosSel] = useState<string[]>([]);
   const [tagsSel, setTagsSel] = useState<string[]>([]);
   const [soNovoCapitulo, setSoNovoCapitulo] = useState(false);
+  const [soUnsourced, setSoUnsourced] = useState(false);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -99,6 +100,16 @@ export function ListaPrincipalPage() {
     [obras]
   );
 
+  const semFonte = useMemo(
+    () => (o: Obra) => (fontesPorObra.get(o.id)?.length ?? 0) === 0,
+    [fontesPorObra]
+  );
+
+  const contagemUnsourced = useMemo(
+    () => (obras ?? []).filter(semFonte).length,
+    [obras, semFonte]
+  );
+
   const filtradas = useMemo(() => {
     if (!obras) return [];
     const buscaLower = busca.trim().toLowerCase();
@@ -110,8 +121,9 @@ export function ListaPrincipalPage() {
       .filter((o) => generosSel.every((g) => (o.generos ?? []).includes(g)))
       .filter((o) => tagsSel.every((t) => (o.tags ?? []).includes(t)))
       .filter((o) => !soNovoCapitulo || temNovoCapitulo(o))
+      .filter((o) => !soUnsourced || semFonte(o))
       .sort((a, b) => comparar(a, b, ordenacao));
-  }, [obras, busca, tipo, statusLeitura, statusPublicacao, generosSel, tagsSel, soNovoCapitulo, ordenacao]);
+  }, [obras, busca, tipo, statusLeitura, statusPublicacao, generosSel, tagsSel, soNovoCapitulo, soUnsourced, semFonte, ordenacao]);
 
   const temFiltroAtivo =
     !!busca ||
@@ -120,7 +132,8 @@ export function ListaPrincipalPage() {
     !!statusPublicacao ||
     generosSel.length > 0 ||
     tagsSel.length > 0 ||
-    soNovoCapitulo;
+    soNovoCapitulo ||
+    soUnsourced;
 
   function limparFiltros() {
     setBusca('');
@@ -130,6 +143,7 @@ export function ListaPrincipalPage() {
     setGenerosSel([]);
     setTagsSel([]);
     setSoNovoCapitulo(false);
+    setSoUnsourced(false);
   }
 
   const carregando = obras === undefined;
@@ -210,6 +224,14 @@ export function ListaPrincipalPage() {
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className={`status-chip status-chip-unsourced ${soUnsourced ? 'ativo' : ''}`}
+          onClick={() => setSoUnsourced((v) => !v)}
+        >
+          Unsourced
+          <span className="status-chip-contagem">{contagemUnsourced}</span>
+        </button>
       </div>
 
       <div className="lista-principal-toolbar">

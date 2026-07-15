@@ -88,7 +88,10 @@ Deno.serve(async (req: Request) => {
     }
     const runsData = await runsResp.json();
     const ultimaRun = runsData.workflow_runs?.[0];
-    if (!ultimaRun || !['in_progress', 'queued'].includes(ultimaRun.status)) {
+    // Cancela qualquer run que ainda não terminou (queued, pending, in_progress,
+    // waiting, requested…). Antes só pegava in_progress/queued e deixava runs
+    // presas em 'pending' sem como parar.
+    if (!ultimaRun || ultimaRun.status === 'completed') {
       return jsonResponse({ ok: true, mensagem: 'Nenhuma execução em andamento pra cancelar' });
     }
 

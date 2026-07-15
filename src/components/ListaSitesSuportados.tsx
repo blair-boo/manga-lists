@@ -20,7 +20,7 @@ const STATUS_CLASSE: Record<ScraperRun['status'], string> = {
 };
 
 export function ListaSitesSuportados() {
-  const { sites, carregando, erro, recarregar } = useSitesSuportados();
+  const { sites, carregando, erro } = useSitesSuportados();
   const [expandido, setExpandido] = useState<string | null>(null);
 
   if (carregando) return <p className="execucao-status">Loading sites…</p>;
@@ -32,9 +32,6 @@ export function ListaSitesSuportados() {
       <div className="sites-suportados-cabecalho">
         <span>Site</span>
         <span>Works — latest run</span>
-        <button type="button" className="atualizar-status" onClick={recarregar}>
-          Refresh
-        </button>
       </div>
 
       {sites.map(({ site, ultimaRunObras }) => {

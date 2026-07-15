@@ -20,6 +20,16 @@ const FILTROS_BASE: { valor: StatusAprovacao; rotulo: string }[] = [
   { valor: 'rejeitado', rotulo: 'Rejected' },
 ];
 
+/** Título aproximado da obra no site, derivado do slug da URL (para conferência). */
+function tituloNoSite(url: string): string {
+  try {
+    const seg = new URL(url, 'https://x.invalid').pathname.split('/').filter(Boolean).pop() ?? '';
+    return decodeURIComponent(seg).replace(/[-_]+/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
+
 interface Props {
   titulo: string;
   /** Nomes dos sites suportados, para separar fontes de domínio suportado vs web. */
@@ -156,11 +166,18 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                 </Link>
                 <ul>
                   {lista.map((f) => (
-                    <li key={f.id} className="fonte-item">
-                      <a href={f.url} target="_blank" rel="noreferrer">
-                        {f.site || f.url}
-                      </a>
-                      {f.ultimo_capitulo_detectado != null && <span>ch. {f.ultimo_capitulo_detectado}</span>}
+                    <li key={f.id} className="fonte-item fonte-aprovacao">
+                      <div className="fonte-aprovacao-info">
+                        <span className="fonte-site-titulo">
+                          {f.site ?? dominioDeUrl(f.url)}: {tituloNoSite(f.url) || '—'}
+                        </span>
+                        <a href={f.url} target="_blank" rel="noreferrer" className="fonte-link">
+                          {f.url}
+                        </a>
+                        {f.ultimo_capitulo_detectado != null && (
+                          <span className="scraper-data">detected ch. {f.ultimo_capitulo_detectado}</span>
+                        )}
+                      </div>
                       <div className="fonte-acoes">
                         {f.status_aprovacao !== 'aprovado' && (
                           <button type="button" onClick={() => setFonteAprovacao(f.id, 'aprovado')}>

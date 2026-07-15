@@ -358,6 +358,11 @@ label {
   border-color: rgba(31, 157, 85, 0.6);
 }
 
+.status-chip-unsourced.ativo {
+  background: rgba(201, 138, 18, 0.16);
+  border-color: rgba(201, 138, 18, 0.6);
+}
+
 .status-chip-contagem {
   font-size: 11px;
   background: var(--bg);
@@ -1097,6 +1102,30 @@ label {
   background: var(--accent-bg);
   border-color: var(--accent-border);
   color: var(--text-h);
+}
+
+.fonte-aprovacao {
+  align-items: flex-start;
+}
+
+.fonte-aprovacao-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fonte-site-titulo {
+  font-weight: 600;
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.fonte-link {
+  color: var(--accent);
+  font-size: 12px;
+  word-break: break-all;
 }
 
 /* Editor de limiares */

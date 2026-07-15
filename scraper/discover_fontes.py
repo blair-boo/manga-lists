@@ -5,10 +5,7 @@ busca web genérica (DuckDuckGo), ignorando domínios em `dominios_bloqueados`.
 
 O status de cada fonte encontrada é decidido pelo score de similaridade de
 título (rapidfuzz), usando os limiares de `configuracoes_scraper`
-(chave 'match_titulo' → 'buscar_novas_fontes'):
-  score >= limiar_auto_aprovacao   -> entra 'aprovado'
-  score >= limiar_minimo_pendencia -> entra 'pendente' (fila de revisão)
-  abaixo disso                     -> descartada (nem registra)
+(chave 'match_titulo' -> 'buscar_novas_fontes').
 
 Uso: python scraper/discover_fontes.py
 Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env local).
@@ -17,23 +14,23 @@ Requer SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (ou scraper/.env loc
 import sys
 import time
 import traceback
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
 from common import (
-    HEADERS,
-    buscar_candidatos_nyxscans,
+    buscar_candidatos_cms,
     carregar_config_match,
     carregar_dominios_bloqueados,
+    cms_por_url,
     finalizar_run,
     get_supabase,
+    http_get,
     iniciar_run,
 )
 from match_titulo import decidir_status, melhor_match
 
-TIMEOUT = 20
 DELAY_ENTRE_REQUESTS = 1.5
 
 PALAVRAS_CHAVE_AGREGADOR = (
@@ -50,30 +47,31 @@ def dominio_de_url(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
-def buscar_nyxscans(obra: dict) -> tuple[str, float] | None:
-    """Melhor resultado no nyxscans (API de busca) para a obra: (url, score) ou None."""
+def buscar_cms(cfg: dict, obra: dict) -> tuple[str, float] | None:
+    """Melhor resultado na API do CMS (nyxscans/ezmanga) para a obra: (url, score) ou None."""
     melhor_url = None
     melhor_score = 0.0
-    for titulo_resultado, slug in buscar_candidatos_nyxscans(obra["titulo"]):
+    for titulo_resultado, slug in buscar_candidatos_cms(cfg, obra["titulo"]):
         score = melhor_match(titulo_resultado, obra)
         if score > melhor_score:
             melhor_score = score
-            melhor_url = f"https://nyxscans.com/series/{slug}"
+            melhor_url = f"{cfg['site']}/series/{slug}"
     return (melhor_url, melhor_score) if melhor_url else None
 
 
 def buscar_no_site(url_base: str, obra: dict) -> tuple[str, float] | None:
     """
-    Busca interna no site. nyxscans usa a API dedicada; os demais caem no padrão
-    genérico `?s=` (comum em temas WordPress tipo Madara). Retorna (url, score) do
-    resultado mais parecido com o título, ou None.
+    Busca interna no site. Sites do CMS Next.js usam a API dedicada; os demais
+    caem no padrão genérico `?s=` (comum em temas WordPress tipo Madara). Retorna
+    (url absoluta, score) do resultado mais parecido, ou None.
     """
-    if "nyxscans" in url_base:
-        return buscar_nyxscans(obra)
+    cms = cms_por_url(url_base)
+    if cms is not None:
+        return buscar_cms(cms[1], obra)
 
     busca_url = urljoin(url_base, f"/?s={quote(obra['titulo'])}")
     try:
-        resp = requests.get(busca_url, headers=HEADERS, timeout=TIMEOUT)
+        resp = http_get(busca_url)
         resp.raise_for_status()
     except requests.RequestException as exc:
         print(f"    busca em {url_base} falhou: {exc}", file=sys.stderr)
@@ -89,21 +87,34 @@ def buscar_no_site(url_base: str, obra: dict) -> tuple[str, float] | None:
         score = melhor_match(texto, obra)
         if score > melhor_score:
             melhor_score = score
-            melhor_url = a["href"]
+            melhor_url = urljoin(url_base, a["href"])  # sempre absoluta
     return (melhor_url, melhor_score) if melhor_url else None
+
+
+def _resolver_href_ddg(href: str) -> str:
+    """
+    O DuckDuckGo HTML envolve o link real num redirect
+    (//duckduckgo.com/l/?uddg=<url-encodada>). Extrai a URL de destino real.
+    """
+    if href.startswith("//"):
+        href = "https:" + href
+    p = urlparse(href)
+    if "duckduckgo.com" in (p.hostname or "") and p.path.startswith("/l/"):
+        alvo = parse_qs(p.query).get("uddg")
+        if alvo:
+            return unquote(alvo[0])
+    return href
 
 
 def buscar_fallback_web(obra: dict, dominios_bloqueados: set[str]) -> tuple[str, float] | None:
     """
-    Fallback de busca web (DuckDuckGo HTML, sem API key). Ignora domínios em
-    blacklist e só considera resultados em domínios que parecem agregadores.
-    Retorna (url, score) do melhor, ou None.
+    Fallback de busca web (DuckDuckGo HTML, sem API key). Resolve o redirect do
+    DDG pra URL real, ignora domínios em blacklist e só considera domínios que
+    parecem agregadores. Retorna (url, score) do melhor, ou None.
     """
     query = quote(f"{obra['titulo']} manga read online")
     try:
-        resp = requests.get(
-            f"https://html.duckduckgo.com/html/?q={query}", headers=HEADERS, timeout=TIMEOUT
-        )
+        resp = http_get(f"https://html.duckduckgo.com/html/?q={query}")
         resp.raise_for_status()
     except requests.RequestException as exc:
         print(f"    busca web falhou: {exc}", file=sys.stderr)
@@ -113,8 +124,8 @@ def buscar_fallback_web(obra: dict, dominios_bloqueados: set[str]) -> tuple[str,
     melhor_url = None
     melhor_score = 0.0
     for a in soup.select("a.result__a"):
-        href = a.get("href") or ""
-        if dominio_de_url(href) in dominios_bloqueados:
+        href = _resolver_href_ddg(a.get("href") or "")
+        if not href or dominio_de_url(href) in dominios_bloqueados:
             continue
         if not any(p in href.lower() for p in PALAVRAS_CHAVE_AGREGADOR):
             continue
