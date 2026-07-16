@@ -118,7 +118,6 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
       <h4 className="atualizacao-subtitulo">Chapters — latest run</h4>
       <StatusExecucaoScraper run={capitulos.run} carregando={capitulos.carregando} erro={capitulos.erro} />
 
-      <h4 className="atualizacao-subtitulo">Works — by site</h4>
       <ListaSitesSuportados />
 
       <h4 className="atualizacao-subtitulo">Domain approvals</h4>
@@ -130,7 +129,6 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
       <AdicionarDominioManual />
       <AprovacaoDominios />
 
-      <h4 className="atualizacao-subtitulo">Domains without adapter</h4>
       <DominiosSemAdaptador />
 
       <FilaAprovacoes titulo="Approvals" escopo="suportados" sitesSuportados={sitesSuportados} />

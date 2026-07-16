@@ -931,6 +931,54 @@ label {
   background: var(--accent-bg);
 }
 
+/* Busca com autocomplete pra vincular obra (VinculoObraSelect) — mesmo padrão do TagPicker. */
+.vinculo-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vinculo-busca input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.vinculo-busca-selecionada {
+  font-size: 13px;
+}
+
+.vinculo-busca-sugestoes {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-hover);
+}
+
+.vinculo-busca-sugestoes li button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.vinculo-busca-sugestoes li button:hover {
+  background: var(--accent-bg);
+}
+
 /* Checkbox inline (ex.: End of Season) */
 .check-inline {
   flex-direction: row;

@@ -40,6 +40,7 @@ function EntradasDiagnostico({ diagnostico }: { diagnostico: DiagnosticoAdaptado
  * separada "Domain approvals" — este componente não decide aprovação.
  */
 export function DominiosSemAdaptador() {
+  const [aberta, setAberta] = useState(false);
   const [sites, setSites] = useState<SiteSuportado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -80,40 +81,53 @@ export function DominiosSemAdaptador() {
 
   return (
     <div className="dominios-sem-adaptador">
-      <div className="scraper-controles">
-        <button type="button" onClick={detectar} disabled={acionando}>
-          {acionando ? 'Please wait…' : 'Detect adapters'}
-        </button>
-        <button type="button" className="botao-secundario" onClick={() => void recarregar()} disabled={carregando}>
-          Refresh
-        </button>
-      </div>
-      {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
+      <button
+        type="button"
+        className="fila-aprovacoes-toggle"
+        onClick={() => setAberta((v) => !v)}
+        aria-expanded={aberta}
+      >
+        {aberta ? '▾' : '▸'} Domains without adapter ({carregando ? '…' : sites.length})
+      </button>
 
-      <StatusExecucaoScraper run={designar.run} carregando={designar.carregando} erro={designar.erro} />
+      {aberta && (
+        <div className="fila-aprovacoes-corpo">
+          <div className="scraper-controles">
+            <button type="button" onClick={detectar} disabled={acionando}>
+              {acionando ? 'Please wait…' : 'Detect adapters'}
+            </button>
+            <button type="button" className="botao-secundario" onClick={() => void recarregar()} disabled={carregando}>
+              Refresh
+            </button>
+          </div>
+          {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
-      {carregando ? (
-        <p className="execucao-status">Loading…</p>
-      ) : erro ? (
-        <p className="execucao-status execucao-erro">Error loading: {erro}</p>
-      ) : sites.length === 0 ? (
-        <p className="execucao-status">Every registered domain has an adapter. Nothing to review.</p>
-      ) : (
-        <ul className="dominios-lista">
-          {sites.map((site) => (
-            <li key={site.id} className="dominio-item">
-              <div className="dominio-cabecalho">
-                <span className="dominio-nome">{site.nome}</span>
-                {site.url_base && (
-                  <a href={site.url_base} target="_blank" rel="noreferrer" className="dominio-link">
-                    open
-                  </a>
-                )}
-              </div>
-              <EntradasDiagnostico diagnostico={site.diagnostico} />
-            </li>
-          ))}
-        </ul>
+          <StatusExecucaoScraper run={designar.run} carregando={designar.carregando} erro={designar.erro} />
+
+          {carregando ? (
+            <p className="execucao-status">Loading…</p>
+          ) : erro ? (
+            <p className="execucao-status execucao-erro">Error loading: {erro}</p>
+          ) : sites.length === 0 ? (
+            <p className="execucao-status">Every registered domain has an adapter. Nothing to review.</p>
+          ) : (
+            <ul className="dominios-lista">
+              {sites.map((site) => (
+                <li key={site.id} className="dominio-item">
+                  <div className="dominio-cabecalho">
+                    <span className="dominio-nome">{site.nome}</span>
+                    {site.url_base && (
+                      <a href={site.url_base} target="_blank" rel="noreferrer" className="dominio-link">
+                        open
+                      </a>
+                    )}
+                  </div>
+                  <EntradasDiagnostico diagnostico={site.diagnostico} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   );

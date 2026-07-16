@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSitesSuportados } from '../hooks/useSitesSuportados';
+import { useSitesSuportados, type SiteComRun } from '../hooks/useSitesSuportados';
 import type { ScraperRun } from '../types';
 
 function formatarDataHora(iso: string | null): string {
@@ -22,7 +22,37 @@ const STATUS_CLASSE: Record<ScraperRun['status'], string> = {
 export function ListaSitesSuportados() {
   const { sites, carregando, erro } = useSitesSuportados();
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [aberta, setAberta] = useState(false);
 
+  return (
+    <div className="dominios-sem-adaptador">
+      <button
+        type="button"
+        className="fila-aprovacoes-toggle"
+        onClick={() => setAberta((v) => !v)}
+        aria-expanded={aberta}
+      >
+        {aberta ? '▾' : '▸'} Approved domains ({carregando ? '…' : sites.length})
+      </button>
+
+      {aberta && <ListaSitesSuportadosCorpo sites={sites} carregando={carregando} erro={erro} expandido={expandido} setExpandido={setExpandido} />}
+    </div>
+  );
+}
+
+function ListaSitesSuportadosCorpo({
+  sites,
+  carregando,
+  erro,
+  expandido,
+  setExpandido,
+}: {
+  sites: SiteComRun[];
+  carregando: boolean;
+  erro: string | null;
+  expandido: string | null;
+  setExpandido: (v: string | null) => void;
+}) {
   if (carregando) return <p className="execucao-status">Loading sites…</p>;
   if (erro) return <p className="execucao-status execucao-erro">Error loading sites: {erro}</p>;
   if (sites.length === 0) return <p className="execucao-status">No supported sites.</p>;

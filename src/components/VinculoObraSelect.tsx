@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useMemo, useState } from 'react';
 import { db } from '../db/localDb';
 
 interface Props {
@@ -9,24 +10,75 @@ interface Props {
 }
 
 /**
- * Busca/seleção de uma obra já cadastrada pra vincular como manga<->novel da
- * mesma história (handout consolidado, Bloco B3). Lista simples por título —
- * biblioteca pessoal, poucas dezenas/centenas de itens.
+ * Busca de título com autocomplete (digitar pra filtrar, clicar numa
+ * sugestão pra selecionar) pra vincular uma obra já cadastrada como
+ * manga<->novel da mesma história (handout de scrapers/ajustes B1). Mesmo
+ * padrão de dropdown de sugestões do TagPicker (sem <datalist>, que o Safari
+ * iOS não abre de forma confiável).
  */
 export function VinculoObraSelect({ excluirId, value, onChange }: Props) {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
-  const opcoes = (obras ?? [])
-    .filter((o) => o.id !== excluirId)
-    .sort((a, b) => a.titulo.localeCompare(b.titulo));
+  const [query, setQuery] = useState('');
+  const [aberto, setAberto] = useState(false);
+
+  const selecionada = useMemo(() => (obras ?? []).find((o) => o.id === value) ?? null, [obras, value]);
+
+  const sugestoes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (obras ?? [])
+      .filter((o) => o.id !== excluirId && (!q || o.titulo.toLowerCase().includes(q)))
+      .sort((a, b) => a.titulo.localeCompare(b.titulo))
+      .slice(0, 8);
+  }, [obras, excluirId, query]);
+
+  if (selecionada) {
+    return (
+      <div className="vinculo-busca">
+        <span className="vinculo-busca-selecionada">
+          {selecionada.titulo} {selecionada.tipo ? `(${selecionada.tipo})` : ''}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            onChange('');
+            setQuery('');
+          }}
+        >
+          Change
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Select a work…</option>
-      {opcoes.map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.titulo} {o.tipo ? `(${o.tipo})` : ''}
-        </option>
-      ))}
-    </select>
+    <div className="vinculo-busca">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 120)}
+        placeholder="Search a title…"
+        autoComplete="off"
+      />
+      {aberto && sugestoes.length > 0 && (
+        <ul className="vinculo-busca-sugestoes">
+          {sugestoes.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(o.id);
+                  setQuery('');
+                }}
+              >
+                {o.titulo} {o.tipo ? `(${o.tipo})` : ''}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
