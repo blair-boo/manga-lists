@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
 import { updateObra } from '../db/repo';
 import { temNovoCapitulo } from '../lib/obra';
+import { dominioDeUrl } from '../lib/scraperConfig';
 import type { Fonte, Obra } from '../types';
 
 function Estrelas({ nota }: { nota: number | null }) {
@@ -112,7 +113,7 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
             {fontes.map((f) => (
               <li key={f.id}>
                 <a href={f.url} target="_blank" rel="noreferrer">
-                  {f.site || f.url}
+                  {f.site || dominioDeUrl(f.url) || f.url}
                 </a>
                 {f.ultimo_capitulo_detectado != null && <span> · ch. {f.ultimo_capitulo_detectado}</span>}
                 <StatusScraper fonte={f} compact />

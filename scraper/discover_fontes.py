@@ -191,11 +191,14 @@ def executar(supabase) -> int:
         if encontrou_em_site_fixo or ja_tem:
             continue
 
-        # Nenhuma fonte em nenhum site fixo: fallback de busca web
+        # Nenhuma fonte em nenhum site fixo: fallback de busca web. O nome exibido
+        # é o domínio (ex.: 'coolscans.net'), não o link inteiro (handout consolidado A6).
         time.sleep(DELAY_ENTRE_REQUESTS)
         resultado = buscar_fallback_web(obra, dominios_bloqueados)
-        if resultado and registrar(obra["id"], None, resultado[0], resultado[1]):
-            print(f"  {obra['titulo']}: web {resultado[1]:.2f} -> {resultado[0]}")
+        if resultado:
+            nome_dominio = dominio_de_url(resultado[0]) or None
+            if registrar(obra["id"], nome_dominio, resultado[0], resultado[1]):
+                print(f"  {obra['titulo']}: web {resultado[1]:.2f} -> {resultado[0]}")
 
     if novas_fontes:
         supabase.table("fontes").insert(novas_fontes).execute()

@@ -9,7 +9,7 @@ import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
 import { useToast } from '../components/Toast';
 import { deriveSite } from '../lib/site';
-import { registrarDominioManual } from '../lib/scraperConfig';
+import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
 import type { Fonte, Obra, StatusAprovacao } from '../types';
 
 function statusBadgeClasse(status: StatusAprovacao): string {
@@ -45,7 +45,7 @@ function FonteItem({ fonte }: { fonte: Fonte }) {
   return (
     <li className="fonte-item">
       <a href={fonte.url} target="_blank" rel="noreferrer">
-        {fonte.site || fonte.url}
+        {fonte.site || dominioDeUrl(fonte.url) || fonte.url}
       </a>
       <span className={statusBadgeClasse(fonte.status_aprovacao)}>{statusAprovacaoLabel(fonte.status_aprovacao)}</span>
       <label className="fonte-capitulo">
@@ -272,6 +272,16 @@ export function DetalheObraPage() {
           </label>
 
           <label>
+            Current chapter
+            <input
+              type="number"
+              step="any"
+              value={draft.capitulo_atual ?? ''}
+              onChange={(e) => setCampo('capitulo_atual', e.target.value === '' ? null : Number(e.target.value))}
+            />
+          </label>
+
+          <label>
             Publication status
             <select
               value={draft.status_publicacao ?? ''}
@@ -303,16 +313,6 @@ export function DetalheObraPage() {
               End of Season
             </label>
           )}
-
-          <label>
-            Current chapter
-            <input
-              type="number"
-              step="any"
-              value={draft.capitulo_atual ?? ''}
-              onChange={(e) => setCampo('capitulo_atual', e.target.value === '' ? null : Number(e.target.value))}
-            />
-          </label>
 
           <label>
             Rating

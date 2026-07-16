@@ -80,7 +80,7 @@ export function CadastrarPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const urlsValidas = urlsFontes.map((u) => u.trim()).filter(Boolean);
-    if (!titulo.trim() || !statusLeitura || capituloAtual === '' || urlsValidas.length === 0) return;
+    if (!titulo.trim() || !tipo) return;
 
     setSalvando(true);
     const obra: NovaObra = {
@@ -89,8 +89,8 @@ export function CadastrarPage() {
       titulos_alternativos: titulosAlternativos.length > 0 ? titulosAlternativos : null,
       autor: autor.trim() || null,
       capa_url: capaUrl.trim() || null,
-      capitulo_atual: Number(capituloAtual),
-      status_leitura: statusLeitura as StatusLeitura,
+      capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
+      status_leitura: (statusLeitura || null) as StatusLeitura | null,
       status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
       fim_de_temporada: statusPublicacao === 'Hiatus' ? fimDeTemporada : false,
       ultimo_capitulo_lancado: null,
@@ -125,52 +125,22 @@ export function CadastrarPage() {
           <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
         </label>
 
-        <TagPicker
-          label="Alternative title"
-          value={titulosAlternativos}
-          options={[]}
-          onChange={setTitulosAlternativos}
-        />
-
-        <label>
-          Author
-          <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
-        </label>
-
-        <label>
-          Cover (URL)
-          <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
-        </label>
-        <CapaUploader onUploaded={setCapaUrl} />
-        {capaUrl && <img src={capaUrl} alt="Cover preview" className="capa-preview" />}
-
-        <button
-          type="button"
-          className="toggle-completo"
-          onClick={() => setCompleto((v) => !v)}
-          aria-expanded={completo}
-        >
-          {completo ? '− Quick add' : '+ Full details'}
-        </button>
-
         <div className="detalhe-obra-grid">
-          {completo && (
-            <label>
-              Type
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-                <option value="">—</option>
-                {tipos.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <label>
+            Type *
+            <select value={tipo} onChange={(e) => setTipo(e.target.value)} required>
+              <option value="">—</option>
+              {tipos.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label>
-            Reading status *
-            <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)} required>
+            Reading status
+            <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
               <option value="">—</option>
               {statusLeituraOpcoes.map((v) => (
                 <option key={v} value={v}>
@@ -178,6 +148,16 @@ export function CadastrarPage() {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label>
+            Current chapter
+            <input
+              type="number"
+              step="any"
+              value={capituloAtual}
+              onChange={(e) => setCapituloAtual(e.target.value)}
+            />
           </label>
 
           {completo && (
@@ -205,17 +185,6 @@ export function CadastrarPage() {
             </label>
           )}
 
-          <label>
-            Current chapter *
-            <input
-              type="number"
-              step="any"
-              value={capituloAtual}
-              onChange={(e) => setCapituloAtual(e.target.value)}
-              required
-            />
-          </label>
-
           {completo && (
             <label>
               Rating
@@ -233,6 +202,25 @@ export function CadastrarPage() {
 
         {completo && (
           <>
+            <TagPicker
+              label="Alternative title"
+              value={titulosAlternativos}
+              options={[]}
+              onChange={setTitulosAlternativos}
+            />
+
+            <label>
+              Author
+              <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
+            </label>
+
+            <label>
+              Cover (URL)
+              <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
+            </label>
+            <CapaUploader onUploaded={setCapaUrl} />
+            {capaUrl && <img src={capaUrl} alt="Cover preview" className="capa-preview" />}
+
             <TagPicker label="Genres" value={generos} options={generosOpcoes} onChange={setGeneros} />
             <TagPicker label="Tags" value={tags} options={tagsOpcoes} onChange={setTags} />
             <label>
@@ -242,8 +230,17 @@ export function CadastrarPage() {
           </>
         )}
 
+        <button
+          type="button"
+          className="toggle-completo"
+          onClick={() => setCompleto((v) => !v)}
+          aria-expanded={completo}
+        >
+          {completo ? '− Quick add' : '+ Full details'}
+        </button>
+
         <div className="urls-fontes">
-          <span className="urls-fontes-label">Source URL *</span>
+          <span className="urls-fontes-label">Source URL</span>
           {urlsFontes.map((url, i) => (
             <div key={i} className="urls-fontes-linha">
               <input
@@ -251,7 +248,6 @@ export function CadastrarPage() {
                 value={url}
                 onChange={(e) => handleUrlChange(i, e.target.value)}
                 placeholder="https://…"
-                required={i === 0}
               />
               {urlsFontes.length > 1 && (
                 <button type="button" onClick={() => removerUrl(i)} aria-label="Remove URL">
