@@ -32,9 +32,12 @@ function EntradasDiagnostico({ diagnostico }: { diagnostico: DiagnosticoAdaptado
 
 /**
  * Fila "domínio sem adaptador" (ver HANDOUT_ARQUITETURA_SCRAPERS, Modo
- * Diagnóstico). Lista os domínios de sites_suportados com adaptador NULL e
- * mostra o relatório de diagnóstico anexado, dando um ponto de partida para
- * escrever/designar um adaptador manualmente. O botão dispara a auto-detecção.
+ * Diagnóstico). Lista os domínios já APROVADOS (ativo=true) de
+ * sites_suportados que ainda não têm adaptador designado e mostra o
+ * relatório de diagnóstico anexado, dando um ponto de partida para
+ * escrever/designar um adaptador manualmente. O botão dispara a
+ * auto-detecção. Domínios pendentes de aprovação (ativo=false) ficam na fila
+ * separada "Domain approvals" — este componente não decide aprovação.
  */
 export function DominiosSemAdaptador() {
   const [sites, setSites] = useState<SiteSuportado[]>([]);
@@ -50,6 +53,7 @@ export function DominiosSemAdaptador() {
     const { data, error } = await supabase
       .from('sites_suportados')
       .select('*')
+      .eq('ativo', true)
       .is('adaptador', null)
       .order('nome');
     if (error) setErro(error.message);

@@ -4,6 +4,7 @@ import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { useListasPorCategoria } from '../hooks/useListas';
+import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { capitulosAtrasados, temNovoCapitulo } from '../lib/obra';
 import type { Fonte, Obra } from '../types';
 
@@ -45,6 +46,7 @@ function comparar(a: Obra, b: Obra, ordem: Ordenacao): number {
 export function ListaPrincipalPage() {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
   const fontes = useLiveQuery(() => db.fontes.toArray(), []);
+  const sitesAtivos = useSitesAtivos();
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
@@ -297,7 +299,7 @@ export function ListaPrincipalPage() {
       ) : (
         <div className={`grid-obras ${viewMode === 'list' ? 'list-view' : ''}`}>
           {filtradas.map((obra) => (
-            <ObraCard key={obra.id} obra={obra} fontes={fontesPorObra.get(obra.id) ?? []} />
+            <ObraCard key={obra.id} obra={obra} fontes={fontesPorObra.get(obra.id) ?? []} sitesAtivos={sitesAtivos} />
           ))}
         </div>
       )}

@@ -1,18 +1,26 @@
 """
 Estágio "designar" do scraper: auto-detecção e auto-designação de adaptadores
-para domínios de `sites_suportados` que ainda não têm adaptador designado
-(ver HANDOUT_ARQUITETURA_SCRAPERS, seção "Fluxo de cadastro de fonte nova").
+para domínios de `sites_suportados` já APROVADOS (`ativo=true`) que ainda não
+têm adaptador designado (ver HANDOUT_ARQUITETURA_SCRAPERS e o handout
+consolidado, Bloco C — aprovação de domínio).
 
-Para cada domínio com `adaptador IS NULL`:
+IMPORTANTE: só processa domínios com `ativo=true`. A aprovação do domínio
+(virar `ativo=true`) é uma decisão explícita da usuária (fila de aprovação de
+domínio ou inserção manual na página de Updates) — este estágio nunca aprova
+um domínio sozinho, só detecta o adaptador de domínios já aprovados. Domínios
+pendentes (`ativo=false`, aguardando decisão) ficam de fora até serem
+aprovados.
+
+Para cada domínio aprovado com `adaptador IS NULL`:
   - roda REGISTRY.detect(url); se algum adaptador reconhece o site, grava o
     vínculo domínio->adaptador (adaptador + access_strategy do padrão que
-    funcionou), limpa o diagnóstico e ativa o site (passa a ser varrido).
+    funcionou) e limpa o diagnóstico.
   - se nenhum adaptador reconhece, roda REGISTRY.diagnose(url) e grava o
     relatório em `diagnostico` (jsonb) para a fila de aprovação mostrar
-    "domínio sem adaptador". O domínio segue com adaptador NULL e inativo.
+    "domínio sem adaptador". O domínio segue com adaptador NULL.
 
 Disparado manualmente pelo botão "Detect adapters" na aba Updates (via Edge
-Function) e automaticamente quando uma fonte manual introduz um domínio novo.
+Function) e automaticamente quando um domínio novo é aprovado.
 
 Uso: python scraper/designar_adaptadores.py
 """
@@ -39,7 +47,7 @@ def _relatorio_diagnostico(url: str) -> dict:
 
 
 def processar_site(supabase, site: dict) -> str:
-    """Detecta e designa (ou diagnostica) um domínio. Retorna um rótulo do desfecho."""
+    """Detecta e designa (ou diagnostica) um domínio já aprovado. Retorna um rótulo do desfecho."""
     nome = site["nome"]
     url = site.get("url_base") or f"https://{nome}"
 
@@ -51,7 +59,6 @@ def processar_site(supabase, site: dict) -> str:
                 "adaptador": adapter.id,
                 "access_strategy": estrategia,
                 "diagnostico": None,
-                "ativo": True,
             }
         ).eq("id", site["id"]).execute()
         print(f"  {nome}: designado -> {adapter.id} ({estrategia})")
@@ -64,15 +71,16 @@ def processar_site(supabase, site: dict) -> str:
 
 
 def executar(supabase) -> tuple[int, int]:
-    """Retorna (designados, sem_adaptador)."""
+    """Retorna (designados, sem_adaptador). Só considera domínios já aprovados (ativo=true)."""
     sites = (
         supabase.table("sites_suportados")
         .select("id, nome, url_base, adaptador, access_strategy")
+        .eq("ativo", True)
         .is_("adaptador", "null")
         .execute()
         .data
     )
-    print(f"{len(sites)} domínio(s) sem adaptador para detectar.")
+    print(f"{len(sites)} domínio(s) aprovado(s) sem adaptador para detectar.")
 
     designados = 0
     sem_adaptador = 0

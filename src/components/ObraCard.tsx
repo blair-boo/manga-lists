@@ -78,7 +78,14 @@ function CapituloAtualEditavel({ obra }: { obra: Obra }) {
   );
 }
 
-export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
+interface Props {
+  obra: Obra;
+  fontes: Fonte[];
+  /** Nomes dos domínios aprovados para scraping — fontes fora dessa lista ganham o badge "unmonitored". */
+  sitesAtivos?: Set<string>;
+}
+
+export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
   const novoCapitulo = temNovoCapitulo(obra);
 
   return (
@@ -110,15 +117,24 @@ export function ObraCard({ obra, fontes }: { obra: Obra; fontes: Fonte[] }) {
 
         {fontes.length > 0 && (
           <ul className="obra-card-fontes">
-            {fontes.map((f) => (
-              <li key={f.id}>
-                <a href={f.url} target="_blank" rel="noreferrer">
-                  {f.site || dominioDeUrl(f.url) || f.url}
-                </a>
-                {f.ultimo_capitulo_detectado != null && <span> · ch. {f.ultimo_capitulo_detectado}</span>}
-                <StatusScraper fonte={f} compact />
-              </li>
-            ))}
+            {fontes.map((f) => {
+              const nomeSite = f.site || dominioDeUrl(f.url) || f.url;
+              const naoMonitorada = !!sitesAtivos && !sitesAtivos.has(nomeSite.toLowerCase());
+              return (
+                <li key={f.id}>
+                  <a href={f.url} target="_blank" rel="noreferrer">
+                    {nomeSite}
+                  </a>
+                  {naoMonitorada && (
+                    <span className="badge-nao-monitorada" title="Domain not approved for scraping">
+                      unmonitored
+                    </span>
+                  )}
+                  {f.ultimo_capitulo_detectado != null && <span> · ch. {f.ultimo_capitulo_detectado}</span>}
+                  <StatusScraper fonte={f} compact />
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

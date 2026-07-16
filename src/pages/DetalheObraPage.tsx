@@ -4,6 +4,7 @@ import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db/localDb';
 import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateFonte, updateObra, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
+import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
@@ -24,8 +25,10 @@ function statusAprovacaoLabel(status: StatusAprovacao): string {
   return 'pending';
 }
 
-function FonteItem({ fonte }: { fonte: Fonte }) {
+function FonteItem({ fonte, sitesAtivos }: { fonte: Fonte; sitesAtivos: Set<string> }) {
   const [capitulo, setCapitulo] = useState(fonte.ultimo_capitulo_detectado?.toString() ?? '');
+  const nomeSite = fonte.site || dominioDeUrl(fonte.url) || fonte.url;
+  const naoMonitorada = !sitesAtivos.has(nomeSite.toLowerCase());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,8 +48,13 @@ function FonteItem({ fonte }: { fonte: Fonte }) {
   return (
     <li className="fonte-item">
       <a href={fonte.url} target="_blank" rel="noreferrer">
-        {fonte.site || dominioDeUrl(fonte.url) || fonte.url}
+        {nomeSite}
       </a>
+      {naoMonitorada && (
+        <span className="badge-nao-monitorada" title="Domain not approved for scraping">
+          unmonitored
+        </span>
+      )}
       <span className={statusBadgeClasse(fonte.status_aprovacao)}>{statusAprovacaoLabel(fonte.status_aprovacao)}</span>
       <label className="fonte-capitulo">
         ch.
@@ -123,6 +131,7 @@ export function DetalheObraPage() {
   const { mostrarToast } = useToast();
   const obra = useLiveQuery(() => (id ? db.obras.get(id) : undefined), [id]);
   const fontes = useLiveQuery(() => (id ? db.fontes.where('obra_id').equals(id).toArray() : []), [id]);
+  const sitesAtivos = useSitesAtivos();
 
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
@@ -367,7 +376,7 @@ export function DetalheObraPage() {
         <h2>Sources</h2>
         <ul className="fontes-lista">
           {(fontes ?? []).map((f) => (
-            <FonteItem key={f.id} fonte={f} />
+            <FonteItem key={f.id} fonte={f} sitesAtivos={sitesAtivos} />
           ))}
           {(fontes ?? []).length === 0 && <li className="fontes-vazio">No sources yet.</li>}
         </ul>
