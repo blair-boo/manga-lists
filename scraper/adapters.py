@@ -12,7 +12,9 @@ e o registry com detect()/diagnose(). O wiring nos scrapers (update_fontes etc.)
 """
 
 import json
+import re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import requests
 
@@ -196,6 +198,121 @@ class CmsGenericoAdapter(SourceAdapter):
         return f"{self.cfg(url)['site']}/series/{slug}"
 
 
+_NG_STATE_RE = re.compile(r'<script[^>]+id=["\']ng-state["\'][^>]*>(.*?)</script>', re.IGNORECASE | re.DOTALL)
+_TITLE_TAG_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+def _achar_array_capitulos(no) -> list | None:
+    """
+    Busca recursiva no JSON do ng-state (Angular Transfer State) por um array de
+    capítulos: lista de dicts com as chaves 'number' e 'publishStatus' (assinatura
+    dos itens de `data` descrita no handout do ezmanga). A posição exata do array
+    dentro do objeto muda por chave numérica de estado, então a busca é estrutural.
+    """
+    if isinstance(no, list):
+        if no and all(isinstance(it, dict) and "number" in it and "publishStatus" in it for it in no):
+            return no
+        for item in no:
+            achado = _achar_array_capitulos(item)
+            if achado is not None:
+                return achado
+    elif isinstance(no, dict):
+        for v in no.values():
+            achado = _achar_array_capitulos(v)
+            if achado is not None:
+                return achado
+    return None
+
+
+class EzmangaAdapter(SourceAdapter):
+    """
+    CMS Angular com SSR (motor próprio do ezmanga, distinto do CmsGenericoAdapter
+    que é Next.js). Não raspa HTML: lê o JSON embutido no bloco
+    `<script id="ng-state" type="application/json">` (Angular Transfer State).
+
+    O bloqueio historicamente observado no ezmanga é de reputação de IP
+    (Cloudflare), não um challenge de JavaScript — por isso o acesso padrão é
+    'http' direto (ver HANDOUT_CONSOLIDADO_PWA, Bloco D). Se a fase 1 (teste
+    direto do runner) confirmar bloqueio por ASN, a `access_strategy` do
+    domínio troca para um fetcher futuro de proxy residencial/API de scraping,
+    sem tocar neste parser.
+    """
+
+    id = "ezmanga"
+    display_name = "EzManga (Angular ng-state)"
+    access_strategy_padrao = ACCESS_HTTP
+
+    def matches(self, url: str) -> bool:
+        # Reconhecimento pelo próprio conteúdo (não pelo hostname), pra cobrir
+        # qualquer outro site do mesmo motor Angular+ng-state no futuro.
+        raw = fetch_http(url)
+        if raw.status != "ok" or not raw.text:
+            return False
+        return _NG_STATE_RE.search(raw.text) is not None
+
+    def _slug_da_url(self, url: str) -> str | None:
+        partes = [p for p in urlparse(url).path.split("/") if p]
+        if "series" in partes:
+            idx = partes.index("series")
+            if idx + 1 < len(partes):
+                return partes[idx + 1]
+        return None
+
+    def _link_capitulo(self, url_obra: str, obra_slug: str | None, capitulo: dict) -> str:
+        p = urlparse(url_obra)
+        base = f"{p.scheme}://{p.netloc}"
+        slug_cap = capitulo.get("slug") or f"chapter-{capitulo.get('number')}"
+        if not obra_slug:
+            return url_obra
+        return f"{base}/series/{obra_slug}/{slug_cap}"
+
+    def _titulo_da_pagina(self, html: str) -> str | None:
+        m = _TITLE_TAG_RE.search(html)
+        if not m:
+            return None
+        texto = m.group(1).split("|")[0].strip()
+        return texto or None
+
+    def parse(self, raw: RawContent) -> ParseResult:
+        if raw.status == "acesso_bloqueado":
+            return ParseResult(STATUS_BLOQUEADO, diagnostico=raw.diagnostico)
+        if raw.status != "ok" or not raw.text:
+            return ParseResult(STATUS_ERRO, diagnostico=raw.diagnostico or "sem conteúdo")
+
+        m = _NG_STATE_RE.search(raw.text)
+        if not m:
+            return ParseResult(STATUS_INVALIDA, diagnostico='não achei o bloco <script id="ng-state"> no HTML')
+        try:
+            estado = json.loads(m.group(1))
+        except ValueError as exc:
+            return ParseResult(STATUS_INVALIDA, diagnostico=f"ng-state não é JSON válido: {exc}")
+
+        capitulos = _achar_array_capitulos(estado)
+        if capitulos is None:
+            return ParseResult(
+                STATUS_INVALIDA,
+                diagnostico='ng-state reconhecido, mas sem um array de capítulos com "number"/"publishStatus"',
+            )
+
+        publicos = [
+            c for c in capitulos if c.get("publishStatus") == "PUBLIC" and isinstance(c.get("number"), (int, float))
+        ]
+        if not publicos:
+            return ParseResult(STATUS_VAZIA, diagnostico="ng-state reconhecido, sem capítulos com publishStatus=PUBLIC")
+
+        maior = max(publicos, key=lambda c: c["number"])
+        numero = maior["number"]
+        numero = int(numero) if float(numero).is_integer() else float(numero)
+
+        obra_slug = self._slug_da_url(raw.url)
+        return ParseResult(
+            STATUS_OK,
+            titulo_site=self._titulo_da_pagina(raw.text),
+            ultimo_capitulo=numero,
+            link_capitulo=self._link_capitulo(raw.url, obra_slug, maior),
+        )
+
+
 # --- Registry ---------------------------------------------------------------
 
 
@@ -252,7 +369,7 @@ class AdapterRegistry:
 
 
 # Registry global com os adaptadores disponíveis.
-REGISTRY = AdapterRegistry([CmsGenericoAdapter()])
+REGISTRY = AdapterRegistry([CmsGenericoAdapter(), EzmangaAdapter()])
 
 
 def carregar_designacoes(supabase) -> dict[str, dict]:
