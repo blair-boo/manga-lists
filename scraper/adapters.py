@@ -6,17 +6,17 @@ dois eixos independentes:
   - acesso (fetcher): como obter o conteúdo bruto — http / playwright / flaresolverr.
   - leitura (parser): como interpretar o conteúdo e extrair os campos.
 
-Este módulo é aditivo: define a interface, os fetchers, o parser do CMS genérico
-e o registry com detect()/diagnose(). O wiring nos scrapers (update_fontes etc.)
-é feito à parte, reusando estas peças.
+A interface (`SourceAdapter`, `RawContent`, `ParseResult`, fetchers, `STATUS_*`)
+mora em `adapter_base.py` (ver docstring lá — existe pra evitar import
+circular com `adapters_novos.py`). Este módulo define o parser do CMS
+genérico, o registry com detect()/diagnose(), e registra tanto os adaptadores
+originais quanto os de `adapters_novos.py`.
 """
 
 import json
 import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
-
-import requests
 
 from common import (
     _extrair_array_balanceado,
@@ -26,107 +26,24 @@ from common import (
     listar_todos_posts_cms,
 )
 from tipo_titulo import detectar_tipo
-
-# --- Eixo de acesso (fetchers) ---------------------------------------------
-
-ACCESS_HTTP = "http"
-ACCESS_PLAYWRIGHT = "playwright"
-ACCESS_FLARESOLVERR = "flaresolverr"
-
-
-@dataclass
-class RawContent:
-    """Conteúdo bruto obtido pelo fetcher, com status de acesso explícito."""
-
-    status: str  # 'ok' | 'acesso_bloqueado' | 'erro'
-    url: str
-    text: str | None = None
-    diagnostico: str | None = None
-
-
-def _parece_cloudflare(resp) -> bool:
-    if resp.status_code in (403, 503):
-        return True
-    trecho = (resp.text or "")[:2000].lower()
-    return "just a moment" in trecho or "attention required" in trecho or "cf-chl" in trecho
-
-
-def fetch_http(url: str) -> RawContent:
-    """Acesso HTTP direto (cliente Cloudflare-aware do common)."""
-    try:
-        resp = http_get(url)
-    except requests.RequestException as exc:
-        bloqueado = "403" in str(exc) or "cloudflare" in str(exc).lower()
-        return RawContent("acesso_bloqueado" if bloqueado else "erro", url, diagnostico=str(exc))
-    if _parece_cloudflare(resp):
-        return RawContent("acesso_bloqueado", url, diagnostico=f"HTTP {resp.status_code} (possível Cloudflare)")
-    if not resp.ok:
-        return RawContent("erro", url, diagnostico=f"HTTP {resp.status_code}")
-    return RawContent("ok", url, text=resp.text)
-
-
-def fetch_playwright(url: str) -> RawContent:
-    """Stub: renderização com browser headless ainda não configurada."""
-    return RawContent("erro", url, diagnostico="fetcher 'playwright' ainda não configurado (stub)")
-
-
-def fetch_flaresolverr(url: str) -> RawContent:
-    """Stub: solver de Cloudflare ainda não configurado — retorna acesso bloqueado (esperado)."""
-    return RawContent("acesso_bloqueado", url, diagnostico="fetcher 'flaresolverr' ainda não configurado (stub)")
-
-
-FETCHERS = {
-    ACCESS_HTTP: fetch_http,
-    ACCESS_PLAYWRIGHT: fetch_playwright,
-    ACCESS_FLARESOLVERR: fetch_flaresolverr,
-}
-
-
-def resolver_access_strategy(access_strategy_dominio: str | None, adapter: "SourceAdapter | None") -> str:
-    """Estratégia do domínio, se existir; senão, o padrão do adaptador; senão, http."""
-    if access_strategy_dominio:
-        return access_strategy_dominio
-    if adapter is not None:
-        return adapter.access_strategy_padrao
-    return ACCESS_HTTP
-
-
-# --- Eixo de leitura (parser) ----------------------------------------------
-
-# Valores de status do ParseResult:
-STATUS_OK = "ok"  # extraiu os campos
-STATUS_VAZIA = "estrutura_vazia"  # estrutura válida, mas lista vazia (pode ser normal)
-STATUS_INVALIDA = "estrutura_invalida"  # formato inesperado (motor mudou / não é este CMS)
-STATUS_BLOQUEADO = "acesso_bloqueado"  # não acessou (ex.: Cloudflare)
-STATUS_ERRO = "erro"  # falha inesperada
-
-
-@dataclass
-class ParseResult:
-    status: str
-    titulo_site: str | None = None
-    ultimo_capitulo: float | None = None
-    link_capitulo: str | None = None
-    diagnostico: str | None = None
-    tipo_detectado: str | None = None  # 'manga' | 'novel' | None (indefinido; ver tipo_titulo.py)
-
-
-# --- Interface do adaptador -------------------------------------------------
-
-
-class SourceAdapter:
-    id: str = ""
-    display_name: str = ""
-    access_strategy_padrao: str = ACCESS_HTTP
-
-    def matches(self, url: str) -> bool:
-        raise NotImplementedError
-
-    def fetch(self, url: str, access_strategy: str) -> RawContent:
-        return FETCHERS.get(access_strategy, fetch_http)(url)
-
-    def parse(self, raw: RawContent) -> ParseResult:
-        raise NotImplementedError
+from adapter_base import (
+    ACCESS_FLARESOLVERR,
+    ACCESS_HTTP,
+    ACCESS_PLAYWRIGHT,
+    FETCHERS,
+    ParseResult,
+    RawContent,
+    STATUS_BLOQUEADO,
+    STATUS_ERRO,
+    STATUS_INVALIDA,
+    STATUS_OK,
+    STATUS_VAZIA,
+    SourceAdapter,
+    fetch_flaresolverr,
+    fetch_http,
+    fetch_playwright,
+    resolver_access_strategy,
+)
 
 
 def _tem_forma_posts(data) -> bool:
@@ -379,31 +296,51 @@ class AdapterRegistry:
         return entradas
 
 
-# --- Planejamento: futuro adaptador WordPress/Madara -----------------------
+# --- WordPress/Madara/ts_theme: histórico da investigação ------------------
 #
-# Handout consolidado, Bloco B2: anubisscans/hazelnade/kingofshojo/arenascans/
-# mgread foram citados como possível família única "WordPress-leitura". Uma
-# checagem real do HTML de cada um (2026-07-16) refina isso:
+# Planejado em 2026-07-16 (handout consolidado B2) e implementado em
+# 2026-07-17 (HANDOUT_SCRAPERS_NOVELSHUB_TS_MADARA) em adapters_novos.py.
+# A checagem real de cada site corrigiu premissas em duas rodadas:
 #
-# - anubisscans.com, hazelnade.com, arenascans.org, mgread.io: confirmados
-#   tema Madara (`<meta name="generator" content="Powered by Madara - ...">`
-#   no HTML, mesmo com nomes de tema diferentes por site — esse meta é o sinal
-#   de detecção mais confiável, mais estável que o nome da pasta do tema).
-#   Estrutura de URL já separa manga/novel no próprio caminho
-#   (`/manga/{slug}/` vs `/novel/{slug}/`, capítulo em
-#   `/manga/{slug}/chapter-{n}/`) — reforça a detecção de tipo do B1 de graça.
-#   Capítulos tipicamente ficam numa lista `<ul class="version-chap ...">` na
-#   própria página da obra (ou via AJAX `admin-ajax.php` do tema, se a lista
-#   vier paginada) — extrair por esse seletor, nunca por regex solto no HTML
-#   inteiro (evita falso positivo tipo "cap 32345", handout B1).
-# - kingofshojo.com: **não** é Madara (tema "mangareader", URL de capítulo
-#   sem prefixo /manga/, ex. `/{slug}-chapter-{n}/`) — fica de fora dessa
-#   família; precisaria de adaptador próprio ou segue no fallback genérico.
+# - Rodada 1 (16/07): achei que kingofshojo/arenascans/mgread seriam uma
+#   família "ts_theme" única e que kingofshojo NÃO era Madara.
+# - Rodada 2 (17/07, mais profunda — série individual, não só a home):
+#   anubisscans.com e hazelnade.com são Madara real (`listing-chapters_wrap`,
+#   capítulos via POST `{url}ajax/chapters/?t=1`, não admin-ajax.php).
+#   kingofshojo.com e arenascan.com (nome corrigido, sem "s") COMPARTILHAM
+#   `eplister`/`chapterlist` (tema Themesia/ts_reader) — kingofshojo É
+#   ts_theme afinal, a rodada 1 só tinha checado a home, não a página da
+#   série. mgread.io não tem nenhum dos dois marcadores (tema "init-manga"
+#   próprio) — adaptador dedicado (`MgreadAdapter`).
 #
-# Não implementado ainda (fora do escopo desta rodada, que era só planejar):
-# um `MadaraAdapter` com `matches()` checando o meta generator, e `parse()`
-# lendo a lista de capítulos da página da obra.
-REGISTRY = AdapterRegistry([CmsGenericoAdapter(), EzmangaAdapter()])
+# Ver adapters_novos.py para as classes (MadaraAdapter, TsThemeAdapter,
+# MgreadAdapter) e os demais adaptadores desse handout (NovelsHubAdapter,
+# ReadhiveAdapter, VymangaAdapter, MangaFoxAdapter, SakurazeAdapter).
+from adapters_novos import (  # noqa: E402
+    MadaraAdapter,
+    MangaFoxAdapter,
+    MgreadAdapter,
+    NovelsHubAdapter,
+    ReadhiveAdapter,
+    SakurazeAdapter,
+    TsThemeAdapter,
+    VymangaAdapter,
+)
+
+REGISTRY = AdapterRegistry(
+    [
+        CmsGenericoAdapter(),
+        EzmangaAdapter(),
+        NovelsHubAdapter(),
+        ReadhiveAdapter(),
+        TsThemeAdapter(),
+        MgreadAdapter(),
+        MadaraAdapter(),
+        VymangaAdapter(),
+        MangaFoxAdapter(),
+        SakurazeAdapter(),
+    ]
+)
 
 
 def carregar_designacoes(supabase) -> dict[str, dict]:
