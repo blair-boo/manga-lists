@@ -19,6 +19,25 @@ export async function createObra(input: NovaObra, dispararSync = true): Promise<
   return obra;
 }
 
+/** Atualiza titulo/titulos_alternativos direto, sem disparar o espelhamento de novo (evita recursão). */
+async function espelharTitulo(
+  obraId: string,
+  titulo: string | undefined,
+  titulosAlternativos: string[] | null | undefined
+): Promise<void> {
+  const patch: Partial<NovaObra> = {};
+  if (titulo !== undefined) patch.titulo = titulo;
+  if (titulosAlternativos !== undefined) patch.titulos_alternativos = titulosAlternativos;
+  if (Object.keys(patch).length === 0) return;
+
+  const now = new Date().toISOString();
+  await db.obras.update(obraId, { ...patch, atualizado_em: now });
+  const full = await db.obras.get(obraId);
+  if (!full) return;
+  await enqueueMutation({ entity: 'obras', op: 'update', recordId: obraId, payload: full });
+  triggerBackgroundSync();
+}
+
 export async function updateObra(id: string, changes: Partial<NovaObra>): Promise<void> {
   const now = new Date().toISOString();
   await db.obras.update(id, { ...changes, atualizado_em: now });
@@ -26,6 +45,34 @@ export async function updateObra(id: string, changes: Partial<NovaObra>): Promis
   if (!full) return;
   await enqueueMutation({ entity: 'obras', op: 'update', recordId: id, payload: full });
   triggerBackgroundSync();
+
+  // Espelha Title/Alternative Title pra obra vinculada (manga<->novel da mesma história, Bloco B3).
+  if (full.obra_vinculada_id && ('titulo' in changes || 'titulos_alternativos' in changes)) {
+    await espelharTitulo(full.obra_vinculada_id, changes.titulo, changes.titulos_alternativos);
+  }
+}
+
+/** Vincula duas obras (manga<->novel da mesma história) — vínculo mútuo, Bloco B3. */
+export async function vincularObras(obraIdA: string, obraIdB: string): Promise<void> {
+  await updateObra(obraIdA, { obra_vinculada_id: obraIdB } as Partial<NovaObra>);
+  await updateObra(obraIdB, { obra_vinculada_id: obraIdA } as Partial<NovaObra>);
+}
+
+export async function desvincularObra(obraId: string): Promise<void> {
+  const obra = await db.obras.get(obraId);
+  if (!obra) return;
+  await updateObra(obraId, { obra_vinculada_id: null } as Partial<NovaObra>);
+  if (obra.obra_vinculada_id) {
+    await updateObra(obra.obra_vinculada_id, { obra_vinculada_id: null } as Partial<NovaObra>);
+  }
+}
+
+/** Cria a obra correspondente (manga<->novel) já vinculada — cadastro inline (Bloco B3). */
+export async function criarObraVinculada(obraOrigemId: string, dadosNovaObra: NovaObra): Promise<Obra> {
+  const nova = await createObra(dadosNovaObra, false);
+  await vincularObras(obraOrigemId, nova.id);
+  triggerBackgroundSync();
+  return nova;
 }
 
 export async function deleteObra(id: string): Promise<void> {
@@ -61,6 +108,31 @@ export async function updateFonte(id: string, changes: Partial<NovaFonte>): Prom
 
 export async function setFonteAprovacao(id: string, status: StatusAprovacao): Promise<void> {
   await updateFonte(id, { status_aprovacao: status });
+}
+
+/**
+ * Define manualmente o tipo de uma fonte (manga/novel) e, opcionalmente, move a
+ * fonte pra outra obra (a contraparte manga<->novel). Marca tipo_manual=true —
+ * garantia crítica do Bloco B4: o scraper nunca sobrescreve essa decisão nem
+ * reatribui a fonte de volta à obra original em runs futuras.
+ */
+export async function setFonteTipo(fonteId: string, tipo: Fonte['tipo_detectado'], novaObraId?: string): Promise<void> {
+  const antes = await db.fontes.get(fonteId);
+  const obraOrigemId = antes?.obra_id;
+
+  const changes: Partial<NovaFonte> = { tipo_detectado: tipo, tipo_manual: true };
+  if (novaObraId) changes.obra_id = novaObraId;
+
+  await db.fontes.update(fonteId, changes);
+  const full = await db.fontes.get(fonteId);
+  if (!full) return;
+  await enqueueMutation({ entity: 'fontes', op: 'update', recordId: fonteId, payload: full });
+  triggerBackgroundSync();
+
+  await recalcUltimoCapituloLancado(full.obra_id);
+  if (obraOrigemId && obraOrigemId !== full.obra_id) {
+    await recalcUltimoCapituloLancado(obraOrigemId);
+  }
 }
 
 export async function deleteFonte(id: string): Promise<void> {
@@ -117,6 +189,8 @@ export async function criarObraComFontes(
         status_aprovacao: 'aprovado',
         descoberta_automaticamente: false,
         ultima_verificacao: null,
+        tipo_detectado: null,
+        tipo_manual: false,
       },
       false
     );

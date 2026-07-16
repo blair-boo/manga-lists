@@ -1,4 +1,15 @@
-import type { Obra } from '../types';
+import type { FamiliaTipo, Obra, Tipo } from '../types';
+
+/**
+ * Mapeia `obra.tipo` (Manga/Manwha/Manhua/Novel) pra família 'manga'/'novel',
+ * usada para comparar com o tipo detectado de uma fonte (handout consolidado,
+ * Bloco B0/B1). Manga/Manwha/Manhua não se distinguem aqui.
+ */
+export function familiaDeTipo(tipo: Tipo | null): FamiliaTipo | null {
+  if (tipo === 'Novel') return 'novel';
+  if (tipo === 'Manga' || tipo === 'Manwha' || tipo === 'Manhua') return 'manga';
+  return null;
+}
 
 /**
  * Indica se o scraper confirmou um capítulo mais novo do que o já lido.

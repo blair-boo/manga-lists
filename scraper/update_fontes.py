@@ -25,14 +25,17 @@ from common import (
     iniciar_run,
     resolver_url,
 )
+from tipo_titulo import detectar_tipo
 
 
-def obter_capitulo(url: str, designacoes: dict) -> float | None:
+def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | None]:
     """
-    Último capítulo de uma fonte (URL já absoluta). Se o domínio tem adaptador
-    designado, usa-o com a estratégia de acesso resolvida; senão cai na heurística
-    genérica de HTML. Retornos que não são capítulo (vazio/bloqueado/inválido) não
-    são exceção — apenas devolvem None (não contam como falha).
+    (último capítulo, tipo detectado 'manga'/'novel'/None) de uma fonte (URL já
+    absoluta). Se o domínio tem adaptador designado, usa-o com a estratégia de
+    acesso resolvida; senão cai na heurística genérica de HTML — a detecção de
+    tipo (Bloco B1) roda nos dois casos, por URL/HTML, não depende do adaptador.
+    Retornos que não são capítulo (vazio/bloqueado/inválido) não são exceção —
+    apenas devolvem None (não contam como falha).
     """
     desig = designacoes.get(host_de_url(url)) or {}
     adaptador_id = desig.get("adaptador")
@@ -41,11 +44,23 @@ def obter_capitulo(url: str, designacoes: dict) -> float | None:
         if adapter is not None:
             estrategia = resolver_access_strategy(desig.get("access_strategy"), adapter)
             resultado = adapter.parse(adapter.fetch(url, estrategia))
-            return resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
+            capitulo = resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
+            return capitulo, resultado.tipo_detectado
 
     resp = http_get(url)
     resp.raise_for_status()
-    return extrair_maior_capitulo(resp.text)
+    return extrair_maior_capitulo(resp.text), detectar_tipo(url, resp.text)
+
+
+def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:
+    """
+    Campos de tipo a atualizar na fonte. Nunca sobrescreve uma decisão manual
+    (fonte['tipo_manual']=True) — garantia crítica do Bloco B4: o scraper não
+    pode "reroubar" uma fonte realocada manualmente pela usuária.
+    """
+    if fonte.get("tipo_manual") or tipo_detectado is None:
+        return {}
+    return {"tipo_detectado": tipo_detectado}
 
 
 def executar(supabase) -> int:
@@ -69,7 +84,7 @@ def executar(supabase) -> int:
     for fonte in fontes:
         try:
             url = resolver_url(fonte["url"], base_por_site.get(fonte.get("site")))
-            capitulo = obter_capitulo(url, designacoes)
+            capitulo, tipo_detectado = obter_capitulo(url, designacoes)
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:
@@ -78,12 +93,15 @@ def executar(supabase) -> int:
                         "ultimo_capitulo_detectado": capitulo,
                         "atualizado_por_scraper": True,
                         "ultima_verificacao": agora,
+                        **_payload_tipo(fonte, tipo_detectado),
                     }
                 ).eq("id", fonte["id"]).execute()
                 capitulos_por_obra.setdefault(fonte["obra_id"], []).append((capitulo, True))
                 print(f"  ok: {url} -> cap. {capitulo}")
             else:
-                supabase.table("fontes").update({"ultima_verificacao": agora}).eq("id", fonte["id"]).execute()
+                supabase.table("fontes").update(
+                    {"ultima_verificacao": agora, **_payload_tipo(fonte, tipo_detectado)}
+                ).eq("id", fonte["id"]).execute()
                 print(f"  aviso: não achei número de capítulo em {url}")
                 if fonte["ultimo_capitulo_detectado"] is not None:
                     capitulos_por_obra.setdefault(fonte["obra_id"], []).append(

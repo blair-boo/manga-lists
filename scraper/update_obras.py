@@ -16,7 +16,7 @@ Uso: python scraper/update_obras.py
 
 import traceback
 
-from adapters import ACCESS_HTTP, REGISTRY, carregar_designacoes, resolver_access_strategy
+from adapters import ACCESS_HTTP, REGISTRY, resolver_access_strategy
 from common import (
     carregar_config_match,
     finalizar_run,
@@ -25,11 +25,12 @@ from common import (
     iniciar_run,
 )
 from match_titulo import decidir_status, melhor_match
+from tipo_titulo import familia_de_tipo, por_url
 
 
 def obras_sem_fonte_no_site(supabase, nome_site: str, url_base: str) -> list[dict]:
     """Obras que ainda não têm nenhuma fonte nesse site (por nome de site ou host da url)."""
-    obras = supabase.table("obras").select("id, titulo, titulos_alternativos").execute().data
+    obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
     fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
 
     host_site = host_de_url(url_base)
@@ -53,13 +54,22 @@ def processar_site(supabase, nome_site: str, adapter, url_base: str, limiares: d
 
     novas_fontes = []
     for obra in obras:
+        familia_obra = familia_de_tipo(obra.get("tipo"))
         melhor_slug = None
         melhor_score = 0.0
+        melhor_tipo = None
         for titulo_cat, slug in catalogo:
+            candidato_url = adapter.url_da_fonte(url_base, slug)
+            tipo_candidato = por_url(candidato_url)
+            # Sinal de tipo (URL) diverge do tipo da obra (ex.: obra é Manga, candidato
+            # é a versão Novel da mesma história): não é a mesma obra-tipo, pula (B1/B0).
+            if familia_obra is not None and tipo_candidato is not None and tipo_candidato != familia_obra:
+                continue
             score = melhor_match(titulo_cat, obra)
             if score > melhor_score:
                 melhor_score = score
                 melhor_slug = slug
+                melhor_tipo = tipo_candidato
 
         if melhor_slug is None:
             continue
@@ -78,6 +88,7 @@ def processar_site(supabase, nome_site: str, adapter, url_base: str, limiares: d
                 "status_aprovacao": status,
                 "descoberta_automaticamente": True,
                 "ultima_verificacao": None,
+                "tipo_detectado": melhor_tipo,
             }
         )
 

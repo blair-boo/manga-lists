@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/localDb';
-import { setFonteAprovacao } from '../db/repo';
+import { setFonteAprovacao, setFonteTipo } from '../db/repo';
 import {
   adicionarDominioBloqueado,
   dominioDeUrl,
@@ -10,7 +10,12 @@ import {
   removerDominioBloqueado,
   type DominioBloqueado,
 } from '../lib/scraperConfig';
-import type { Fonte, Obra, StatusAprovacao } from '../types';
+import type { FamiliaTipo, Fonte, Obra, StatusAprovacao } from '../types';
+
+const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
+  { valor: 'manga', rotulo: 'Manga' },
+  { valor: 'novel', rotulo: 'Novel' },
+];
 
 type Filtro = StatusAprovacao | 'blacklist';
 
@@ -178,6 +183,19 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                           <span className="scraper-data">detected ch. {f.ultimo_capitulo_detectado}</span>
                         )}
                       </div>
+                      <select
+                        className="fonte-tipo-select"
+                        value={f.tipo_detectado ?? ''}
+                        onChange={(e) => setFonteTipo(f.id, (e.target.value || null) as FamiliaTipo | null)}
+                        title="Source type (manga/novel) — adjust before approving if the auto-detection got it wrong"
+                      >
+                        <option value="">Type?</option>
+                        {TIPO_FONTE_OPCOES.map((o) => (
+                          <option key={o.valor} value={o.valor}>
+                            {o.rotulo}
+                          </option>
+                        ))}
+                      </select>
                       <div className="fonte-acoes">
                         {f.status_aprovacao !== 'aprovado' && (
                           <button type="button" onClick={() => setFonteAprovacao(f.id, 'aprovado')}>

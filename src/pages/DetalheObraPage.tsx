@@ -1,17 +1,36 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../db/localDb';
-import { createFonte, deleteFonte, deleteObra, setFonteAprovacao, updateFonte, updateObra, type NovaObra } from '../db/repo';
+import {
+  createFonte,
+  criarObraVinculada,
+  deleteFonte,
+  deleteObra,
+  desvincularObra,
+  setFonteAprovacao,
+  setFonteTipo,
+  updateFonte,
+  updateObra,
+  vincularObras,
+  type NovaObra,
+} from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
+import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { deriveSite } from '../lib/site';
+import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
-import type { Fonte, Obra, StatusAprovacao } from '../types';
+import type { FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
+
+const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
+  { valor: 'manga', rotulo: 'Manga' },
+  { valor: 'novel', rotulo: 'Novel' },
+];
 
 function statusBadgeClasse(status: StatusAprovacao): string {
   if (status === 'aprovado') return 'badge badge-aprovado';
@@ -25,7 +44,15 @@ function statusAprovacaoLabel(status: StatusAprovacao): string {
   return 'pending';
 }
 
-function FonteItem({ fonte, sitesAtivos }: { fonte: Fonte; sitesAtivos: Set<string> }) {
+function FonteItem({
+  fonte,
+  sitesAtivos,
+  onMudarTipo,
+}: {
+  fonte: Fonte;
+  sitesAtivos: Set<string>;
+  onMudarTipo: (fonte: Fonte, tipo: FamiliaTipo | null) => void;
+}) {
   const [capitulo, setCapitulo] = useState(fonte.ultimo_capitulo_detectado?.toString() ?? '');
   const nomeSite = fonte.site || dominioDeUrl(fonte.url) || fonte.url;
   const naoMonitorada = !sitesAtivos.has(nomeSite.toLowerCase());
@@ -56,6 +83,24 @@ function FonteItem({ fonte, sitesAtivos }: { fonte: Fonte; sitesAtivos: Set<stri
         </span>
       )}
       <span className={statusBadgeClasse(fonte.status_aprovacao)}>{statusAprovacaoLabel(fonte.status_aprovacao)}</span>
+      <select
+        className="fonte-tipo-select"
+        value={fonte.tipo_detectado ?? ''}
+        onChange={(e) => onMudarTipo(fonte, (e.target.value || null) as FamiliaTipo | null)}
+        title="Source type (manga/novel)"
+      >
+        <option value="">Type?</option>
+        {TIPO_FONTE_OPCOES.map((o) => (
+          <option key={o.valor} value={o.valor}>
+            {o.rotulo}
+          </option>
+        ))}
+      </select>
+      {fonte.tipo_manual && (
+        <span className="badge-tipo-manual" title="Type set manually — the scraper won't override it">
+          manual
+        </span>
+      )}
       <label className="fonte-capitulo">
         ch.
         <input
@@ -131,6 +176,10 @@ export function DetalheObraPage() {
   const { mostrarToast } = useToast();
   const obra = useLiveQuery(() => (id ? db.obras.get(id) : undefined), [id]);
   const fontes = useLiveQuery(() => (id ? db.fontes.where('obra_id').equals(id).toArray() : []), [id]);
+  const obraVinculada = useLiveQuery(
+    () => (obra?.obra_vinculada_id ? db.obras.get(obra.obra_vinculada_id) : undefined),
+    [obra?.obra_vinculada_id]
+  );
   const sitesAtivos = useSitesAtivos();
 
   const tipos = useListasPorCategoria('tipo');
@@ -144,6 +193,8 @@ export function DetalheObraPage() {
   const [savedSnapshot, setSavedSnapshot] = useState<Draft | null>(null);
 
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
+  const [mostrarVinculo, setMostrarVinculo] = useState(false);
+  const [vinculoEscolhidoId, setVinculoEscolhidoId] = useState('');
 
   useEffect(() => {
     if (obra && obra.id !== obraIdCarregado) {
@@ -203,9 +254,90 @@ export function DetalheObraPage() {
       status_aprovacao: 'aprovado',
       descoberta_automaticamente: false,
       ultima_verificacao: null,
+      tipo_detectado: null,
+      tipo_manual: false,
     });
     void registrarDominioManual(url); // domínio novo inserido à mão vira site suportado
     setNovaFonteUrl('');
+  }
+
+  async function handleVincular() {
+    if (!id || !vinculoEscolhidoId) return;
+    await vincularObras(id, vinculoEscolhidoId);
+    setVinculoEscolhidoId('');
+    setMostrarVinculo(false);
+    mostrarToast('Works linked ✓');
+  }
+
+  async function handleDesvincular() {
+    if (!id) return;
+    if (!confirm(`Unlink from "${obraVinculada?.titulo}"? Title/Alternative Title stop syncing between the two.`)) return;
+    await desvincularObra(id);
+    mostrarToast('Works unlinked');
+  }
+
+  async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
+    if (!id || !obra) return;
+    const tituloNovo = prompt('Title for the corresponding work:', obra.titulo);
+    if (!tituloNovo || !tituloNovo.trim()) return;
+    const nova = await criarObraVinculada(id, {
+      tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
+      titulo: tituloNovo.trim(),
+      titulos_alternativos: null,
+      autor: null,
+      capa_url: null,
+      capitulo_atual: null,
+      status_leitura: null,
+      status_publicacao: null,
+      fim_de_temporada: false,
+      ultimo_capitulo_lancado: null,
+      ultimo_capitulo_via_scraper: false,
+      nota: null,
+      generos: null,
+      tags: null,
+      observacoes: null,
+      obra_vinculada_id: null,
+    });
+    mostrarToast(`"${nova.titulo}" created and linked ✓`);
+    return nova;
+  }
+
+  /**
+   * Correção manual de tipo de uma fonte (Bloco B4). Quando o novo tipo diverge
+   * do tipo da obra atual, move a fonte pra contraparte vinculada — se não
+   * houver uma compatível, oferece criar. tipo_manual=true impede o scraper de
+   * reatribuir a fonte de volta.
+   */
+  async function handleMudarTipoFonte(fonte: Fonte, novoTipo: FamiliaTipo | null) {
+    if (!obra) return;
+    if (!novoTipo) {
+      await setFonteTipo(fonte.id, null);
+      return;
+    }
+
+    const familiaAtual = familiaDeTipo(obra.tipo);
+    if (familiaAtual === null || familiaAtual === novoTipo) {
+      await setFonteTipo(fonte.id, novoTipo);
+      return;
+    }
+
+    if (obraVinculada && familiaDeTipo(obraVinculada.tipo) === novoTipo) {
+      await setFonteTipo(fonte.id, novoTipo, obraVinculada.id);
+      mostrarToast(`Source moved to "${obraVinculada.titulo}"`);
+      return;
+    }
+
+    const tipoLabel = novoTipo === 'novel' ? 'novel' : 'manga';
+    if (
+      confirm(
+        `This source looks like a ${tipoLabel}, but "${obra.titulo}" is registered as ${obra.tipo ?? '—'}. Create the corresponding ${tipoLabel} work and move this source there?`
+      )
+    ) {
+      const nova = await handleCriarVinculada(novoTipo);
+      if (nova) await setFonteTipo(fonte.id, novoTipo, nova.id);
+    } else {
+      await setFonteTipo(fonte.id, novoTipo);
+    }
   }
 
   async function handleExcluirObra() {
@@ -339,6 +471,36 @@ export function DetalheObraPage() {
           </label>
         </div>
 
+        <div className="vinculo-obra">
+          {obraVinculada ? (
+            <p>
+              Corresponding work: <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>{' '}
+              <button type="button" onClick={handleDesvincular}>
+                Unlink
+              </button>
+            </p>
+          ) : (
+            <>
+              <label className="check-inline">
+                <input type="checkbox" checked={mostrarVinculo} onChange={(e) => setMostrarVinculo(e.target.checked)} />
+                This work has a corresponding novel/manga?
+              </label>
+              {mostrarVinculo && (
+                <div className="vinculo-obra-acoes">
+                  <VinculoObraSelect excluirId={id} value={vinculoEscolhidoId} onChange={setVinculoEscolhidoId} />
+                  <button type="button" onClick={handleVincular} disabled={!vinculoEscolhidoId}>
+                    Link
+                  </button>
+                  <span>or</span>
+                  <button type="button" onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}>
+                    Create corresponding work
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         <TagPicker
           label="Genres"
           value={draft.generos ?? []}
@@ -376,7 +538,7 @@ export function DetalheObraPage() {
         <h2>Sources</h2>
         <ul className="fontes-lista">
           {(fontes ?? []).map((f) => (
-            <FonteItem key={f.id} fonte={f} sitesAtivos={sitesAtivos} />
+            <FonteItem key={f.id} fonte={f} sitesAtivos={sitesAtivos} onMudarTipo={handleMudarTipoFonte} />
           ))}
           {(fontes ?? []).length === 0 && <li className="fontes-vazio">No sources yet.</li>}
         </ul>

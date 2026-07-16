@@ -25,6 +25,7 @@ from common import (
     http_get,
     listar_todos_posts_cms,
 )
+from tipo_titulo import detectar_tipo
 
 # --- Eixo de acesso (fetchers) ---------------------------------------------
 
@@ -107,6 +108,7 @@ class ParseResult:
     ultimo_capitulo: float | None = None
     link_capitulo: str | None = None
     diagnostico: str | None = None
+    tipo_detectado: str | None = None  # 'manga' | 'novel' | None (indefinido; ver tipo_titulo.py)
 
 
 # --- Interface do adaptador -------------------------------------------------
@@ -176,16 +178,18 @@ class CmsGenericoAdapter(SourceAdapter):
         except (ValueError, UnicodeDecodeError) as exc:
             return ParseResult(STATUS_INVALIDA, diagnostico=f"chapters não parseou: {exc}")
 
+        tipo_detectado = detectar_tipo(raw.url, raw.text)
+
         numeros = [
             c["number"]
             for c in capitulos
             if isinstance(c, dict) and c.get("chapterStatus") == "PUBLIC" and isinstance(c.get("number"), (int, float))
         ]
         if not numeros:
-            return ParseResult(STATUS_VAZIA, diagnostico="estrutura válida, sem capítulos públicos")
+            return ParseResult(STATUS_VAZIA, diagnostico="estrutura válida, sem capítulos públicos", tipo_detectado=tipo_detectado)
         maior = max(numeros)
         maior = int(maior) if float(maior).is_integer() else float(maior)
-        return ParseResult(STATUS_OK, ultimo_capitulo=maior, link_capitulo=raw.url)
+        return ParseResult(STATUS_OK, ultimo_capitulo=maior, link_capitulo=raw.url, tipo_detectado=tipo_detectado)
 
     # Reuso das funções do common para catálogo/busca (usadas por update_obras/discover).
     def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
@@ -294,11 +298,17 @@ class EzmangaAdapter(SourceAdapter):
                 diagnostico='ng-state reconhecido, mas sem um array de capítulos com "number"/"publishStatus"',
             )
 
+        tipo_detectado = detectar_tipo(raw.url, raw.text)
+
         publicos = [
             c for c in capitulos if c.get("publishStatus") == "PUBLIC" and isinstance(c.get("number"), (int, float))
         ]
         if not publicos:
-            return ParseResult(STATUS_VAZIA, diagnostico="ng-state reconhecido, sem capítulos com publishStatus=PUBLIC")
+            return ParseResult(
+                STATUS_VAZIA,
+                diagnostico="ng-state reconhecido, sem capítulos com publishStatus=PUBLIC",
+                tipo_detectado=tipo_detectado,
+            )
 
         maior = max(publicos, key=lambda c: c["number"])
         numero = maior["number"]
@@ -308,6 +318,7 @@ class EzmangaAdapter(SourceAdapter):
         return ParseResult(
             STATUS_OK,
             titulo_site=self._titulo_da_pagina(raw.text),
+            tipo_detectado=tipo_detectado,
             ultimo_capitulo=numero,
             link_capitulo=self._link_capitulo(raw.url, obra_slug, maior),
         )
@@ -368,7 +379,30 @@ class AdapterRegistry:
         return entradas
 
 
-# Registry global com os adaptadores disponíveis.
+# --- Planejamento: futuro adaptador WordPress/Madara -----------------------
+#
+# Handout consolidado, Bloco B2: anubisscans/hazelnade/kingofshojo/arenascans/
+# mgread foram citados como possível família única "WordPress-leitura". Uma
+# checagem real do HTML de cada um (2026-07-16) refina isso:
+#
+# - anubisscans.com, hazelnade.com, arenascans.org, mgread.io: confirmados
+#   tema Madara (`<meta name="generator" content="Powered by Madara - ...">`
+#   no HTML, mesmo com nomes de tema diferentes por site — esse meta é o sinal
+#   de detecção mais confiável, mais estável que o nome da pasta do tema).
+#   Estrutura de URL já separa manga/novel no próprio caminho
+#   (`/manga/{slug}/` vs `/novel/{slug}/`, capítulo em
+#   `/manga/{slug}/chapter-{n}/`) — reforça a detecção de tipo do B1 de graça.
+#   Capítulos tipicamente ficam numa lista `<ul class="version-chap ...">` na
+#   própria página da obra (ou via AJAX `admin-ajax.php` do tema, se a lista
+#   vier paginada) — extrair por esse seletor, nunca por regex solto no HTML
+#   inteiro (evita falso positivo tipo "cap 32345", handout B1).
+# - kingofshojo.com: **não** é Madara (tema "mangareader", URL de capítulo
+#   sem prefixo /manga/, ex. `/{slug}-chapter-{n}/`) — fica de fora dessa
+#   família; precisaria de adaptador próprio ou segue no fallback genérico.
+#
+# Não implementado ainda (fora do escopo desta rodada, que era só planejar):
+# um `MadaraAdapter` com `matches()` checando o meta generator, e `parse()`
+# lendo a lista de capítulos da página da obra.
 REGISTRY = AdapterRegistry([CmsGenericoAdapter(), EzmangaAdapter()])
 
 

@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { criarObraComFontes, type NovaObra } from '../db/repo';
+import { criarObraComFontes, vincularObras, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
+import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { registrarDominioManual } from '../lib/scraperConfig';
 import type { Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
@@ -43,6 +44,8 @@ export function CadastrarPage() {
   const [generos, setGeneros] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState('');
+  const [temVinculo, setTemVinculo] = useState(false);
+  const [obraVinculadaId, setObraVinculadaId] = useState('');
 
   const [completo, setCompleto] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -63,6 +66,8 @@ export function CadastrarPage() {
     setGeneros([]);
     setTags([]);
     setObservacoes('');
+    setTemVinculo(false);
+    setObraVinculadaId('');
   }
 
   function handleUrlChange(index: number, valor: string) {
@@ -99,6 +104,7 @@ export function CadastrarPage() {
       generos: generos.length > 0 ? generos : null,
       tags: tags.length > 0 ? tags : null,
       observacoes: observacoes.trim() || null,
+      obra_vinculada_id: null,
     };
     const r = await criarObraComFontes(obra, urlsValidas);
     setSalvando(false);
@@ -108,6 +114,7 @@ export function CadastrarPage() {
     } else {
       // Fontes inseridas manualmente: registra domínios novos como sites suportados.
       for (const url of urlsValidas) void registrarDominioManual(url);
+      if (temVinculo && obraVinculadaId) void vincularObras(r.obra.id, obraVinculadaId);
       mostrarToast('Work added ✓');
       limparFormulario();
       setCompleto(false);
@@ -227,6 +234,24 @@ export function CadastrarPage() {
               Notes
               <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
             </label>
+
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={temVinculo}
+                onChange={(e) => {
+                  setTemVinculo(e.target.checked);
+                  if (!e.target.checked) setObraVinculadaId('');
+                }}
+              />
+              This work has a corresponding novel/manga?
+            </label>
+            {temVinculo && (
+              <label>
+                Corresponding work
+                <VinculoObraSelect value={obraVinculadaId} onChange={setObraVinculadaId} />
+              </label>
+            )}
           </>
         )}
 

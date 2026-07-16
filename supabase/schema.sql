@@ -20,6 +20,7 @@ create table obras (
     generos text[],
     tags text[],
     observacoes text,
+    obra_vinculada_id uuid references obras(id) on delete set null, -- manga<->novel da mesma história (mútuo)
     criado_em timestamptz not null default now(),
     atualizado_em timestamptz not null default now()
 );
@@ -46,6 +47,8 @@ create table fontes (
     status_aprovacao text not null default 'aprovado', -- 'aprovado' | 'pendente' | 'rejeitado'
     descoberta_automaticamente boolean not null default false,
     ultima_verificacao timestamptz,
+    tipo_detectado text check (tipo_detectado in ('manga', 'novel')), -- hierarquia de sinais (URL > título > og:type)
+    tipo_manual boolean not null default false, -- true = decisão manual; o scraper nunca sobrescreve
     criado_em timestamptz not null default now()
 );
 

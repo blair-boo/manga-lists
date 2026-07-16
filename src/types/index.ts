@@ -10,6 +10,9 @@ export type Estrategia = 'fetch_direto' | 'busca_workaround';
 
 export type Categoria = 'tipo' | 'status_leitura' | 'status_publicacao' | 'rating' | 'genero' | 'tag';
 
+/** 'manga' cobre Manga/Manwha/Manhua para efeito de fontes (handout consolidado, Bloco B0). */
+export type FamiliaTipo = 'manga' | 'novel';
+
 export interface Obra {
   id: string;
   tipo: Tipo | null;
@@ -27,6 +30,8 @@ export interface Obra {
   generos: string[] | null;
   tags: string[] | null;
   observacoes: string | null;
+  /** Obra correspondente (manga<->novel da mesma história) — Title/Alternative Title são espelhados. */
+  obra_vinculada_id: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -43,6 +48,10 @@ export interface Fonte {
   descoberta_automaticamente: boolean;
   ultima_verificacao: string | null;
   criado_em: string;
+  /** Tipo detectado pela hierarquia de sinais (URL > título > og:type) — Bloco B1. */
+  tipo_detectado: FamiliaTipo | null;
+  /** Quando true, a usuária decidiu o tipo/obra manualmente — o scraper nunca sobrescreve (B4). */
+  tipo_manual: boolean;
 }
 
 export interface DiagnosticoEntrada {
