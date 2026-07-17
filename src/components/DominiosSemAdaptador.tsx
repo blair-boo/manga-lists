@@ -32,12 +32,14 @@ function EntradasDiagnostico({ diagnostico }: { diagnostico: DiagnosticoAdaptado
 
 /**
  * Fila "domínio sem adaptador" (ver HANDOUT_ARQUITETURA_SCRAPERS, Modo
- * Diagnóstico). Lista os domínios já APROVADOS (ativo=true) de
- * sites_suportados que ainda não têm adaptador designado e mostra o
- * relatório de diagnóstico anexado, dando um ponto de partida para
- * escrever/designar um adaptador manualmente. O botão dispara a
- * auto-detecção. Domínios pendentes de aprovação (ativo=false) ficam na fila
- * separada "Domain approvals" — este componente não decide aprovação.
+ * Diagnóstico). Lista TODOS os domínios de sites_suportados sem adaptador
+ * designado — pendentes de aprovação ou já aprovados — e mostra o relatório
+ * de diagnóstico anexado. O botão "Detect adapters" roda a auto-detecção em
+ * todos eles; quando um adaptador de verdade reconhece o domínio (já provado
+ * em outro site da mesma família), o domínio é promovido a aprovado
+ * automaticamente e passa a aparecer em "Approved domains" — ver
+ * designar_adaptadores.py. Sem detecção bem-sucedida, um domínio pendente
+ * ainda pode ser decidido manualmente na fila "Domain approvals".
  */
 export function DominiosSemAdaptador() {
   const [aberta, setAberta] = useState(false);
@@ -54,7 +56,6 @@ export function DominiosSemAdaptador() {
     const { data, error } = await supabase
       .from('sites_suportados')
       .select('*')
-      .eq('ativo', true)
       .is('adaptador', null)
       .order('nome');
     if (error) setErro(error.message);
@@ -116,6 +117,9 @@ export function DominiosSemAdaptador() {
                 <li key={site.id} className="dominio-item">
                   <div className="dominio-cabecalho">
                     <span className="dominio-nome">{site.nome}</span>
+                    <span className={`badge ${site.ativo ? 'badge-aprovado' : 'badge-pendente'}`}>
+                      {site.ativo ? 'approved' : 'pending approval'}
+                    </span>
                     {site.url_base && (
                       <a href={site.url_base} target="_blank" rel="noreferrer" className="dominio-link">
                         open

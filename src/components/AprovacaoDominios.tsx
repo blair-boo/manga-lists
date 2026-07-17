@@ -13,6 +13,12 @@ function formatarData(iso: string | null): string {
  * dispara a detecção de adaptador; rejeitar manda para a blacklist e mantém
  * fora dos scrapers. A fonte que originou o pedido já está salva e clicável
  * na obra independentemente da decisão aqui.
+ *
+ * Um domínio pendente também pode sair daqui sozinho, sem clique nenhum: se a
+ * detecção automática (disparada no cadastro, ou pelo botão "Detect adapters"
+ * na fila "Domains without adapter") reconhecer um adaptador de verdade pra
+ * ele, o domínio é promovido a aprovado direto (ver designar_adaptadores.py)
+ * e some desta lista.
  */
 export function AprovacaoDominios() {
   const [pendentes, setPendentes] = useState<DominioPendente[]>([]);

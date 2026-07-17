@@ -69,8 +69,14 @@ function origemDeUrl(url: string, dominio: string): string {
 /**
  * Quando a usuária insere manualmente uma fonte de um domínio ainda não
  * cadastrado em `sites_suportados`, registra um PEDIDO de aprovação
- * (`ativo=false`, sem adaptador) — nunca aprova sozinho. Domínio já
- * conhecido (aprovado ou já pendente) não gera pedido novo. Best-effort:
+ * (`ativo=false`, sem adaptador) — nunca aprova sozinho por conta da
+ * inserção em si. Domínio já conhecido (aprovado ou já pendente) não gera
+ * pedido novo. Em seguida dispara a auto-detecção (`designar`) em segundo
+ * plano: se um adaptador de verdade (já provado noutro site da mesma
+ * família) reconhecer o domínio, ele é promovido a aprovado automaticamente
+ * — não é a inserção manual que aprova, é a confirmação técnica de que um
+ * parser existente funciona ali (ver designar_adaptadores.py). Sem
+ * detecção, o domínio fica pendente na fila "Domain approvals". Best-effort:
  * silencioso em erro/offline, nunca bloqueia o cadastro da fonte.
  */
 export async function registrarDominioManual(url: string): Promise<void> {
@@ -89,6 +95,12 @@ export async function registrarDominioManual(url: string): Promise<void> {
     await supabase
       .from('sites_suportados')
       .insert({ nome: dominio, url_base: origemDeUrl(url, dominio), estrategia: 'fetch_direto', ativo: false });
+
+    try {
+      await controlarScraper('designar', 'start');
+    } catch {
+      /* best-effort: a detecção pode ser reexecutada depois pelo botão manual */
+    }
   } catch {
     /* best-effort: não bloqueia o cadastro da fonte */
   }
