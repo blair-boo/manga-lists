@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import time
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -54,10 +55,34 @@ def _sessao_http():
     return _sessao
 
 
+def _parece_bloqueio_cloudflare(resp) -> bool:
+    if resp.status_code in (403, 503):
+        return True
+    trecho = (resp.text or "")[:2000].lower()
+    return "just a moment" in trecho or "attention required" in trecho or "cf-chl" in trecho
+
+
 def http_get(url: str, **kwargs):
-    """GET com timeout padrão pelo cliente compartilhado (Cloudflare-aware)."""
+    """
+    GET com timeout padrão pelo cliente compartilhado (Cloudflare-aware).
+
+    Em erro de rede (timeout, conexão) ou resposta 5xx, faz 1 retry após 2s
+    antes de propagar/retornar. NÃO retenta em 403/503 com cara de Cloudflare —
+    isso já tem o fallback via curl em adapter_base.fetch_http, e insistir só
+    queimaria reputação de IP.
+    """
     kwargs.setdefault("timeout", TIMEOUT)
-    return _sessao_http().get(url, **kwargs)
+    try:
+        resp = _sessao_http().get(url, **kwargs)
+    except requests.RequestException:
+        time.sleep(2)
+        return _sessao_http().get(url, **kwargs)
+
+    if resp.status_code >= 500 and not _parece_bloqueio_cloudflare(resp):
+        time.sleep(2)
+        return _sessao_http().get(url, **kwargs)
+
+    return resp
 
 
 def carregar_env_local():
@@ -120,13 +145,14 @@ def carregar_dominios_bloqueados(supabase) -> set[str]:
     return {row["dominio"] for row in (resp.data or []) if row.get("dominio")}
 
 
-def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None) -> None:
-    """status: 'concluido' | 'erro'."""
+def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None, resumo: dict | None = None) -> None:
+    """status: 'concluido' | 'erro'. resumo: contadores estruturados (ex.: {"verificadas": n, "falhas": n})."""
     from datetime import datetime, timezone
 
-    supabase.table("scraper_runs").update(
-        {"status": status, "finalizado_em": datetime.now(timezone.utc).isoformat(), "mensagem": mensagem}
-    ).eq("id", run_id).execute()
+    registro = {"status": status, "finalizado_em": datetime.now(timezone.utc).isoformat(), "mensagem": mensagem}
+    if resumo is not None:
+        registro["resumo"] = resumo
+    supabase.table("scraper_runs").update(registro).eq("id", run_id).execute()
 
 
 # --- URLs -------------------------------------------------------------------

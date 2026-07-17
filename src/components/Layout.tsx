@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSync } from '../sync/SyncContext';
 import { useTema, type TemaPref } from '../hooks/useTema';
+import { mensagemDeErro } from '../lib/erros';
+import { APP_NAME } from '../config';
 
 function formatHora(date: Date | null): string {
   if (!date) return 'never';
@@ -37,13 +39,13 @@ export function Layout({ children }: { children: ReactNode }) {
           <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
             {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
           </button>
-          {lastError !== null && <span className="sync-error" title={String(lastError)}>sync error</span>}
+          {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}
           <button type="button" onClick={signOut} className="logout-button">
             Sign out
           </button>
         </div>
         <div className="app-header-main">
-          <h1 className="app-title">Ratsnest</h1>
+          <h1 className="app-title">{APP_NAME}</h1>
           <nav className="app-nav">
             <NavLink to="/" end>
               List

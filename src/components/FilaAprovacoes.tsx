@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/localDb';
 import { setFonteAprovacao, setFonteTipo } from '../db/repo';
+import { mensagemDeErro } from '../lib/erros';
 import {
   adicionarDominioBloqueado,
   dominioDeUrl,
@@ -11,6 +12,8 @@ import {
   type DominioBloqueado,
 } from '../lib/scraperConfig';
 import type { FamiliaTipo, Fonte, Obra, StatusAprovacao } from '../types';
+
+type Acao = 'aprovar' | 'rejeitar' | 'blacklist' | 'tipo';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
   { valor: 'manga', rotulo: 'Manga' },
@@ -54,6 +57,9 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
   const [aberta, setAberta] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('pendente');
   const [blacklist, setBlacklist] = useState<DominioBloqueado[]>([]);
+  const [processando, setProcessando] = useState<string | null>(null);
+  const [acaoProcessando, setAcaoProcessando] = useState<Acao | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
   const fontes = useLiveQuery(() => db.fontes.filter((f) => f.descoberta_automaticamente).toArray(), []);
   const obras = useLiveQuery(() => db.obras.toArray(), []);
@@ -78,10 +84,16 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
     if (comBlacklist && aberta) recarregarBlacklist();
   }, [comBlacklist, aberta, filtro, recarregarBlacklist]);
 
-  const pendentesCount = useMemo(
-    () => (fontes ?? []).filter((f) => f.status_aprovacao === 'pendente' && pertence(f)).length,
-    [fontes, pertence]
-  );
+  const contagemPorStatus = useMemo(() => {
+    const mapa = new Map<StatusAprovacao, number>();
+    for (const f of fontes ?? []) {
+      if (!pertence(f)) continue;
+      mapa.set(f.status_aprovacao, (mapa.get(f.status_aprovacao) ?? 0) + 1);
+    }
+    return mapa;
+  }, [fontes, pertence]);
+
+  const pendentesCount = contagemPorStatus.get('pendente') ?? 0;
 
   const grupos = useMemo(() => {
     if (filtro === 'blacklist') return [];
@@ -99,13 +111,51 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
       .sort((a, b) => a.obra.titulo.localeCompare(b.obra.titulo));
   }, [fontes, obras, filtro, pertence]);
 
+  async function handleAprovacao(fonteId: string, status: StatusAprovacao, acao: Acao) {
+    setProcessando(fonteId);
+    setAcaoProcessando(acao);
+    setErro(null);
+    try {
+      await setFonteAprovacao(fonteId, status);
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setProcessando(null);
+      setAcaoProcessando(null);
+    }
+  }
+
+  async function handleTipo(fonteId: string, tipo: FamiliaTipo | null) {
+    setProcessando(fonteId);
+    setAcaoProcessando('tipo');
+    setErro(null);
+    try {
+      await setFonteTipo(fonteId, tipo);
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setProcessando(null);
+      setAcaoProcessando(null);
+    }
+  }
+
   async function handleBlacklist(url: string, fonteId: string) {
     const dominio = dominioDeUrl(url);
     if (!dominio) return;
     if (!confirm(`Blacklist ${dominio}? It won't be suggested again for any work.`)) return;
-    await adicionarDominioBloqueado(dominio, 'Blacklisted from approvals queue');
-    await setFonteAprovacao(fonteId, 'rejeitado');
-    recarregarBlacklist();
+    setProcessando(fonteId);
+    setAcaoProcessando('blacklist');
+    setErro(null);
+    try {
+      await adicionarDominioBloqueado(dominio, 'Blacklisted from approvals queue');
+      await setFonteAprovacao(fonteId, 'rejeitado');
+      recarregarBlacklist();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setProcessando(null);
+      setAcaoProcessando(null);
+    }
   }
 
   async function handleUnblock(dominio: string) {
@@ -139,9 +189,14 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                 onClick={() => setFiltro(f.valor)}
               >
                 {f.rotulo}
+                <span className="status-chip-contagem">
+                  {f.valor === 'blacklist' ? blacklist.length : contagemPorStatus.get(f.valor) ?? 0}
+                </span>
               </button>
             ))}
           </div>
+
+          {erro && <p className="execucao-status execucao-erro">{erro}</p>}
 
           {filtro === 'blacklist' ? (
             blacklist.length === 0 ? (
@@ -176,7 +231,7 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                         <span className="fonte-site-titulo">
                           {f.site ?? dominioDeUrl(f.url)}: {tituloNoSite(f.url) || '—'}
                         </span>
-                        <a href={f.url} target="_blank" rel="noreferrer" className="fonte-link">
+                        <a href={f.url} target="_blank" rel="noreferrer" className="fonte-link" title={f.url}>
                           {f.url}
                         </a>
                         {f.ultimo_capitulo_detectado != null && (
@@ -186,8 +241,9 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                       <select
                         className="fonte-tipo-select"
                         value={f.tipo_detectado ?? ''}
-                        onChange={(e) => setFonteTipo(f.id, (e.target.value || null) as FamiliaTipo | null)}
+                        onChange={(e) => handleTipo(f.id, (e.target.value || null) as FamiliaTipo | null)}
                         title="Source type (manga/novel) — adjust before approving if the auto-detection got it wrong"
+                        disabled={processando === f.id}
                       >
                         <option value="">Type?</option>
                         {TIPO_FONTE_OPCOES.map((o) => (
@@ -198,17 +254,29 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                       </select>
                       <div className="fonte-acoes">
                         {f.status_aprovacao !== 'aprovado' && (
-                          <button type="button" onClick={() => setFonteAprovacao(f.id, 'aprovado')}>
-                            Approve
+                          <button
+                            type="button"
+                            onClick={() => handleAprovacao(f.id, 'aprovado', 'aprovar')}
+                            disabled={processando === f.id}
+                          >
+                            {processando === f.id && acaoProcessando === 'aprovar' ? 'Please wait…' : 'Approve'}
                           </button>
                         )}
                         {f.status_aprovacao !== 'rejeitado' && (
-                          <button type="button" onClick={() => setFonteAprovacao(f.id, 'rejeitado')}>
-                            Reject
+                          <button
+                            type="button"
+                            onClick={() => handleAprovacao(f.id, 'rejeitado', 'rejeitar')}
+                            disabled={processando === f.id}
+                          >
+                            {processando === f.id && acaoProcessando === 'rejeitar' ? 'Please wait…' : 'Reject'}
                           </button>
                         )}
-                        <button type="button" onClick={() => handleBlacklist(f.url, f.id)}>
-                          Blacklist
+                        <button
+                          type="button"
+                          onClick={() => handleBlacklist(f.url, f.id)}
+                          disabled={processando === f.id}
+                        >
+                          {processando === f.id && acaoProcessando === 'blacklist' ? 'Please wait…' : 'Blacklist'}
                         </button>
                       </div>
                     </li>

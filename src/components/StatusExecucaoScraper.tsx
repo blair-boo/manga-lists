@@ -37,6 +37,13 @@ export function StatusExecucaoScraper({
         {run.finalizado_em && `, finished at ${formatarDataHora(run.finalizado_em)}`}
       </p>
       {run.mensagem && <p className="execucao-mensagem">{run.mensagem}</p>}
+      {run.resumo && (
+        <p className="execucao-mensagem">
+          {Object.entries(run.resumo)
+            .map(([chave, valor]) => `${chave} ${valor}`)
+            .join(' · ')}
+        </p>
+      )}
     </div>
   );
 }

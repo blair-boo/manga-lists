@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { StatusExecucaoScraper } from './StatusExecucaoScraper';
 import type { DiagnosticoAdaptador, SiteSuportado } from '../types';
 
@@ -46,9 +47,8 @@ export function DominiosSemAdaptador() {
   const [sites, setSites] = useState<SiteSuportado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [acionando, setAcionando] = useState(false);
-  const [erroAcao, setErroAcao] = useState<string | null>(null);
-  const designar = useScraperRun('designar');
+  const { run: designarRun, carregando: designarCarregando, erro: designarErro, recarregar: designarRecarregar } =
+    useScraperRun('designar');
 
   const recarregar = useCallback(async () => {
     setCarregando(true);
@@ -67,18 +67,12 @@ export function DominiosSemAdaptador() {
     void recarregar();
   }, [recarregar]);
 
-  async function detectar() {
-    setAcionando(true);
-    setErroAcao(null);
-    try {
+  const { executar: detectar, executando: acionando, erro: erroAcao } = useAsyncAction(
+    useCallback(async () => {
       await controlarScraper('designar', 'start');
-      await designar.recarregar();
-    } catch (err) {
-      setErroAcao(err instanceof Error ? err.message : String(err));
-    } finally {
-      setAcionando(false);
-    }
-  }
+      await designarRecarregar();
+    }, [designarRecarregar])
+  );
 
   return (
     <div className="dominios-sem-adaptador">
@@ -103,7 +97,7 @@ export function DominiosSemAdaptador() {
           </div>
           {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
-          <StatusExecucaoScraper run={designar.run} carregando={designar.carregando} erro={designar.erro} />
+          <StatusExecucaoScraper run={designarRun} carregando={designarCarregando} erro={designarErro} />
 
           {carregando ? (
             <p className="execucao-status">Loading…</p>

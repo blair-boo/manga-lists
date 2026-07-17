@@ -94,6 +94,7 @@ export interface ScraperRun {
   iniciado_em: string;
   finalizado_em: string | null;
   mensagem: string | null;
+  resumo: Record<string, number> | null;
 }
 
 export type SyncEntity = 'obras' | 'fontes';

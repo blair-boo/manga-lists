@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { APP_NAME } from '../config';
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -20,7 +21,7 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-form" onSubmit={handleSubmit}>
-        <h1>Ratsnest</h1>
+        <h1>{APP_NAME}</h1>
         <p className="login-subtitle">Reading tracker for manga, manhwa, manhua and novels</p>
         <label>
           Email

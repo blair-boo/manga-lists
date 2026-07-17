@@ -5,6 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Nome do repositório no GitHub Pages: https://<usuario>.github.io/manga-lists/
 const BASE_PATH = '/manga-lists/'
 
+// Duplicado de propósito: este config não importa código de `src` (roda fora do
+// bundle da app). Manter em sincronia com src/config.ts.
+const APP_NAME = 'Ratsnest'
+
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? BASE_PATH : '/',
   plugins: [
@@ -13,8 +17,8 @@ export default defineConfig(({ command }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Ratsnest — Manga & Novels',
-        short_name: 'Ratsnest',
+        name: `${APP_NAME} — Manga & Novels`,
+        short_name: APP_NAME,
         description: 'Personal reading tracker for manga, manhwa, manhua and novels',
         theme_color: '#aa3bff',
         background_color: '#16171d',

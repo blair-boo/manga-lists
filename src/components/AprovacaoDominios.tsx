@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { aprovarDominio, listarDominiosPendentes, rejeitarDominio, type DominioPendente } from '../lib/scraperConfig';
 
 function formatarData(iso: string | null): string {
@@ -22,50 +23,56 @@ function formatarData(iso: string | null): string {
  */
 export function AprovacaoDominios() {
   const [pendentes, setPendentes] = useState<DominioPendente[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
   const [processando, setProcessando] = useState<string | null>(null);
 
-  const recarregar = useCallback(async () => {
-    setCarregando(true);
-    setErro(null);
-    try {
+  const {
+    executar: carregar,
+    executando: carregando,
+    erro: erroCarregar,
+  } = useAsyncAction(
+    useCallback(async () => {
       setPendentes(await listarDominiosPendentes());
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCarregando(false);
-    }
-  }, []);
+    }, [])
+  );
 
   useEffect(() => {
-    void recarregar();
-  }, [recarregar]);
+    void carregar();
+  }, [carregar]);
+
+  const { executar: aprovar, erro: erroAprovar } = useAsyncAction(
+    useCallback(
+      async (d: DominioPendente) => {
+        await aprovarDominio(d.id, d.nome);
+        await carregar();
+      },
+      [carregar]
+    )
+  );
+
+  const { executar: rejeitar, erro: erroRejeitar } = useAsyncAction(
+    useCallback(
+      async (d: DominioPendente) => {
+        await rejeitarDominio(d.nome, 'Rejected from domain approval queue');
+        await carregar();
+      },
+      [carregar]
+    )
+  );
 
   async function handleAprovar(d: DominioPendente) {
     setProcessando(d.id);
-    try {
-      await aprovarDominio(d.id, d.nome);
-      await recarregar();
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : String(err));
-    } finally {
-      setProcessando(null);
-    }
+    await aprovar(d);
+    setProcessando(null);
   }
 
   async function handleRejeitar(d: DominioPendente) {
     if (!confirm(`Reject ${d.nome}? It won't be suggested again and won't be scraped.`)) return;
     setProcessando(d.id);
-    try {
-      await rejeitarDominio(d.nome, 'Rejected from domain approval queue');
-      await recarregar();
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : String(err));
-    } finally {
-      setProcessando(null);
-    }
+    await rejeitar(d);
+    setProcessando(null);
   }
+
+  const erro = erroCarregar ?? erroAprovar ?? erroRejeitar;
 
   if (carregando) return <p className="execucao-status">Loading…</p>;
   if (erro) return <p className="execucao-status execucao-erro">Error: {erro}</p>;

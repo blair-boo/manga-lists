@@ -28,11 +28,8 @@ from match_titulo import decidir_status, melhor_match
 from tipo_titulo import familia_de_tipo, por_url
 
 
-def obras_sem_fonte_no_site(supabase, nome_site: str, url_base: str) -> list[dict]:
+def obras_sem_fonte_no_site(obras: list[dict], fontes: list[dict], nome_site: str, url_base: str) -> list[dict]:
     """Obras que ainda não têm nenhuma fonte nesse site (por nome de site ou host da url)."""
-    obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
-    fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
-
     host_site = host_de_url(url_base)
     obra_ids_com_fonte = set()
     for f in fontes:
@@ -42,14 +39,16 @@ def obras_sem_fonte_no_site(supabase, nome_site: str, url_base: str) -> list[dic
     return [o for o in obras if o["id"] not in obra_ids_com_fonte]
 
 
-def processar_site(supabase, nome_site: str, adapter, url_base: str, limiares: dict) -> int:
+def processar_site(
+    supabase, nome_site: str, adapter, url_base: str, limiares: dict, todas_obras: list[dict], todas_fontes: list[dict]
+) -> int:
     """Varre o catálogo de um site (via adaptador) e insere fontes casadas."""
     catalogo = adapter.listar_catalogo(url_base)
     print(f"  {nome_site}: {len(catalogo)} títulos no catálogo.")
     if not catalogo:
         return 0
 
-    obras = obras_sem_fonte_no_site(supabase, nome_site, url_base)
+    obras = obras_sem_fonte_no_site(todas_obras, todas_fontes, nome_site, url_base)
     print(f"  {len(obras)} obra(s) ainda sem fonte no {nome_site}.")
 
     novas_fontes = []
@@ -110,6 +109,9 @@ def main():
         .data
     )
 
+    todas_obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
+    todas_fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
+
     total = 0
     for site in sites:
         nome = site["nome"]
@@ -124,7 +126,9 @@ def main():
         run_id = iniciar_run(supabase, "obras", site_dominio=nome)
 
         if adapter is None:
-            finalizar_run(supabase, run_id, "concluido", "domínio sem adaptador designado — nada a varrer")
+            finalizar_run(
+                supabase, run_id, "concluido", "domínio sem adaptador designado — nada a varrer", resumo={"fontes_novas": 0}
+            )
             print(f"{nome}: sem adaptador designado, pulando.")
             continue
 
@@ -134,6 +138,7 @@ def main():
                 run_id,
                 "concluido",
                 f"adaptador '{adapter.id}' não expõe catálogo (site de fonte única) — nada a varrer aqui",
+                resumo={"fontes_novas": 0},
             )
             print(f"{nome}: adaptador '{adapter.id}' sem catálogo, pulando.")
             continue
@@ -142,14 +147,22 @@ def main():
         estrategia = resolver_access_strategy(site.get("access_strategy"), adapter)
 
         if estrategia != ACCESS_HTTP:
-            finalizar_run(supabase, run_id, "concluido", f"acesso '{estrategia}' ainda não disponível — catálogo não varrido")
+            finalizar_run(
+                supabase,
+                run_id,
+                "concluido",
+                f"acesso '{estrategia}' ainda não disponível — catálogo não varrido",
+                resumo={"fontes_novas": 0},
+            )
             print(f"{nome}: acesso '{estrategia}' não implementado, catálogo não varrido.")
             continue
 
         try:
-            quantidade = processar_site(supabase, nome, adapter, url_base, limiares)
+            quantidade = processar_site(supabase, nome, adapter, url_base, limiares, todas_obras, todas_fontes)
             total += quantidade
-            finalizar_run(supabase, run_id, "concluido", f"{quantidade} nova(s) fonte(s) casada(s)")
+            finalizar_run(
+                supabase, run_id, "concluido", f"{quantidade} nova(s) fonte(s) casada(s)", resumo={"fontes_novas": quantidade}
+            )
         except Exception as exc:  # noqa: BLE001 - um site com erro não derruba os outros
             finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
             print(f"{nome}: erro — {exc}")

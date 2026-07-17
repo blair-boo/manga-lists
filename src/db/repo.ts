@@ -144,11 +144,17 @@ export async function deleteFonte(id: string): Promise<void> {
 }
 
 async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
+  const obra = await db.obras.get(obraId);
+  if (!obra) return;
+
   const fontes = await db.fontes.where('obra_id').equals(obraId).toArray();
   const aprovadas = fontes.filter((f) => f.status_aprovacao === 'aprovado' && f.ultimo_capitulo_detectado != null);
   const maior = aprovadas.length > 0 ? Math.max(...aprovadas.map((f) => f.ultimo_capitulo_detectado as number)) : null;
   const viaScraper =
     maior !== null && aprovadas.some((f) => f.ultimo_capitulo_detectado === maior && f.atualizado_por_scraper);
+
+  if (obra.ultimo_capitulo_lancado === maior && obra.ultimo_capitulo_via_scraper === viaScraper) return;
+
   await updateObra(obraId, {
     ultimo_capitulo_lancado: maior,
     ultimo_capitulo_via_scraper: viaScraper,
@@ -164,9 +170,7 @@ export async function criarObraComFontes(
   obra: NovaObra,
   urlsFontes: string[]
 ): Promise<{ obra: Obra; jaExistia: boolean }> {
-  const tituloLower = obra.titulo.trim().toLowerCase();
-  const existentes = await db.obras.toArray();
-  const existente = existentes.find((o) => o.titulo.trim().toLowerCase() === tituloLower);
+  const existente = await db.obras.where('titulo').equalsIgnoreCase(obra.titulo.trim()).first();
   if (existente) {
     return { obra: existente, jaExistia: true };
   }

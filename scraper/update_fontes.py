@@ -66,8 +66,8 @@ def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:
     return {"tipo_detectado": tipo_detectado}
 
 
-def executar(supabase) -> int:
-    """Retorna o número de falhas."""
+def executar(supabase) -> dict:
+    """Retorna o resumo da run: {"verificadas": n, "atualizadas": n, "falhas": n}."""
     fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
     print(f"{len(fontes)} fontes aprovadas para verificar.")
 
@@ -83,6 +83,7 @@ def executar(supabase) -> int:
     # valor de cada obra foi atualizado pelo scraper ou é um valor manual antigo.
     capitulos_por_obra: dict[str, list[tuple[float, bool]]] = {}
     falhas = 0
+    atualizadas = 0
 
     for fonte in fontes:
         try:
@@ -100,6 +101,7 @@ def executar(supabase) -> int:
                     }
                 ).eq("id", fonte["id"]).execute()
                 capitulos_por_obra.setdefault(fonte["obra_id"], []).append((capitulo, True))
+                atualizadas += 1
                 print(f"  ok: {url} -> cap. {capitulo}")
             else:
                 supabase.table("fontes").update(
@@ -133,17 +135,18 @@ def executar(supabase) -> int:
         ).eq("id", obra_id).execute()
 
     print(f"Concluído. {falhas} falha(s) de {len(fontes)} fontes.")
-    return falhas
+    return {"verificadas": len(fontes), "atualizadas": atualizadas, "falhas": falhas}
 
 
 def main():
     supabase = get_supabase()
     run_id = iniciar_run(supabase, "capitulos")
     try:
-        falhas = executar(supabase)
+        resumo = executar(supabase)
+        falhas = resumo["falhas"]
         status = "concluido" if falhas == 0 else "erro"
         mensagem = None if falhas == 0 else f"{falhas} fonte(s) falharam ao verificar"
-        finalizar_run(supabase, run_id, status, mensagem)
+        finalizar_run(supabase, run_id, status, mensagem, resumo=resumo)
     except Exception as exc:
         finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
         raise

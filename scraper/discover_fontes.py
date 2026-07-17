@@ -237,7 +237,13 @@ def main():
     run_id = iniciar_run(supabase, "fontes")
     try:
         quantidade = executar(supabase)
-        finalizar_run(supabase, run_id, "concluido", f"{quantidade} nova(s) fonte(s) encontrada(s)")
+        finalizar_run(
+            supabase,
+            run_id,
+            "concluido",
+            f"{quantidade} nova(s) fonte(s) encontrada(s)",
+            resumo={"fontes_novas": quantidade},
+        )
     except Exception as exc:
         finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
         raise
