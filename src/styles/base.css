@@ -1,0 +1,206 @@
+/* Base: tokens, temas, resets, tipografia, controles genéricos, modal, toasts (D1). */
+
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #fff;
+  --bg-raised: #f9f8fb;
+  --border: #e5e4e7;
+  --accent: #aa3bff;
+  --accent-bg: rgba(170, 59, 255, 0.1);
+  --accent-border: rgba(170, 59, 255, 0.5);
+  --danger: #d1264f;
+  --ok: #1f9d55;
+  --warn: #c98a12;
+  --info: #2b7de9;
+  --info-bg: rgba(43, 125, 233, 0.1);
+  --info-border: rgba(43, 125, 233, 0.5);
+  --shadow: 0 1px 2px rgba(8, 6, 13, 0.06), 0 2px 8px rgba(8, 6, 13, 0.06);
+  --shadow-hover: 0 4px 14px rgba(8, 6, 13, 0.12);
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font: 16px/1.45 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tokens do tema escuro. Aplicados quando o SO pede escuro (só no modo
+   "sistema", i.e. sem data-theme) OU quando o toggle força data-theme=dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --text: #aeb4c0;
+    --text-h: #f3f4f6;
+    --bg: #14151b;
+    --bg-raised: #22242e;
+    --border: #33353f;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.16);
+    --accent-border: rgba(192, 132, 252, 0.55);
+    --info: #5b9dff;
+    --info-bg: rgba(91, 157, 255, 0.16);
+    --info-border: rgba(91, 157, 255, 0.55);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.35);
+    --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  --text: #aeb4c0;
+  --text-h: #f3f4f6;
+  --bg: #14151b;
+  --bg-raised: #22242e;
+  --border: #33353f;
+  --accent: #c084fc;
+  --accent-bg: rgba(192, 132, 252, 0.16);
+  --accent-border: rgba(192, 132, 252, 0.55);
+  --info: #5b9dff;
+  --info-bg: rgba(91, 157, 255, 0.16);
+  --info-border: rgba(91, 157, 255, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='dark'] .badge-novo-capitulo {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1, h2, h3 {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input, select, textarea, button {
+  font: inherit;
+  color: inherit;
+}
+
+input, select, textarea {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+button {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+/* Modal */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-titulo {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal p {
+  margin: 0;
+}
+
+/* Botão de ação destrutiva em diálogos (E2). */
+.botao-perigoso {
+  background: rgba(209, 38, 79, 0.1);
+  border-color: rgba(209, 38, 79, 0.5);
+  color: var(--danger);
+}
+
+/* Toasts */
+
+.toast-container {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 180px;
+  max-width: 90vw;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-hover);
+  animation: toast-in 0.2s ease;
+}
+
+.toast-ok {
+  border-color: var(--accent-border);
+}
+.toast-erro {
+  border-color: rgba(209, 38, 79, 0.6);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

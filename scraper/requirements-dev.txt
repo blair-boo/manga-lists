@@ -1,0 +1,4 @@
+# Dependências de desenvolvimento/teste do scraper (não usadas pelos workflows
+# de produção, que instalam só o requirements.txt).
+-r requirements.txt
+pytest==8.3.4

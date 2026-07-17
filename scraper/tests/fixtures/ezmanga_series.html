@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Fixture SINTÉTICO mínimo do Angular Transfer State do ezmanga
+     (EzmangaAdapter): bloco script de id ng-state com um array de capítulos
+     (dicts com "number"/"publishStatus") aninhado numa chave de estado
+     arbitrária, o parser faz busca estrutural, não posicional. Falta o HTML
+     real de uma série do ezmanga no repositório, trocar por um dump real
+     quando houver. (Nota: este comentário evita escrever o tag literal, senão
+     o regex do parser casa dentro do próprio comentário.) -->
+<html>
+<head><title>Blade of Dawn | EzManga</title></head>
+<body>
+<app-root>conteúdo da página</app-root>
+<script id="ng-state" type="application/json">{"3641900482":{"b":{"data":{"title":"Blade of Dawn","chapters":{"data":[{"id":1,"number":1,"publishStatus":"PUBLIC","slug":"chapter-1"},{"id":2,"number":42,"publishStatus":"PUBLIC","slug":"chapter-42"},{"id":3,"number":43,"publishStatus":"SCHEDULED","slug":"chapter-43"}]}}}}}</script>
+</body>
+</html>

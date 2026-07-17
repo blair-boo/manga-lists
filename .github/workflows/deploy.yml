@@ -27,6 +27,9 @@ jobs:
 
       - run: npm ci
 
+      # Testes de funções puras (B5): quebram o deploy antes do build se falharem.
+      - run: npm test
+
       - run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

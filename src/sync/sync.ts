@@ -53,6 +53,48 @@ async function pullObras(): Promise<void> {
 }
 
 /**
+ * Reconcilia deleções remotas de obras. O pull incremental (via atualizado_em)
+ * nunca enxerga linhas apagadas no servidor, então uma obra deletada em outro
+ * dispositivo (ou direto no Supabase) ficaria para sempre no IndexedDB local.
+ * Busca só os ids do servidor e remove localmente o que não existe mais lá.
+ *
+ * GUARDA CRÍTICA: ids com mutação insert/update pendente na syncQueue são
+ * excluídos da remoção — são obras criadas/alteradas localmente cujo push ainda
+ * não chegou ao servidor (ex.: push falhou nesta rodada por rede); apagá-las
+ * destruiria dados da usuária. A checagem é feita AQUI, na hora de deletar (não
+ * antes), para cobrir mutações enfileiradas no meio do próprio ciclo de sync.
+ *
+ * Qualquer falha ou resposta parcial aborta a reconciliação silenciosamente:
+ * nunca deletar com base em erro ou lista incompleta de ids.
+ */
+async function reconciliarObrasDeletadas(): Promise<void> {
+  let idsServidor: Set<string>;
+  try {
+    const { data, error, count } = await supabase.from('obras').select('id', { count: 'exact' });
+    if (error || !data) return;
+    // Resposta parcial (ex.: limite de linhas do PostgREST): reconciliar com uma
+    // lista truncada apagaria obras que existem no servidor. Pula.
+    if (count !== null && data.length < count) return;
+    idsServidor = new Set(data.map((r) => r.id as string));
+  } catch {
+    return;
+  }
+
+  const idsLocais = (await db.obras.toCollection().primaryKeys()) as string[];
+  const candidatos = idsLocais.filter((id) => !idsServidor.has(id));
+  if (candidatos.length === 0) return;
+
+  const pendentes = await db.syncQueue.where('entity').equals('obras').toArray();
+  const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
+
+  const remover = candidatos.filter((id) => !protegidos.has(id));
+  if (remover.length === 0) return;
+
+  await db.obras.bulkDelete(remover);
+  await db.fontes.where('obra_id').anyOf(remover).delete();
+}
+
+/**
  * Puxa fontes do servidor. A tabela `fontes` não tem coluna de atualização
  * (só `criado_em`), e o scraper atualiza `ultimo_capitulo_detectado` in-place
  * sem mudar essa data — então não dá pra fazer pull incremental confiável.
@@ -83,6 +125,7 @@ export async function syncNow(): Promise<{ ok: boolean; error?: unknown }> {
   try {
     await pushPending();
     await pullObras();
+    await reconciliarObrasDeletadas();
     await pullFontes();
     await pullListas();
     return { ok: true };

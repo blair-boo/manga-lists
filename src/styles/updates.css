@@ -1,0 +1,527 @@
+/* Aba Updates: seções de scraper, sites suportados, domínios, fila de aprovações, config de match (D1). */
+
+/* Fontes pendentes */
+
+.fontes-pendentes-grupo {
+  margin-bottom: 20px;
+}
+
+.fontes-pendentes-titulo {
+  display: inline-block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-h);
+}
+
+.fontes-pendentes-grupo ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+/* Atualização em massa */
+
+.atualizacao-massa {
+  max-width: 560px;
+}
+
+.atualizacao-massa p {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.atualizacao-secao {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.atualizacao-secao h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.scraper-controles {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.atualizar-status {
+  background: none;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.execucao-status {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.execucao-status.execucao-ok strong {
+  color: var(--ok);
+}
+
+.execucao-status.execucao-erro strong,
+.execucao-status.execucao-erro {
+  color: var(--danger);
+}
+
+.execucao-status.execucao-rodando strong {
+  color: var(--warn);
+}
+
+.execucao-mensagem {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.execucao-nota {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 10px;
+}
+
+.toggle-pendentes {
+  background: none;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.upload-csv {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+
+.upload-csv input[type='file'] {
+  display: none;
+}
+
+.csv-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.capa-uploader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-capa-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--text-h);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  align-self: flex-start;
+}
+
+.upload-capa-botao input[type='file'] {
+  display: none;
+}
+
+.upload-erro {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.capa-preview {
+  width: 100px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  align-self: flex-start;
+}
+
+.atualizacao-massa-resultado {
+  margin-top: 20px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atualizacao-massa-resultado ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+/* Aba Updates — Fase 2 */
+
+.atualizacao-subtitulo {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 16px 0 8px;
+}
+
+.atualizacao-subtitulo-nota {
+  font-size: 12px;
+  opacity: 0.8;
+  margin: 0 0 8px;
+}
+
+.adicionar-dominio-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.adicionar-dominio-form input {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Tabela de sites suportados */
+.sites-suportados {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sites-suportados-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.sites-suportados-cabecalho > span:first-child {
+  flex: 1;
+}
+
+.sites-suportados-cabecalho .atualizar-status {
+  margin-left: auto;
+}
+
+.site-linha {
+  border-bottom: 1px solid var(--border);
+}
+.site-linha:last-child {
+  border-bottom: none;
+}
+
+.site-linha-topo {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.site-nome {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.site-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+.site-status-ok {
+  color: var(--ok);
+}
+.site-status-erro {
+  color: var(--danger);
+}
+.site-status-rodando {
+  color: var(--warn);
+}
+.site-status-nunca {
+  color: var(--text);
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.site-detalhe {
+  padding: 0 12px 10px 12px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.site-detalhe p {
+  margin: 2px 0;
+}
+
+/* Domínios sem adaptador (modo diagnóstico) */
+.dominios-sem-adaptador {
+  margin-bottom: 8px;
+}
+
+.dominios-sem-adaptador .botao-secundario {
+  background: none;
+  border: 1px solid var(--border);
+}
+
+.dominios-lista {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dominio-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.dominio-cabecalho {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dominio-nome {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.dominio-link {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.dominio-data {
+  font-size: 11px;
+  opacity: 0.65;
+  margin-left: auto;
+}
+
+.diag-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diag-entrada {
+  font-size: 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  opacity: 0.9;
+}
+
+.diag-entrada.diag-estrutura_invalida {
+  border-left-color: var(--warn);
+}
+
+.diag-entrada.diag-acesso_bloqueado {
+  border-left-color: var(--danger);
+}
+
+.diag-entrada.diag-estrutura_vazia,
+.diag-entrada.diag-ok {
+  border-left-color: var(--ok);
+}
+
+.diag-vazio {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+/* Fila de aprovações reutilizável */
+.fila-aprovacoes {
+  margin-top: 16px;
+}
+
+.fila-aprovacoes-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+}
+
+.fila-aprovacoes-corpo {
+  margin-top: 10px;
+}
+
+.fila-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.fila-filtro {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.fila-filtro.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.fonte-aprovacao {
+  align-items: flex-start;
+}
+
+/* Ações em massa na fila (A5) */
+.fila-acoes-massa {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  padding: 8px 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.fila-acoes-massa button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.fila-selecionar-grupo {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 0;
+  margin: 0 0 8px 10px;
+}
+
+.fonte-selecao {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.fonte-aprovacao-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fonte-site-titulo {
+  font-weight: 600;
+  color: var(--text-h);
+  font-size: 13px;
+}
+
+.fonte-link {
+  color: var(--accent);
+  font-size: 12px;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Editor de limiares */
+.config-match p {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.config-match-grupos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.config-match-grupo {
+  flex: 1 1 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-match-grupo legend {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  padding: 0 4px;
+}
+
+.config-match-grupo label {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.config-match-grupo input {
+  width: 80px;
+}
+
+
+/* Responsivo mobile */
+
+@media (max-width: 640px) {
+  .fonte-aprovacao {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .fonte-aprovacao .fonte-tipo-select {
+    align-self: flex-start;
+  }
+
+  .fonte-aprovacao .fonte-acoes {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  /* Área de toque confortável pros checkboxes de seleção em massa. */
+  .fonte-selecao {
+    width: 24px;
+    height: 24px;
+  }
+}

@@ -153,7 +153,10 @@ async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
   const viaScraper =
     maior !== null && aprovadas.some((f) => f.ultimo_capitulo_detectado === maior && f.atualizado_por_scraper);
 
-  if (obra.ultimo_capitulo_lancado === maior && obra.ultimo_capitulo_via_scraper === viaScraper) return;
+  // Normaliza com ?? antes de comparar: registros locais antigos podem ter o
+  // campo undefined, e undefined === null falharia gerando gravação redundante.
+  if ((obra.ultimo_capitulo_lancado ?? null) === maior && (obra.ultimo_capitulo_via_scraper ?? false) === viaScraper)
+    return;
 
   await updateObra(obraId, {
     ultimo_capitulo_lancado: maior,

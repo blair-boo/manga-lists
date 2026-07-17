@@ -1,0 +1,357 @@
+/* Detalhe/cadastro de obra: formulário, fontes, vínculo, capa (D1). */
+
+/* Detalhe obra */
+
+.voltar {
+  background: none;
+  border: none;
+  padding: 0 0 12px;
+}
+
+.detalhe-obra-form, .cadastro-obra-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+}
+
+.detalhe-obra-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.vinculo-obra {
+  font-size: 13px;
+}
+
+.vinculo-obra p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.vinculo-obra-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.vinculo-obra-acoes span {
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+.excluir-obra {
+  align-self: flex-start;
+  background: rgba(209, 38, 79, 0.1);
+  border-color: rgba(209, 38, 79, 0.5);
+  color: var(--danger);
+}
+
+.detalhe-obra-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alteracoes-pendentes {
+  font-size: 12px;
+  color: var(--warn);
+}
+
+
+.fontes-section {
+  margin-top: 32px;
+  max-width: 640px;
+}
+
+.fontes-lista {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fonte-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.fonte-capitulo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-direction: row;
+  font-size: 12px;
+}
+
+.fonte-capitulo input {
+  width: 64px;
+  padding: 4px 6px;
+}
+
+.scraper-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.scraper-status.scraper-ok {
+  color: var(--ok);
+}
+
+.scraper-status.scraper-falha {
+  color: var(--danger);
+}
+
+.scraper-status.scraper-nunca {
+  color: var(--text);
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+.scraper-data {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.fonte-tipo-select {
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.badge-tipo-manual {
+  font-size: 10px;
+  opacity: 0.7;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  cursor: help;
+}
+
+.fonte-acoes {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.fonte-acoes button {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.fontes-vazio {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.nova-fonte-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.nova-fonte-form input {
+  flex: 1 1 160px;
+}
+
+
+/* Tag picker */
+
+.tag-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-picker-label {
+  font-size: 14px;
+}
+
+.tag-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  padding: 2px 6px 2px 10px;
+  font-size: 12px;
+}
+
+.tag-chip button {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tag-picker-input-wrap {
+  position: relative;
+}
+
+.tag-picker-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tag-picker-input-row input {
+  flex: 1;
+}
+
+/* Dropdown de sugestões próprio (substitui o <datalist>, que falha no iOS). */
+.tag-picker-sugestoes {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-hover);
+}
+
+.tag-picker-sugestoes li button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.tag-picker-sugestoes li button:hover {
+  background: var(--accent-bg);
+}
+
+/* Busca com autocomplete pra vincular obra (VinculoObraSelect) — mesmo padrão do TagPicker. */
+.vinculo-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vinculo-busca input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.vinculo-busca-selecionada {
+  font-size: 13px;
+}
+
+.vinculo-busca-sugestoes {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-hover);
+}
+
+.vinculo-busca-sugestoes li button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.vinculo-busca-sugestoes li button:hover {
+  background: var(--accent-bg);
+}
+
+/* Checkbox inline (ex.: End of Season) */
+.check-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.check-inline input {
+  width: auto;
+}
+
+/* Cadastrar */
+
+.cadastro-rapido-resultado {
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+.toggle-completo {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--accent-border);
+  color: var(--accent);
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
+.urls-fontes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.urls-fontes-label {
+  font-size: 14px;
+}
+
+.urls-fontes-linha {
+  display: flex;
+  gap: 8px;
+}
+
+.urls-fontes-linha input {
+  flex: 1;
+}
+
+.adicionar-url {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+

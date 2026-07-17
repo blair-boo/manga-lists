@@ -151,7 +151,11 @@ def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = Non
 
     registro = {"status": status, "finalizado_em": datetime.now(timezone.utc).isoformat(), "mensagem": mensagem}
     if resumo is not None:
-        registro["resumo"] = resumo
+        try:
+            supabase.table("scraper_runs").update({**registro, "resumo": resumo}).eq("id", run_id).execute()
+            return
+        except Exception:  # noqa: BLE001 - coluna resumo pode não existir (migração 0009 é manual)
+            pass  # cai no update sem resumo abaixo; finalizar a run importa mais que o contador
     supabase.table("scraper_runs").update(registro).eq("id", run_id).execute()
 
 

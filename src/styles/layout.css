@@ -1,0 +1,149 @@
+/* Layout do app: header, nav, sync, login (D1). */
+
+/* Layout */
+
+.app-layout {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.app-header-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.app-title {
+  font-size: 20px;
+  margin: 0;
+}
+
+.app-nav {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.app-nav a {
+  color: var(--text);
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.app-nav a.active {
+  color: var(--text-h);
+  border-bottom-color: var(--accent);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.sync-dot.online {
+  background: var(--ok);
+}
+.sync-dot.offline {
+  background: var(--danger);
+}
+
+.sync-button, .logout-button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tema-toggle {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.sync-error {
+  color: var(--danger);
+}
+
+.app-main {
+  flex: 1;
+  padding: 20px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Login */
+
+.login-page {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.login-subtitle {
+  margin: -8px 0 8px;
+  font-size: 14px;
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.loading-screen {
+  padding: 40px;
+  text-align: center;
+}
+
+
+/* Responsivo mobile */
+
+@media (max-width: 640px) {
+  .app-main {
+    padding: 16px 14px;
+  }
+
+  .app-header {
+    padding: 10px 14px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .app-header-top {
+    font-size: 12px;
+    gap: 8px;
+  }
+}

@@ -1,17 +1,10 @@
 import { supabase } from './supabaseClient';
 import { controlarScraper } from './scraperControl';
+import { dominioDeUrl } from './site';
 
-/**
- * Extrai o domínio (host sem "www.") de uma URL. Retorna '' se for inválida.
- */
-export function dominioDeUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return host.startsWith('www.') ? host.slice(4) : host;
-  } catch {
-    return '';
-  }
-}
+// Movida pra ./site (módulo puro, testável sem puxar o cliente Supabase);
+// re-exportada aqui pra manter os imports existentes válidos.
+export { dominioDeUrl };
 
 // --- Blacklist de domínios (dominios_bloqueados) ---------------------------
 // Escreve/lê direto no Supabase (fora do Dexie/sync) — essas tabelas de

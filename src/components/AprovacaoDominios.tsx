@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useDialogos } from './Dialogo';
 import { aprovarDominio, listarDominiosPendentes, rejeitarDominio, type DominioPendente } from '../lib/scraperConfig';
 
 function formatarData(iso: string | null): string {
@@ -22,6 +23,7 @@ function formatarData(iso: string | null): string {
  * e some desta lista.
  */
 export function AprovacaoDominios() {
+  const { confirmar } = useDialogos();
   const [pendentes, setPendentes] = useState<DominioPendente[]>([]);
   const [processando, setProcessando] = useState<string | null>(null);
 
@@ -66,7 +68,13 @@ export function AprovacaoDominios() {
   }
 
   async function handleRejeitar(d: DominioPendente) {
-    if (!confirm(`Reject ${d.nome}? It won't be suggested again and won't be scraped.`)) return;
+    const ok = await confirmar({
+      titulo: 'Reject domain',
+      mensagem: `Reject ${d.nome}? It won't be suggested again and won't be scraped.`,
+      confirmarRotulo: 'Reject',
+      perigoso: true,
+    });
+    if (!ok) return;
     setProcessando(d.id);
     await rejeitar(d);
     setProcessando(null);

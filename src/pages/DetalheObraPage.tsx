@@ -22,6 +22,7 @@ import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
+import { useDialogos } from '../components/Dialogo';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
@@ -174,6 +175,7 @@ export function DetalheObraPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { mostrarToast } = useToast();
+  const { confirmar, pedirTexto } = useDialogos();
   const obra = useLiveQuery(() => (id ? db.obras.get(id) : undefined), [id]);
   const fontes = useLiveQuery(() => (id ? db.fontes.where('obra_id').equals(id).toArray() : []), [id]);
   const obraVinculada = useLiveQuery(
@@ -271,14 +273,24 @@ export function DetalheObraPage() {
 
   async function handleDesvincular() {
     if (!id) return;
-    if (!confirm(`Unlink from "${obraVinculada?.titulo}"? Title/Alternative Title stop syncing between the two.`)) return;
+    const ok = await confirmar({
+      titulo: 'Unlink works',
+      mensagem: `Unlink from "${obraVinculada?.titulo}"? Title/Alternative Title stop syncing between the two.`,
+      confirmarRotulo: 'Unlink',
+    });
+    if (!ok) return;
     await desvincularObra(id);
     mostrarToast('Works unlinked');
   }
 
   async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
     if (!id || !obra) return;
-    const tituloNovo = prompt('Title for the corresponding work:', obra.titulo);
+    const tituloNovo = await pedirTexto({
+      titulo: 'Corresponding work',
+      mensagem: 'Title for the corresponding work:',
+      valorInicial: obra.titulo,
+      confirmarRotulo: 'Create',
+    });
     if (!tituloNovo || !tituloNovo.trim()) return;
     const nova = await criarObraVinculada(id, {
       tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
@@ -328,11 +340,14 @@ export function DetalheObraPage() {
     }
 
     const tipoLabel = novoTipo === 'novel' ? 'novel' : 'manga';
-    if (
-      confirm(
-        `This source looks like a ${tipoLabel}, but "${obra.titulo}" is registered as ${obra.tipo ?? '—'}. Create the corresponding ${tipoLabel} work and move this source there?`
-      )
-    ) {
+    const criarContraparte = await confirmar({
+      titulo: 'Type mismatch',
+      mensagem: `This source looks like a ${tipoLabel}, but "${obra.titulo}" is registered as ${obra.tipo ?? '—'}. Create the corresponding ${tipoLabel} work and move this source there?`,
+      confirmarRotulo: 'Create and move',
+    });
+    if (criarContraparte) {
+      // Fluxo encadeado: se o pedido de título for cancelado, handleCriarVinculada
+      // retorna undefined e nada é gravado — mesmo comportamento do prompt nativo.
       const nova = await handleCriarVinculada(novoTipo);
       if (nova) await setFonteTipo(fonte.id, novoTipo, nova.id);
     } else {
@@ -342,7 +357,13 @@ export function DetalheObraPage() {
 
   async function handleExcluirObra() {
     if (!id) return;
-    if (!confirm(`Delete "${obra?.titulo}" and all its sources?`)) return;
+    const ok = await confirmar({
+      titulo: 'Delete work',
+      mensagem: `Delete "${obra?.titulo}" and all its sources?`,
+      confirmarRotulo: 'Delete',
+      perigoso: true,
+    });
+    if (!ok) return;
     await deleteObra(id);
     navigate('/');
   }

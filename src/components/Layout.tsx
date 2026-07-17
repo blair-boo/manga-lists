@@ -5,6 +5,7 @@ import { useSync } from '../sync/SyncContext';
 import { useTema, type TemaPref } from '../hooks/useTema';
 import { mensagemDeErro } from '../lib/erros';
 import { APP_NAME } from '../config';
+import { DialogosProvider } from './Dialogo';
 
 function formatHora(date: Date | null): string {
   if (!date) return 'never';
@@ -23,39 +24,41 @@ export function Layout({ children }: { children: ReactNode }) {
   const { tema, ciclarTema } = useTema();
 
   return (
-    <div className="app-layout">
-      <header className="app-header">
-        <div className="app-header-top">
-          <button
-            type="button"
-            onClick={ciclarTema}
-            className="tema-toggle"
-            title={TEMA_INFO[tema].titulo}
-            aria-label={TEMA_INFO[tema].titulo}
-          >
-            {TEMA_INFO[tema].icone}
-          </button>
-          <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
-          <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
-            {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
-          </button>
-          {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}
-          <button type="button" onClick={signOut} className="logout-button">
-            Sign out
-          </button>
-        </div>
-        <div className="app-header-main">
-          <h1 className="app-title">{APP_NAME}</h1>
-          <nav className="app-nav">
-            <NavLink to="/" end>
-              List
-            </NavLink>
-            <NavLink to="/atualizacoes">Updates</NavLink>
-            <NavLink to="/cadastrar">Add</NavLink>
-          </nav>
-        </div>
-      </header>
-      <main className="app-main">{children}</main>
-    </div>
+    <DialogosProvider>
+      <div className="app-layout">
+        <header className="app-header">
+          <div className="app-header-top">
+            <button
+              type="button"
+              onClick={ciclarTema}
+              className="tema-toggle"
+              title={TEMA_INFO[tema].titulo}
+              aria-label={TEMA_INFO[tema].titulo}
+            >
+              {TEMA_INFO[tema].icone}
+            </button>
+            <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
+            <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
+              {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
+            </button>
+            {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}
+            <button type="button" onClick={signOut} className="logout-button">
+              Sign out
+            </button>
+          </div>
+          <div className="app-header-main">
+            <h1 className="app-title">{APP_NAME}</h1>
+            <nav className="app-nav">
+              <NavLink to="/" end>
+                List
+              </NavLink>
+              <NavLink to="/atualizacoes">Updates</NavLink>
+              <NavLink to="/cadastrar">Add</NavLink>
+            </nav>
+          </div>
+        </header>
+        <main className="app-main">{children}</main>
+      </div>
+    </DialogosProvider>
   );
 }
