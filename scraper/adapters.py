@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+import requests
+
 from common import (
     _extrair_array_balanceado,
     buscar_candidatos_cms,
