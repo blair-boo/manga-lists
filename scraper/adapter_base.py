@@ -11,11 +11,16 @@ importar essas peças, e `adapters.py` também importa as classes de
 tentariam se importar um ao outro.
 """
 
+import shutil
+import subprocess
 from dataclasses import dataclass
 
 import requests
 
 from common import http_get
+
+_CURL_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+_TEM_CURL = shutil.which("curl") is not None
 
 # --- Eixo de acesso (fetchers) ---------------------------------------------
 
@@ -41,14 +46,67 @@ def _parece_cloudflare(resp) -> bool:
     return "just a moment" in trecho or "attention required" in trecho or "cf-chl" in trecho
 
 
+def _fetch_via_curl(url: str) -> RawContent | None:
+    """
+    Fallback via binário `curl` (subprocess) quando requests/cloudscraper
+    apanham bloqueio. Alguns sites bloqueiam pelo fingerprint TLS do cliente
+    Python (JA3), não por reputação de IP — confirmado num caso real
+    (novelshub/valirscans.org): `requests`/cloudscraper levam 403, `curl` com
+    o mesmo IP/rede passa normal. `curl` já vem instalado nos runners
+    ubuntu-latest do GitHub Actions, então não é uma dependência nova.
+    Retorna None se `curl` não estiver disponível (deixa o chamador decidir).
+    """
+    if not _TEM_CURL:
+        return None
+    try:
+        resultado = subprocess.run(
+            ["curl", "-sS", "-L", "-m", "20", "-A", _CURL_UA, "-w", "\n__HTTP_CODE__%{http_code}", url],
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if resultado.returncode != 0:
+        return None
+
+    saida = resultado.stdout
+    marcador = "\n__HTTP_CODE__"
+    idx = saida.rfind(marcador)
+    if idx == -1:
+        return None
+    corpo, codigo_str = saida[:idx], saida[idx + len(marcador) :].strip()
+    try:
+        codigo = int(codigo_str)
+    except ValueError:
+        return None
+
+    if codigo in (403, 503) or "just a moment" in corpo[:2000].lower():
+        return RawContent("acesso_bloqueado", url, diagnostico=f"curl também bloqueado (HTTP {codigo})")
+    if codigo >= 400:
+        return RawContent("erro", url, diagnostico=f"curl HTTP {codigo}")
+    return RawContent("ok", url, text=corpo)
+
+
 def fetch_http(url: str) -> RawContent:
-    """Acesso HTTP direto (cliente Cloudflare-aware do common)."""
+    """
+    Acesso HTTP direto (cliente Cloudflare-aware do common). Se o cliente
+    Python (requests/cloudscraper) apanhar bloqueio, tenta uma vez via `curl`
+    antes de desistir — ver `_fetch_via_curl`.
+    """
     try:
         resp = http_get(url)
     except requests.RequestException as exc:
         bloqueado = "403" in str(exc) or "cloudflare" in str(exc).lower()
+        if bloqueado:
+            via_curl = _fetch_via_curl(url)
+            if via_curl is not None:
+                return via_curl
         return RawContent("acesso_bloqueado" if bloqueado else "erro", url, diagnostico=str(exc))
     if _parece_cloudflare(resp):
+        via_curl = _fetch_via_curl(url)
+        if via_curl is not None:
+            return via_curl
         return RawContent("acesso_bloqueado", url, diagnostico=f"HTTP {resp.status_code} (possível Cloudflare)")
     if not resp.ok:
         return RawContent("erro", url, diagnostico=f"HTTP {resp.status_code}")

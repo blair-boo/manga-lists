@@ -334,20 +334,13 @@ class MadaraAdapter(SourceAdapter):
 
 class VymangaAdapter(SourceAdapter):
     """
-    vymanga.net (vymanga.com redireciona pra .net, mesmo site). Laravel
-    server-rendered, tema próprio (`og:site_name` = "VyManga").
-
-    Acesso: a home carrega normalmente, mas a página de série individual
-    retornou um challenge Cloudflare Turnstile ("Just a moment...", HTTP 403)
-    neste ambiente, mesmo com headers de navegador completos — diferente do
-    ezmanga (bloqueio por reputação de IP sem challenge), aqui parece ser
-    challenge de JS real. `access_strategy` fica `http` como ponto de partida
-    (mesma convenção dos outros), mas é bem provável que precise de
-    `flaresolverr`/residencial — **A CONFIRMAR** rodando do runner do GitHub
-    Actions (IP diferente deste ambiente). O parser abaixo segue a estrutura
-    descrita no handout (`.div-chapter .list a.list-group-item`) mas não pôde
-    ser validado contra HTML real — se a estrutura estiver errada, o modo
-    diagnóstico (`estrutura_invalida`) vai sinalizar isso claramente.
+    vymanga.net / vymanga.com — mesmo site (Laravel server-rendered, tema
+    próprio, `og:site_name` = "VyManga"), mas **não são intercambiáveis** na
+    prática: confirmado em produção (GitHub Actions, 2026-07-17) que
+    `.com` responde normalmente (chapters extraídos com sucesso em massa)
+    enquanto `.net` bate num bloqueio (challenge Cloudflare / 403) — o
+    inverso do que o handout presumia ("vymanga.com redireciona pra .net").
+    `fetch()` normaliza qualquer URL `.net` pra `.com` antes de buscar.
     """
 
     id = "vymanga"
@@ -360,6 +353,16 @@ class VymangaAdapter(SourceAdapter):
             return True
         raw = fetch_http(url)
         return raw.status == "ok" and bool(raw.text) and 'og:site_name" content="VyManga"' in raw.text
+
+    def _normalizar_dominio(self, url: str) -> str:
+        p = urlparse(url)
+        host = (p.hostname or "").lower()
+        if host in ("vymanga.net", "www.vymanga.net"):
+            return url.replace(p.netloc, "vymanga.com", 1)
+        return url
+
+    def fetch(self, url: str, access_strategy: str) -> RawContent:
+        return FETCHERS.get(access_strategy, fetch_http)(self._normalizar_dominio(url))
 
     def parse(self, raw: RawContent) -> ParseResult:
         if raw.status == "acesso_bloqueado":
@@ -473,7 +476,10 @@ class SakurazeAdapter(SourceAdapter):
         return (urlparse(url).hostname or "").lower() in ("sakuraze.vercel.app", "www.sakuraze.vercel.app")
 
     def _slug_da_url(self, url: str) -> str:
-        return urlparse(url).path.strip("/").split("/")[0]
+        # Pega o ÚLTIMO segmento do path, não o primeiro: URLs reais observadas usam
+        # prefixo /novel/<slug> (a rota "/:slug" vista no bundle JS não é a única).
+        partes = [p for p in urlparse(url).path.split("/") if p]
+        return partes[-1] if partes else ""
 
     def fetch(self, url: str, access_strategy: str) -> RawContent:
         slug = self._slug_da_url(url)

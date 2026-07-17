@@ -14,6 +14,7 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
+from adapter_base import fetch_http
 from adapters import REGISTRY, STATUS_OK, carregar_designacoes, resolver_access_strategy
 from common import (
     SITES_NEXTJS_CMS,
@@ -21,7 +22,6 @@ from common import (
     finalizar_run,
     get_supabase,
     host_de_url,
-    http_get,
     iniciar_run,
     resolver_url,
 )
@@ -32,10 +32,12 @@ def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | Non
     """
     (último capítulo, tipo detectado 'manga'/'novel'/None) de uma fonte (URL já
     absoluta). Se o domínio tem adaptador designado, usa-o com a estratégia de
-    acesso resolvida; senão cai na heurística genérica de HTML — a detecção de
-    tipo (Bloco B1) roda nos dois casos, por URL/HTML, não depende do adaptador.
-    Retornos que não são capítulo (vazio/bloqueado/inválido) não são exceção —
-    apenas devolvem None (não contam como falha).
+    acesso resolvida; senão cai na heurística genérica de HTML, via `fetch_http`
+    (mesmo cliente Cloudflare-aware + fallback curl dos adaptadores) — a
+    detecção de tipo (Bloco B1) roda nos dois casos, por URL/HTML, não depende
+    do adaptador. Retornos que não são capítulo (vazio/bloqueado/erro de acesso)
+    não são exceção — apenas devolvem None (não contam como falha do batch; um
+    domínio sem adaptador bloqueado não deve derrubar a run inteira pra "erro").
     """
     desig = designacoes.get(host_de_url(url)) or {}
     adaptador_id = desig.get("adaptador")
@@ -47,9 +49,10 @@ def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | Non
             capitulo = resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
             return capitulo, resultado.tipo_detectado
 
-    resp = http_get(url)
-    resp.raise_for_status()
-    return extrair_maior_capitulo(resp.text), detectar_tipo(url, resp.text)
+    raw = fetch_http(url)
+    if raw.status != "ok" or not raw.text:
+        return None, None
+    return extrair_maior_capitulo(raw.text), detectar_tipo(url, raw.text)
 
 
 def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:

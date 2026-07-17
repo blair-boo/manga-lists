@@ -115,13 +115,31 @@ def main():
         nome = site["nome"]
         adaptador_id = site.get("adaptador")
         adapter = REGISTRY.por_id(adaptador_id) if adaptador_id else None
-        if adapter is None or not hasattr(adapter, "listar_catalogo"):
-            print(f"{nome}: sem adaptador com catálogo, pulando.")
+
+        # Sempre registra uma run pra esse site, mesmo quando não há nada a
+        # fazer (sem adaptador, adaptador sem catálogo, ou acesso pendente) —
+        # senão o site fica pra sempre com "no run yet" na aba Updates, mesmo
+        # que o scraper já tenha olhado pra ele e decidido, corretamente, não
+        # varrer (ex.: adaptadores de site único não implementam catálogo).
+        run_id = iniciar_run(supabase, "obras", site_dominio=nome)
+
+        if adapter is None:
+            finalizar_run(supabase, run_id, "concluido", "domínio sem adaptador designado — nada a varrer")
+            print(f"{nome}: sem adaptador designado, pulando.")
+            continue
+
+        if not hasattr(adapter, "listar_catalogo"):
+            finalizar_run(
+                supabase,
+                run_id,
+                "concluido",
+                f"adaptador '{adapter.id}' não expõe catálogo (site de fonte única) — nada a varrer aqui",
+            )
+            print(f"{nome}: adaptador '{adapter.id}' sem catálogo, pulando.")
             continue
 
         url_base = site.get("url_base") or f"https://{nome}"
         estrategia = resolver_access_strategy(site.get("access_strategy"), adapter)
-        run_id = iniciar_run(supabase, "obras", site_dominio=nome)
 
         if estrategia != ACCESS_HTTP:
             finalizar_run(supabase, run_id, "concluido", f"acesso '{estrategia}' ainda não disponível — catálogo não varrido")
