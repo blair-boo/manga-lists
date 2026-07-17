@@ -506,6 +506,10 @@
 @media (max-width: 640px) {
   .fonte-aprovacao {
     flex-direction: column;
+    /* nowrap é essencial: o .fonte-item base tem flex-wrap wrap, e em coluna
+       multi-linha o stretch não constrange a largura — a URL nowrap estourava
+       o card pra fora do viewport (confirmado em teste real a 390px). */
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 8px;
   }
