@@ -16,7 +16,9 @@ export function TagPicker({ label, value, options, onChange }: TagPickerProps) {
   const sugestoes = useMemo(() => {
     const q = input.trim().toLowerCase();
     const selecionados = new Set(value);
-    return options.filter((o) => !selecionados.has(o) && (!q || o.toLowerCase().includes(q))).slice(0, 8);
+    // Sem slice: mostra TODAS as opções ao abrir (o dropdown já rola —
+    // max-height 200px + overflow-y auto). Com texto, filtra por includes.
+    return options.filter((o) => !selecionados.has(o) && (!q || o.toLowerCase().includes(q)));
   }, [options, value, input]);
 
   function adicionar(explicito?: string) {

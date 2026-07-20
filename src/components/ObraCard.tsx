@@ -103,6 +103,13 @@ export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
           {obra.titulo}
         </Link>
         <div className="obra-card-meta">
+          {obra.classificacao && (
+            <span
+              className={`badge badge-classificacao ${obra.classificacao === 'R-18' ? 'badge-r18' : 'badge-r15'}`}
+            >
+              {obra.classificacao}
+            </span>
+          )}
           {obra.status_publicacao && <span className="badge badge-pub">{obra.status_publicacao}</span>}
           {obra.fim_de_temporada && <span className="badge badge-eos">End of Season</span>}
           {obra.tipo && <span className="badge">{obra.tipo}</span>}

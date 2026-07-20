@@ -1,6 +1,23 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { db } from '../db/localDb';
 import {
   createFonte,
@@ -23,10 +40,11 @@ import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
+import { IconeDisquete, IconeGrip, IconeImagem, IconeX } from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
-import type { FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
+import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
   { valor: 'manga', rotulo: 'Manga' },
@@ -43,6 +61,17 @@ function statusAprovacaoLabel(status: StatusAprovacao): string {
   if (status === 'aprovado') return 'approved';
   if (status === 'rejeitado') return 'rejected';
   return 'pending';
+}
+
+/** Ordena por `ordem` asc; fontes legadas (ordem null) por último, desempate por criado_em. */
+function ordenarFontes(fontes: Fonte[]): Fonte[] {
+  return [...fontes].sort((a, b) => {
+    if (a.ordem == null && b.ordem == null) return a.criado_em.localeCompare(b.criado_em);
+    if (a.ordem == null) return 1;
+    if (b.ordem == null) return -1;
+    if (a.ordem !== b.ordem) return a.ordem - b.ordem;
+    return a.criado_em.localeCompare(b.criado_em);
+  });
 }
 
 function FonteItem({
@@ -136,6 +165,25 @@ function FonteItem({
   );
 }
 
+/** Fonte em modo de reordenação: só handle + nome do site (ações ocultas — F3). */
+function FonteSortable({ fonte }: { fonte: Fonte }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fonte.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const nomeSite = fonte.site || dominioDeUrl(fonte.url) || fonte.url;
+
+  return (
+    <li ref={setNodeRef} style={style} className={`fonte-item ${isDragging ? 'arrastando' : ''}`}>
+      <span className="fonte-handle" {...attributes} {...listeners} aria-label="Drag to reorder">
+        <IconeGrip />
+      </span>
+      <a href={fonte.url} target="_blank" rel="noreferrer">
+        {nomeSite}
+      </a>
+    </li>
+  );
+}
+
+/** Campos com autosave (Bloco E1) — observacoes fica FORA (tem Save/Cancel próprios em E2). */
 type Draft = Pick<
   Obra,
   | 'titulo'
@@ -148,9 +196,9 @@ type Draft = Pick<
   | 'fim_de_temporada'
   | 'capitulo_atual'
   | 'nota'
+  | 'classificacao'
   | 'generos'
   | 'tags'
-  | 'observacoes'
 >;
 
 function toDraft(obra: Obra): Draft {
@@ -165,11 +213,21 @@ function toDraft(obra: Obra): Draft {
     fim_de_temporada: obra.fim_de_temporada,
     capitulo_atual: obra.capitulo_atual,
     nota: obra.nota,
+    classificacao: obra.classificacao,
     generos: obra.generos,
     tags: obra.tags,
-    observacoes: obra.observacoes,
   };
 }
+
+function camposAlterados(draft: Draft, snap: Draft): Partial<NovaObra> {
+  const changes: Partial<NovaObra> = {};
+  (Object.keys(draft) as (keyof Draft)[]).forEach((k) => {
+    if (draft[k] !== snap[k]) (changes as Record<string, unknown>)[k] = draft[k];
+  });
+  return changes;
+}
+
+const AUTOSAVE_MS = 600;
 
 export function DetalheObraPage() {
   const { id } = useParams<{ id: string }>();
@@ -192,37 +250,71 @@ export function DetalheObraPage() {
 
   const [obraIdCarregado, setObraIdCarregado] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [savedSnapshot, setSavedSnapshot] = useState<Draft | null>(null);
+  const snapshotRef = useRef<Draft | null>(null); // último estado persistido (autosave)
+
+  // Notas: estado próprio com Save/Cancel (Bloco E2), fora do autosave.
+  const [notaDraft, setNotaDraft] = useState<string | null>(null);
+  const [notaSalva, setNotaSalva] = useState<string | null>(null);
 
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
   const [mostrarVinculo, setMostrarVinculo] = useState(false);
   const [vinculoEscolhidoId, setVinculoEscolhidoId] = useState('');
+  const [mostrarUrlCapa, setMostrarUrlCapa] = useState(false);
 
+  // Reordenação de fontes (Bloco F3)
+  const [editandoOrdem, setEditandoOrdem] = useState(false);
+  const [ordemLocal, setOrdemLocal] = useState<Fonte[]>([]);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  // Carga inicial do draft quando a obra chega/muda. Grava o snapshot no mesmo
+  // momento pra o autosave não disparar só por ter carregado do banco.
   useEffect(() => {
     if (obra && obra.id !== obraIdCarregado) {
       const d = toDraft(obra);
       setDraft(d);
-      setSavedSnapshot(d);
+      snapshotRef.current = d;
       setObraIdCarregado(obra.id);
+      setNotaDraft(obra.observacoes);
+      setNotaSalva(obra.observacoes);
     }
   }, [obra, obraIdCarregado]);
 
-  const isDirty = draft !== null && savedSnapshot !== null && JSON.stringify(draft) !== JSON.stringify(savedSnapshot);
+  // Autosave com debounce: persiste os campos do draft que diferem do snapshot,
+  // exceto observacoes (que nem está no draft). Atualiza o snapshot ANTES do
+  // await pra evitar re-gravação quando a obra reativa re-dispara este efeito.
+  useEffect(() => {
+    if (!id || draft === null || obra === undefined || snapshotRef.current === null) return;
+    if (Object.keys(camposAlterados(draft, snapshotRef.current)).length === 0) return;
+    const timer = window.setTimeout(() => {
+      const snap = snapshotRef.current;
+      if (snap === null) return;
+      const changes = camposAlterados(draft, snap);
+      if (Object.keys(changes).length === 0) return;
+      snapshotRef.current = draft;
+      void updateObra(id, changes);
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [draft, id, obra]);
+
+  const notasDirty = notaDraft !== notaSalva;
 
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
+    ({ currentLocation, nextLocation }) => notasDirty && currentLocation.pathname !== nextLocation.pathname
   );
 
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
-      if (isDirty) {
+      if (notasDirty) {
         e.preventDefault();
         e.returnValue = '';
       }
     }
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirty]);
+  }, [notasDirty]);
 
   if (!id) return null;
   if (obra === undefined || draft === null) return <p>Loading…</p>;
@@ -231,21 +323,23 @@ export function DetalheObraPage() {
     setDraft((atual) => (atual ? { ...atual, [campo]: valor } : atual));
   }
 
-  async function handleSalvar() {
-    if (!id || !draft) return;
-    await updateObra(id, draft as Partial<NovaObra>);
-    setSavedSnapshot(draft);
-    mostrarToast('Saved ✓');
+  async function handleSalvarNota() {
+    if (!id) return;
+    await updateObra(id, { observacoes: notaDraft || null });
+    setNotaSalva(notaDraft);
+    mostrarToast('Notes saved ✓');
   }
 
-  function handleCancelar() {
-    if (savedSnapshot) setDraft(savedSnapshot);
+  function handleCancelarNota() {
+    setNotaDraft(notaSalva);
   }
 
   async function handleAdicionarFonte(e: FormEvent) {
     e.preventDefault();
     if (!novaFonteUrl.trim() || !id) return;
     const url = novaFonteUrl.trim();
+    // Nova fonte entra no fim da lista: maior ordem atual + 1 (Bloco F).
+    const maiorOrdem = (fontes ?? []).reduce((max, f) => (f.ordem != null && f.ordem > max ? f.ordem : max), -1);
     await createFonte({
       obra_id: id,
       site: deriveSite(url),
@@ -258,6 +352,7 @@ export function DetalheObraPage() {
       ultima_verificacao: null,
       tipo_detectado: null,
       tipo_manual: false,
+      ordem: maiorOrdem + 1,
     });
     void registrarDominioManual(url); // domínio novo inserido à mão vira site suportado
     setNovaFonteUrl('');
@@ -275,7 +370,7 @@ export function DetalheObraPage() {
     if (!id) return;
     const ok = await confirmar({
       titulo: 'Unlink works',
-      mensagem: `Unlink from "${obraVinculada?.titulo}"? Title/Alternative Title stop syncing between the two.`,
+      mensagem: `Unlink from "${obraVinculada?.titulo}"? Title, alternative title, genres and tags stop syncing between the two.`,
       confirmarRotulo: 'Unlink',
     });
     if (!ok) return;
@@ -295,7 +390,10 @@ export function DetalheObraPage() {
     const nova = await criarObraVinculada(id, {
       tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
       titulo: tituloNovo.trim(),
-      titulos_alternativos: null,
+      // Bloco B2: a obra correspondente nasce com os campos espelhados copiados
+      // da origem (titulos_alternativos, generos, tags). Daí em diante o
+      // espelhamento contínuo (B1) mantém os quatro campos sincronizados.
+      titulos_alternativos: obra.titulos_alternativos,
       autor: null,
       capa_url: null,
       capitulo_atual: null,
@@ -305,10 +403,11 @@ export function DetalheObraPage() {
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,
       nota: null,
-      generos: null,
-      tags: null,
+      generos: obra.generos,
+      tags: obra.tags,
       observacoes: null,
       obra_vinculada_id: null,
+      classificacao: null,
     });
     mostrarToast(`"${nova.titulo}" created and linked ✓`);
     return nova;
@@ -368,6 +467,41 @@ export function DetalheObraPage() {
     navigate('/');
   }
 
+  // --- Reordenação de fontes (F3) ---
+  const fontesOrdenadas = ordenarFontes(fontes ?? []);
+  const ordemAlterou =
+    editandoOrdem && ordemLocal.some((f, i) => f.id !== fontesOrdenadas[i]?.id);
+
+  function entrarEdicaoOrdem() {
+    setOrdemLocal(fontesOrdenadas);
+    setEditandoOrdem(true);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrdemLocal((items) => {
+        const de = items.findIndex((f) => f.id === active.id);
+        const para = items.findIndex((f) => f.id === over.id);
+        return arrayMove(items, de, para);
+      });
+    }
+  }
+
+  async function salvarOrdem() {
+    // Só grava as fontes cujo índice difere da ordem já persistida.
+    for (let i = 0; i < ordemLocal.length; i++) {
+      if (ordemLocal[i].ordem !== i) await updateFonte(ordemLocal[i].id, { ordem: i });
+    }
+    setEditandoOrdem(false);
+    mostrarToast('Source order saved ✓');
+  }
+
+  function cancelarOrdem() {
+    setEditandoOrdem(false);
+    setOrdemLocal([]);
+  }
+
   return (
     <div className="detalhe-obra">
       <button type="button" className="voltar" onClick={() => navigate(-1)}>
@@ -392,18 +526,37 @@ export function DetalheObraPage() {
           <input type="text" value={draft.autor ?? ''} onChange={(e) => setCampo('autor', e.target.value || null)} />
         </label>
 
-        <label>
-          Cover (URL)
-          <input
-            type="text"
-            value={draft.capa_url ?? ''}
-            onChange={(e) => setCampo('capa_url', e.target.value || null)}
-          />
-        </label>
-        <CapaUploader onUploaded={(url) => setCampo('capa_url', url)} />
-        {draft.capa_url && (
-          <img src={draft.capa_url} alt="Cover preview" className="capa-preview" />
-        )}
+        {/* Bloco de capa (C1): miniatura à esquerda, controles à direita, URL atrás de um botão. */}
+        <div className="capa-bloco">
+          {draft.capa_url ? (
+            <img src={draft.capa_url} alt="Cover preview" className="capa-preview" />
+          ) : (
+            <div className="capa-preview-vazia" aria-hidden="true">
+              <IconeImagem />
+            </div>
+          )}
+          <div className="capa-bloco-controles">
+            <CapaUploader onUploaded={(url) => setCampo('capa_url', url)} />
+            <button
+              type="button"
+              className="upload-capa-botao"
+              onClick={() => setMostrarUrlCapa((v) => !v)}
+              aria-expanded={mostrarUrlCapa}
+            >
+              {draft.capa_url ? 'Edit URL' : 'Cover URL'}
+            </button>
+            {mostrarUrlCapa && (
+              <input
+                type="text"
+                className="capa-url-input"
+                autoFocus
+                placeholder="https://…"
+                value={draft.capa_url ?? ''}
+                onChange={(e) => setCampo('capa_url', e.target.value || null)}
+              />
+            )}
+          </div>
+        </div>
 
         <div className="detalhe-obra-grid">
           <label>
@@ -490,6 +643,23 @@ export function DetalheObraPage() {
               ))}
             </select>
           </label>
+
+          {/* Classificação R-15/R-18 (Bloco D1): campo único, marcar uma desmarca a outra. */}
+          <div className="classificacao-campo">
+            <span className="classificacao-label">Content rating</span>
+            <div className="classificacao-caixas">
+              {(['R-15', 'R-18'] as Classificacao[]).map((c) => (
+                <label key={c} className="check-inline">
+                  <input
+                    type="checkbox"
+                    checked={draft.classificacao === c}
+                    onChange={(e) => setCampo('classificacao', e.target.checked ? c : null)}
+                  />
+                  {c}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="vinculo-obra">
@@ -514,7 +684,7 @@ export function DetalheObraPage() {
                   </button>
                   <span>or</span>
                   <button type="button" onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}>
-                    Create corresponding work
+                    Create
                   </button>
                 </div>
               )}
@@ -526,65 +696,125 @@ export function DetalheObraPage() {
           label="Genres"
           value={draft.generos ?? []}
           options={generos}
-          onChange={(v) => setCampo('generos', v)}
+          onChange={(v) => setCampo('generos', v.length > 0 ? v : null)}
         />
 
-        <TagPicker label="Tags" value={draft.tags ?? []} options={tags} onChange={(v) => setCampo('tags', v)} />
+        <TagPicker
+          label="Tags"
+          value={draft.tags ?? []}
+          options={tags}
+          onChange={(v) => setCampo('tags', v.length > 0 ? v : null)}
+        />
 
         <label>
           Notes
           <textarea
-            value={draft.observacoes ?? ''}
-            onChange={(e) => setCampo('observacoes', e.target.value || null)}
+            value={notaDraft ?? ''}
+            onChange={(e) => setNotaDraft(e.target.value || null)}
             rows={4}
           />
         </label>
+        {notasDirty && (
+          <div className="notas-acoes">
+            <button type="button" className="btn-icone" onClick={handleSalvarNota} aria-label="Save notes" title="Save notes">
+              <IconeDisquete />
+            </button>
+            <button
+              type="button"
+              className="btn-icone btn-icone-perigo"
+              onClick={handleCancelarNota}
+              aria-label="Discard notes"
+              title="Discard notes"
+            >
+              <IconeX />
+            </button>
+          </div>
+        )}
+      </div>
 
-        <div className="detalhe-obra-acoes">
-          <button type="button" onClick={handleSalvar} disabled={!isDirty}>
-            Save
-          </button>
-          <button type="button" onClick={handleCancelar} disabled={!isDirty}>
-            Cancel
-          </button>
-          {isDirty && <span className="alteracoes-pendentes">unsaved changes</span>}
+      <section className="fontes-section">
+        <div className="fontes-cabecalho">
+          <h2>Sources</h2>
+          {fontesOrdenadas.length > 1 &&
+            (editandoOrdem ? (
+              <>
+                {ordemAlterou && (
+                  <button type="button" className="btn-icone" onClick={salvarOrdem} aria-label="Save order" title="Save order">
+                    <IconeDisquete />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-icone btn-icone-perigo"
+                  onClick={cancelarOrdem}
+                  aria-label="Cancel reordering"
+                  title="Cancel reordering"
+                >
+                  <IconeX />
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn-icone"
+                onClick={entrarEdicaoOrdem}
+                aria-label="Reorder sources"
+                title="Reorder sources"
+              >
+                <IconeGrip />
+              </button>
+            ))}
         </div>
 
+        {editandoOrdem ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={ordemLocal.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+              <ul className="fontes-lista">
+                {ordemLocal.map((f) => (
+                  <FonteSortable key={f.id} fonte={f} />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <>
+            <ul className="fontes-lista">
+              {fontesOrdenadas.map((f) => (
+                <FonteItem key={f.id} fonte={f} sitesAtivos={sitesAtivos} onMudarTipo={handleMudarTipoFonte} />
+              ))}
+              {fontesOrdenadas.length === 0 && <li className="fontes-vazio">No sources yet.</li>}
+            </ul>
+
+            <form className="nova-fonte-form" onSubmit={handleAdicionarFonte}>
+              <input
+                type="url"
+                placeholder="Source URL"
+                value={novaFonteUrl}
+                onChange={(e) => setNovaFonteUrl(e.target.value)}
+                required
+              />
+              <button type="submit">Add</button>
+            </form>
+          </>
+        )}
+      </section>
+
+      {/* Delete work movido pro fim absoluto da página (Bloco C), separado das Sources. */}
+      <div className="detalhe-obra-rodape">
         <button type="button" className="excluir-obra" onClick={handleExcluirObra}>
           Delete work
         </button>
       </div>
 
-      <section className="fontes-section">
-        <h2>Sources</h2>
-        <ul className="fontes-lista">
-          {(fontes ?? []).map((f) => (
-            <FonteItem key={f.id} fonte={f} sitesAtivos={sitesAtivos} onMudarTipo={handleMudarTipoFonte} />
-          ))}
-          {(fontes ?? []).length === 0 && <li className="fontes-vazio">No sources yet.</li>}
-        </ul>
-
-        <form className="nova-fonte-form" onSubmit={handleAdicionarFonte}>
-          <input
-            type="url"
-            placeholder="Source URL"
-            value={novaFonteUrl}
-            onChange={(e) => setNovaFonteUrl(e.target.value)}
-            required
-          />
-          <button type="submit">Add source</button>
-        </form>
-      </section>
-
       {blocker.state === 'blocked' && (
         <div className="modal-backdrop">
           <div className="modal">
-            <p>You have unsaved changes on this work.</p>
+            <p>You have unsaved notes on this work.</p>
             <div className="modal-acoes">
               <button
                 type="button"
                 onClick={async () => {
-                  await handleSalvar();
+                  await handleSalvarNota();
                   blocker.proceed();
                 }}
               >
@@ -593,7 +823,7 @@ export function DetalheObraPage() {
               <button
                 type="button"
                 onClick={() => {
-                  handleCancelar();
+                  handleCancelarNota();
                   blocker.proceed();
                 }}
               >

@@ -19,15 +19,15 @@ export async function createObra(input: NovaObra, dispararSync = true): Promise<
   return obra;
 }
 
-/** Atualiza titulo/titulos_alternativos direto, sem disparar o espelhamento de novo (evita recursão). */
-async function espelharTitulo(
-  obraId: string,
-  titulo: string | undefined,
-  titulosAlternativos: string[] | null | undefined
-): Promise<void> {
+/** Campos espelhados entre obras vinculadas (manga<->novel da mesma história). */
+const CAMPOS_ESPELHADOS = ['titulo', 'titulos_alternativos', 'generos', 'tags'] as const;
+
+/** Replica os campos espelhados na obra vinculada, sem reentrar no espelhamento (evita recursão). */
+async function espelharCampos(obraId: string, changes: Partial<NovaObra>): Promise<void> {
   const patch: Partial<NovaObra> = {};
-  if (titulo !== undefined) patch.titulo = titulo;
-  if (titulosAlternativos !== undefined) patch.titulos_alternativos = titulosAlternativos;
+  for (const campo of CAMPOS_ESPELHADOS) {
+    if (campo in changes) (patch as Record<string, unknown>)[campo] = changes[campo];
+  }
   if (Object.keys(patch).length === 0) return;
 
   const now = new Date().toISOString();
@@ -46,9 +46,11 @@ export async function updateObra(id: string, changes: Partial<NovaObra>): Promis
   await enqueueMutation({ entity: 'obras', op: 'update', recordId: id, payload: full });
   triggerBackgroundSync();
 
-  // Espelha Title/Alternative Title pra obra vinculada (manga<->novel da mesma história, Bloco B3).
-  if (full.obra_vinculada_id && ('titulo' in changes || 'titulos_alternativos' in changes)) {
-    await espelharTitulo(full.obra_vinculada_id, changes.titulo, changes.titulos_alternativos);
+  // Espelha os quatro campos (título, títulos alternativos, gêneros, tags) pra
+  // obra vinculada (manga<->novel da mesma história). espelharCampos grava direto
+  // no Dexie + enqueue, sem passar por updateObra, então não re-dispara o espelho.
+  if (full.obra_vinculada_id && CAMPOS_ESPELHADOS.some((campo) => campo in changes)) {
+    await espelharCampos(full.obra_vinculada_id, changes);
   }
 }
 
@@ -198,6 +200,7 @@ export async function criarObraComFontes(
         ultima_verificacao: null,
         tipo_detectado: null,
         tipo_manual: false,
+        ordem: null,
       },
       false
     );

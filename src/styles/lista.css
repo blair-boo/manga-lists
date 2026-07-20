@@ -373,6 +373,18 @@
   border-color: rgba(201, 138, 18, 0.6);
 }
 
+/* Classificação indicativa na lista (Bloco D2): R-18 vermelho, R-15 amarelo. */
+.badge-r18 {
+  background: rgba(209, 38, 79, 0.16);
+  border-color: rgba(209, 38, 79, 0.6);
+  color: var(--text-h);
+}
+.badge-r15 {
+  background: rgba(201, 138, 18, 0.16);
+  border-color: rgba(201, 138, 18, 0.6);
+  color: var(--text-h);
+}
+
 .badge-nao-monitorada {
   font-size: 10px;
   opacity: 0.7;

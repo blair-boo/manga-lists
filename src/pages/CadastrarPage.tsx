@@ -5,9 +5,10 @@ import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
+import { IconeImagem } from '../components/Icones';
 import { useToast } from '../components/Toast';
 import { registrarDominioManual } from '../lib/scraperConfig';
-import type { Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
+import type { Classificacao, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 interface Resultado {
   obra: Obra;
@@ -36,6 +37,7 @@ export function CadastrarPage() {
   const [statusPublicacao, setStatusPublicacao] = useState('');
   const [fimDeTemporada, setFimDeTemporada] = useState(false);
   const [nota, setNota] = useState('');
+  const [classificacao, setClassificacao] = useState<Classificacao | null>(null);
 
   function handleStatusPublicacao(v: string) {
     setStatusPublicacao(v);
@@ -50,6 +52,7 @@ export function CadastrarPage() {
   const [completo, setCompleto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [mostrarUrlCapa, setMostrarUrlCapa] = useState(false);
 
   function limparFormulario() {
     setTitulo('');
@@ -63,6 +66,7 @@ export function CadastrarPage() {
     setStatusPublicacao('');
     setFimDeTemporada(false);
     setNota('');
+    setClassificacao(null);
     setGeneros([]);
     setTags([]);
     setObservacoes('');
@@ -105,6 +109,7 @@ export function CadastrarPage() {
       tags: tags.length > 0 ? tags : null,
       observacoes: observacoes.trim() || null,
       obra_vinculada_id: null,
+      classificacao,
     };
     const r = await criarObraComFontes(obra, urlsValidas);
     setSalvando(false);
@@ -205,6 +210,24 @@ export function CadastrarPage() {
               </select>
             </label>
           )}
+
+          {completo && (
+            <div className="classificacao-campo">
+              <span className="classificacao-label">Content rating</span>
+              <div className="classificacao-caixas">
+                {(['R-15', 'R-18'] as Classificacao[]).map((c) => (
+                  <label key={c} className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={classificacao === c}
+                      onChange={(e) => setClassificacao(e.target.checked ? c : null)}
+                    />
+                    {c}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {completo && (
@@ -221,12 +244,37 @@ export function CadastrarPage() {
               <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
             </label>
 
-            <label>
-              Cover (URL)
-              <input type="text" value={capaUrl} onChange={(e) => setCapaUrl(e.target.value)} />
-            </label>
-            <CapaUploader onUploaded={setCapaUrl} />
-            {capaUrl && <img src={capaUrl} alt="Cover preview" className="capa-preview" />}
+            {/* Bloco de capa (C1): mesmo layout do DetalheObraPage. */}
+            <div className="capa-bloco">
+              {capaUrl ? (
+                <img src={capaUrl} alt="Cover preview" className="capa-preview" />
+              ) : (
+                <div className="capa-preview-vazia" aria-hidden="true">
+                  <IconeImagem />
+                </div>
+              )}
+              <div className="capa-bloco-controles">
+                <CapaUploader onUploaded={setCapaUrl} />
+                <button
+                  type="button"
+                  className="upload-capa-botao"
+                  onClick={() => setMostrarUrlCapa((v) => !v)}
+                  aria-expanded={mostrarUrlCapa}
+                >
+                  {capaUrl ? 'Edit URL' : 'Cover URL'}
+                </button>
+                {mostrarUrlCapa && (
+                  <input
+                    type="text"
+                    className="capa-url-input"
+                    autoFocus
+                    placeholder="https://…"
+                    value={capaUrl}
+                    onChange={(e) => setCapaUrl(e.target.value)}
+                  />
+                )}
+              </div>
+            </div>
 
             <TagPicker label="Genres" value={generos} options={generosOpcoes} onChange={setGeneros} />
             <TagPicker label="Tags" value={tags} options={tagsOpcoes} onChange={setTags} />

@@ -21,6 +21,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     tags: null,
     observacoes: null,
     obra_vinculada_id: null,
+    classificacao: null,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
     ...parcial,

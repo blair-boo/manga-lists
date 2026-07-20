@@ -6,6 +6,9 @@ export type StatusPublicacao = 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' |
 
 export type StatusAprovacao = 'aprovado' | 'pendente' | 'rejeitado';
 
+/** Classificação indicativa da obra (nenhuma quando null). */
+export type Classificacao = 'R-15' | 'R-18';
+
 export type Estrategia = 'fetch_direto' | 'busca_workaround';
 
 export type Categoria = 'tipo' | 'status_leitura' | 'status_publicacao' | 'rating' | 'genero' | 'tag';
@@ -32,6 +35,8 @@ export interface Obra {
   observacoes: string | null;
   /** Obra correspondente (manga<->novel da mesma história) — Title/Alternative Title são espelhados. */
   obra_vinculada_id: string | null;
+  /** Classificação indicativa (R-15 / R-18 / null). */
+  classificacao: Classificacao | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -52,6 +57,8 @@ export interface Fonte {
   tipo_detectado: FamiliaTipo | null;
   /** Quando true, a usuária decidiu o tipo/obra manualmente — o scraper nunca sobrescreve (B4). */
   tipo_manual: boolean;
+  /** Ordem manual dentro da obra (menor primeiro); null = legada, cai por último. */
+  ordem: number | null;
 }
 
 export interface DiagnosticoEntrada {

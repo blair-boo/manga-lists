@@ -164,6 +164,27 @@ label {
   color: var(--danger);
 }
 
+/* Botões de ícone com borda transparente (Blocos E2 e F3). */
+.btn-icone {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--text-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icone:hover {
+  border-color: var(--border);
+}
+
+.btn-icone-perigo {
+  color: var(--danger);
+}
+
 /* Toasts */
 
 .toast-container {

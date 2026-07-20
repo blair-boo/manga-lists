@@ -52,21 +52,91 @@
   color: var(--danger);
 }
 
-.detalhe-obra-acoes {
+/* Delete work movido pro fim absoluto da página (Bloco C), separado das Sources. */
+.detalhe-obra-rodape {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  max-width: 640px;
+}
+
+/* Bloco de capa (C1): miniatura à esquerda, controles empilhados à direita. */
+.capa-bloco {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.capa-bloco-controles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.capa-preview-vazia {
+  width: 100px;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  color: var(--text);
+  opacity: 0.5;
+  flex-shrink: 0;
 }
 
-.alteracoes-pendentes {
-  font-size: 12px;
-  color: var(--warn);
+.capa-url-input {
+  width: 100%;
 }
 
+/* Classificação R-15/R-18 (Bloco D1): mesmo formato do Rating (título + controle). */
+.classificacao-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.classificacao-label {
+  font-size: 14px;
+}
+
+.classificacao-caixas {
+  display: flex;
+  gap: 12px;
+}
+
+/* Save/Cancel das notas (Bloco E2), abaixo do textarea, alinhados à direita. */
+.notas-acoes {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
 
 .fontes-section {
   margin-top: 32px;
   max-width: 640px;
+}
+
+/* Cabeçalho de Sources com o botão de reordenar (Bloco F3). */
+.fontes-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fonte-handle {
+  cursor: grab;
+  touch-action: none;
+  display: inline-flex;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.fonte-item.arrastando {
+  opacity: 0.5;
 }
 
 .fontes-lista {
@@ -171,6 +241,11 @@
   flex: 1 1 160px;
 }
 
+/* Botão "Add" da nova fonte: mesmo tamanho do "Upload image" (Bloco F2). */
+.nova-fonte-form button {
+  font-size: 13px;
+}
+
 
 /* Tag picker */
 
@@ -220,6 +295,11 @@
 
 .tag-picker-input-row input {
   flex: 1;
+}
+
+/* Botão "Add" do TagPicker: mesmo tamanho do "Upload image" (Bloco F2). */
+.tag-picker-input-row button {
+  font-size: 13px;
 }
 
 /* Dropdown de sugestões próprio (substitui o <datalist>, que falha no iOS). */
