@@ -45,7 +45,19 @@ async function pullObras(): Promise<void> {
   if (error) throw error;
   const rows = (data ?? []) as Obra[];
   if (rows.length > 0) {
-    await db.obras.bulkPut(rows);
+    // GUARDA: não sobrescrever obras com edição local ainda não sincronizada
+    // (insert/update pendente na syncQueue). Sem isso, um pull que traz a versão
+    // velha do servidor engoliria uma edição que a usuária acabou de fazer e cujo
+    // push ainda não completou (offline, rede lenta) — a edição "sumiria". Mesmo
+    // raciocínio da guarda em reconciliarObrasDeletadas. O push envia a versão
+    // local depois, e o próximo pull a traz de volta com o timestamp novo.
+    const pendentes = await db.syncQueue.where('entity').equals('obras').toArray();
+    const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
+    const aAplicar = rows.filter((r) => !protegidos.has(r.id));
+    if (aAplicar.length > 0) await db.obras.bulkPut(aAplicar);
+    // Avança o watermark pelo maior atualizado_em de TODAS as linhas (inclusive as
+    // puladas — a ordenação é asc), pra não re-buscá-las em loop. A linha protegida
+    // se reconcilia quando o push dela passar e o pull seguinte a trouxer.
     await setLastSyncedAt('obras', rows[rows.length - 1].atualizado_em);
   } else if (!since) {
     await setLastSyncedAt('obras', new Date(0).toISOString());
