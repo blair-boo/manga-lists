@@ -19,6 +19,11 @@ import time
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
+try:
+    from playwright_stealth import stealth_sync  # type: ignore
+except Exception:  # pragma: no cover - fallback p/ variação de API
+    stealth_sync = None
+
 # Séries reais e estáveis do NU (slugs derivados de títulos conhecidos).
 ALVOS = [
     "https://www.novelupdates.com/series/unbeknownst-to-me-i-am-secretly-dating-the-emperor/",
@@ -70,6 +75,14 @@ def main():
             viewport={"width": 1366, "height": 768},
         )
         pagina = contexto.new_page()
+        if stealth_sync is not None:
+            try:
+                stealth_sync(pagina)
+                print("stealth aplicado")
+            except Exception as exc:
+                print(f"stealth falhou: {exc}")
+        else:
+            print("playwright_stealth indisponível")
 
         for i, url in enumerate(ALVOS, 1):
             time.sleep(DELAY)

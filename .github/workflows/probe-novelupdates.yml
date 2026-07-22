@@ -16,7 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Instalar Playwright
         run: |
-          pip install playwright beautifulsoup4
+          pip install playwright beautifulsoup4 playwright-stealth
           python -m playwright install --with-deps chromium
       - name: Rodar sonda
         working-directory: scraper
