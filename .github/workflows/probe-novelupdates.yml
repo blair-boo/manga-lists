@@ -1,0 +1,23 @@
+name: Probe - Novel Updates (Playwright)
+
+# Sonda de acesso (Handout 4, Fase 1): confirma se o runner consegue passar pelo
+# Cloudflare do Novel Updates com um Chromium real, antes de converter o scraper.
+# Disparo manual; não toca no Supabase.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar Playwright
+        run: |
+          pip install playwright beautifulsoup4
+          python -m playwright install --with-deps chromium
+      - name: Rodar sonda
+        working-directory: scraper
+        run: python probe_novelupdates.py
