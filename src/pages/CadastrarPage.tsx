@@ -5,7 +5,6 @@ import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
-import { IconeImagem } from '../components/Icones';
 import { useToast } from '../components/Toast';
 import { registrarDominioManual } from '../lib/scraperConfig';
 import type { Classificacao, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
@@ -26,7 +25,6 @@ export function CadastrarPage() {
   // Campos do cadastro rápido (sempre visíveis)
   const [titulo, setTitulo] = useState('');
   const [titulosAlternativos, setTitulosAlternativos] = useState<string[]>([]);
-  const [autor, setAutor] = useState('');
   const [capaUrl, setCapaUrl] = useState('');
   const [statusLeitura, setStatusLeitura] = useState('');
   const [capituloAtual, setCapituloAtual] = useState('');
@@ -38,6 +36,7 @@ export function CadastrarPage() {
   const [fimDeTemporada, setFimDeTemporada] = useState(false);
   const [nota, setNota] = useState('');
   const [classificacao, setClassificacao] = useState<Classificacao | null>(null);
+  const [pdf, setPdf] = useState(false);
 
   function handleStatusPublicacao(v: string) {
     setStatusPublicacao(v);
@@ -52,12 +51,10 @@ export function CadastrarPage() {
   const [completo, setCompleto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [mostrarUrlCapa, setMostrarUrlCapa] = useState(false);
 
   function limparFormulario() {
     setTitulo('');
     setTitulosAlternativos([]);
-    setAutor('');
     setCapaUrl('');
     setStatusLeitura('');
     setCapituloAtual('');
@@ -67,6 +64,7 @@ export function CadastrarPage() {
     setFimDeTemporada(false);
     setNota('');
     setClassificacao(null);
+    setPdf(false);
     setGeneros([]);
     setTags([]);
     setObservacoes('');
@@ -96,7 +94,7 @@ export function CadastrarPage() {
       tipo: (tipo || null) as Tipo | null,
       titulo: titulo.trim(),
       titulos_alternativos: titulosAlternativos.length > 0 ? titulosAlternativos : null,
-      autor: autor.trim() || null,
+      autor: null,
       capa_url: capaUrl.trim() || null,
       capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
       status_leitura: (statusLeitura || null) as StatusLeitura | null,
@@ -110,6 +108,8 @@ export function CadastrarPage() {
       observacoes: observacoes.trim() || null,
       obra_vinculada_id: null,
       classificacao,
+      novelupdates_url: null,
+      pdf,
     };
     const r = await criarObraComFontes(obra, urlsValidas);
     setSalvando(false);
@@ -228,6 +228,16 @@ export function CadastrarPage() {
               </div>
             </div>
           )}
+
+          {completo && (
+            <div className="pdf-campo">
+              <span className="pdf-label">PDF</span>
+              <label className="check-inline">
+                <input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} />
+                Yes
+              </label>
+            </div>
+          )}
         </div>
 
         {completo && (
@@ -239,40 +249,32 @@ export function CadastrarPage() {
               onChange={setTitulosAlternativos}
             />
 
-            <label>
-              Author
-              <input type="text" value={autor} onChange={(e) => setAutor(e.target.value)} />
-            </label>
+            {/* Bloco topo (C): capa clicável à esquerda; Corresponding work à direita. */}
+            <div className="obra-topo">
+              <div className="obra-topo-capa">
+                <CapaUploader capaUrl={capaUrl || null} onUploaded={setCapaUrl} />
+              </div>
 
-            {/* Bloco de capa (C1): mesmo layout do DetalheObraPage. */}
-            <div className="capa-bloco">
-              {capaUrl ? (
-                <img src={capaUrl} alt="Cover preview" className="capa-preview" />
-              ) : (
-                <div className="capa-preview-vazia" aria-hidden="true">
-                  <IconeImagem />
+              <div className="obra-topo-campos">
+                <div className="vinculo-obra">
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={temVinculo}
+                      onChange={(e) => {
+                        setTemVinculo(e.target.checked);
+                        if (!e.target.checked) setObraVinculadaId('');
+                      }}
+                    />
+                    This work has a corresponding novel/manga?
+                  </label>
+                  {temVinculo && (
+                    <label>
+                      Corresponding work
+                      <VinculoObraSelect value={obraVinculadaId} onChange={setObraVinculadaId} />
+                    </label>
+                  )}
                 </div>
-              )}
-              <div className="capa-bloco-controles">
-                <CapaUploader onUploaded={setCapaUrl} />
-                <button
-                  type="button"
-                  className="upload-capa-botao"
-                  onClick={() => setMostrarUrlCapa((v) => !v)}
-                  aria-expanded={mostrarUrlCapa}
-                >
-                  {capaUrl ? 'Edit URL' : 'Cover URL'}
-                </button>
-                {mostrarUrlCapa && (
-                  <input
-                    type="text"
-                    className="capa-url-input"
-                    autoFocus
-                    placeholder="https://…"
-                    value={capaUrl}
-                    onChange={(e) => setCapaUrl(e.target.value)}
-                  />
-                )}
               </div>
             </div>
 
@@ -282,24 +284,6 @@ export function CadastrarPage() {
               Notes
               <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={4} />
             </label>
-
-            <label className="check-inline">
-              <input
-                type="checkbox"
-                checked={temVinculo}
-                onChange={(e) => {
-                  setTemVinculo(e.target.checked);
-                  if (!e.target.checked) setObraVinculadaId('');
-                }}
-              />
-              This work has a corresponding novel/manga?
-            </label>
-            {temVinculo && (
-              <label>
-                Corresponding work
-                <VinculoObraSelect value={obraVinculadaId} onChange={setObraVinculadaId} />
-              </label>
-            )}
           </>
         )}
 

@@ -11,6 +11,7 @@ import { AprovacaoDominios } from '../components/AprovacaoDominios';
 import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
 import { CsvBulkSection } from '../components/CsvBulkSection';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
+import { SecaoNovelUpdates } from '../components/SecaoNovelUpdates';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
 import type { ScraperTipo } from '../types';
 
@@ -127,6 +128,7 @@ export function AtualizacoesPage() {
 
       <SecaoSitesSuportados sitesSuportados={sitesSuportados} />
       <SecaoNovasFontes sitesSuportados={sitesSuportados} />
+      <SecaoNovelUpdates />
 
       <section className="atualizacao-secao">
         <button

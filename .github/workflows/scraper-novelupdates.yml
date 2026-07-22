@@ -1,0 +1,33 @@
+name: Scraper - Novel Updates
+
+# Sem agendamento de propósito: disparado manualmente pelo botão "Find on Novel
+# Updates" na aba Updates do app (via Supabase Edge Function). Roda depois dos
+# estágios de obras/fontes, casando cada obra ainda sem novelupdates_url.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: scraper-novelupdates
+  cancel-in-progress: false
+
+jobs:
+  novelupdates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r scraper/requirements.txt
+
+      - name: Casar obras com páginas do Novel Updates
+        working-directory: scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python novelupdates.py

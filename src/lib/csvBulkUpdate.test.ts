@@ -62,6 +62,8 @@ describe('obrasParaCsv', () => {
     observacoes: null,
     obra_vinculada_id: null,
     classificacao: null,
+    novelupdates_url: null,
+    pdf: false,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
   };

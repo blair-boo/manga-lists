@@ -19,8 +19,12 @@ export async function createObra(input: NovaObra, dispararSync = true): Promise<
   return obra;
 }
 
-/** Campos espelhados entre obras vinculadas (manga<->novel da mesma história). */
-const CAMPOS_ESPELHADOS = ['titulo', 'titulos_alternativos', 'generos', 'tags'] as const;
+/**
+ * Campos espelhados entre obras vinculadas (manga<->novel da mesma história).
+ * novelupdates_url entra aqui (Handout 3, E6): o link do NU refere-se à história,
+ * que é a mesma para as duas contrapartes. pdf NÃO entra — é independente por obra.
+ */
+const CAMPOS_ESPELHADOS = ['titulo', 'titulos_alternativos', 'generos', 'tags', 'novelupdates_url'] as const;
 
 /** Replica os campos espelhados na obra vinculada, sem reentrar no espelhamento (evita recursão). */
 async function espelharCampos(obraId: string, changes: Partial<NovaObra>): Promise<void> {

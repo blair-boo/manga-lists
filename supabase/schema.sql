@@ -21,6 +21,8 @@ create table obras (
     tags text[],
     observacoes text,
     obra_vinculada_id uuid references obras(id) on delete set null, -- manga<->novel da mesma história (mútuo)
+    novelupdates_url text, -- link canônico da página no Novel Updates (NULL = não vinculada); espelhado entre vinculadas
+    pdf boolean not null default false, -- a obra tem PDF? independente por obra (não espelhado)
     criado_em timestamptz not null default now(),
     atualizado_em timestamptz not null default now()
 );
@@ -61,7 +63,7 @@ create table listas (
 
 create table scraper_runs (
     id uuid primary key default gen_random_uuid(),
-    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes', 'designar')),
+    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes', 'designar', 'novelupdates')),
     status text not null default 'rodando', -- 'rodando' | 'concluido' | 'erro'
     site_dominio text, -- nulo p/ 'capitulos'/'fontes' (globais); preenchido por 'obras'
     iniciado_em timestamptz not null default now(),
@@ -86,6 +88,24 @@ create table configuracoes_scraper (
     valor jsonb not null,
     atualizado_em timestamptz not null default now()
 );
+
+-- Fila de aprovação do scraper de Novel Updates (Handout 3, Bloco E5): matches
+-- não-exatos (score entre o limiar mínimo e o de auto-aprovação) esperam curadoria
+-- manual aqui antes de gravar novelupdates_url na obra. Espelha o padrão da fila
+-- de fontes descobertas automaticamente.
+create table novelupdates_pendentes (
+    id uuid primary key default gen_random_uuid(),
+    obra_id uuid not null references obras(id) on delete cascade,
+    novelupdates_url text not null,
+    titulo_encontrado text not null,      -- título como aparece no NU (og:title)
+    score real not null,                  -- score do match de título (rapidfuzz)
+    titulos_associados text[],            -- Associated Names extraídos (p/ enriquecer Alternative titles ao aprovar)
+    status_aprovacao text not null default 'pendente', -- 'pendente' | 'aprovado' | 'reprovado'
+    criado_em timestamptz not null default now(),
+    unique (obra_id)
+);
+
+create index idx_novelupdates_pendentes_status on novelupdates_pendentes(status_aprovacao);
 
 create index idx_fontes_obra_id on fontes(obra_id);
 create index idx_fontes_status_aprovacao on fontes(status_aprovacao);
@@ -148,4 +168,9 @@ create policy "authenticated_full_access_listas" on listas
 alter table scraper_runs enable row level security;
 
 create policy "authenticated_full_access_scraper_runs" on scraper_runs
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table novelupdates_pendentes enable row level security;
+
+create policy "authenticated_full_access_novelupdates_pendentes" on novelupdates_pendentes
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

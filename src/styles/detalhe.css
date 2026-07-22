@@ -60,19 +60,43 @@
   max-width: 640px;
 }
 
-/* Bloco de capa (C1): miniatura à esquerda, controles empilhados à direita. */
-.capa-bloco {
+/* Bloco topo (C): capa clicável à esquerda, campos empilhados à direita. */
+.obra-topo {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
 }
 
-.capa-bloco-controles {
+.obra-topo-capa {
+  flex-shrink: 0;
+}
+
+.obra-topo-campos {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   flex: 1;
   min-width: 0;
+}
+
+/* iOS ~390px: a capa fica à esquerda e os campos quebram sozinhos (full-width).
+   Abaixo de 360px, empilha tudo. */
+@media (max-width: 360px) {
+  .obra-topo {
+    flex-direction: column;
+  }
+}
+
+/* Capa clicável (Bloco B): a própria miniatura/placeholder dispara o seletor. */
+.capa-uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.capa-preview,
+.capa-preview-vazia {
+  cursor: pointer;
 }
 
 .capa-preview-vazia {
@@ -86,10 +110,55 @@
   color: var(--text);
   opacity: 0.5;
   flex-shrink: 0;
+  /* "+" grande e centralizado no lugar do ícone de imagem. */
+  font-size: 40px;
+  line-height: 1;
 }
 
-.capa-url-input {
-  width: 100%;
+.capa-preview.enviando,
+.capa-preview-vazia.enviando {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* Corresponding work (Bloco D): título + "×" pequeno na mesma linha. */
+.vinculo-obra-linha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Novel Updates (Bloco E7): rótulo + ações (livrinho/×/+), todas com borda transparente. */
+.novelupdates-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.novelupdates-label {
+  font-size: 14px;
+}
+
+.novelupdates-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.novelupdates-acoes a.btn-icone {
+  text-decoration: none;
+}
+
+/* PDF (Bloco F): mesmo formato do Content rating (título em cima, controle embaixo). */
+.pdf-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pdf-label {
+  font-size: 14px;
 }
 
 /* Classificação R-15/R-18 (Bloco D1): mesmo formato do Rating (título + controle). */

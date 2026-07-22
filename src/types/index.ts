@@ -37,8 +37,24 @@ export interface Obra {
   obra_vinculada_id: string | null;
   /** Classificação indicativa (R-15 / R-18 / null). */
   classificacao: Classificacao | null;
+  /** Link canônico da página no Novel Updates (null = não vinculada). Espelhado entre obras vinculadas. */
+  novelupdates_url: string | null;
+  /** A obra tem PDF? Independente por obra (não espelhado). */
+  pdf: boolean;
   criado_em: string;
   atualizado_em: string;
+}
+
+/** Match de Novel Updates aguardando aprovação manual (Handout 3, Bloco E5). */
+export interface NovelUpdatesPendente {
+  id: string;
+  obra_id: string;
+  novelupdates_url: string;
+  titulo_encontrado: string;
+  score: number;
+  titulos_associados: string[] | null;
+  status_aprovacao: 'pendente' | 'aprovado' | 'reprovado';
+  criado_em: string;
 }
 
 export interface Fonte {
@@ -90,7 +106,7 @@ export interface ListaItem {
   valor: string;
 }
 
-export type ScraperTipo = 'capitulos' | 'obras' | 'fontes' | 'designar';
+export type ScraperTipo = 'capitulos' | 'obras' | 'fontes' | 'designar' | 'novelupdates';
 export type ScraperStatus = 'rodando' | 'concluido' | 'erro';
 
 export interface ScraperRun {

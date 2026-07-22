@@ -40,7 +40,7 @@ import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
-import { IconeDisquete, IconeGrip, IconeImagem, IconeX } from '../components/Icones';
+import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeX } from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
@@ -197,6 +197,8 @@ type Draft = Pick<
   | 'capitulo_atual'
   | 'nota'
   | 'classificacao'
+  | 'pdf'
+  | 'novelupdates_url'
   | 'generos'
   | 'tags'
 >;
@@ -214,6 +216,11 @@ function toDraft(obra: Obra): Draft {
     capitulo_atual: obra.capitulo_atual,
     nota: obra.nota,
     classificacao: obra.classificacao,
+    // ?? normaliza registros locais antigos (cacheados antes destas colunas
+    // existirem): sem isso, draft.pdf viria undefined e o checkbox ficaria
+    // não-controlado até a obra ser re-sincronizada.
+    pdf: obra.pdf ?? false,
+    novelupdates_url: obra.novelupdates_url ?? null,
     generos: obra.generos,
     tags: obra.tags,
   };
@@ -259,7 +266,6 @@ export function DetalheObraPage() {
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
   const [mostrarVinculo, setMostrarVinculo] = useState(false);
   const [vinculoEscolhidoId, setVinculoEscolhidoId] = useState('');
-  const [mostrarUrlCapa, setMostrarUrlCapa] = useState(false);
 
   // Reordenação de fontes (Bloco F3)
   const [editandoOrdem, setEditandoOrdem] = useState(false);
@@ -378,6 +384,34 @@ export function DetalheObraPage() {
     mostrarToast('Works unlinked');
   }
 
+  // Novel Updates (Bloco E7): a gravação passa por setCampo -> autosave -> updateObra,
+  // então o espelhamento na contraparte vinculada (E6, via CAMPOS_ESPELHADOS) é automático.
+  async function handleRemoverNU() {
+    const ok = await confirmar({
+      titulo: 'Remove Novel Updates link',
+      mensagem: 'Remove the Novel Updates link from this work?',
+      confirmarRotulo: 'Remove',
+    });
+    if (!ok) return;
+    setCampo('novelupdates_url', null);
+  }
+
+  async function handleAdicionarNU() {
+    const url = await pedirTexto({
+      titulo: 'Novel Updates link',
+      mensagem: 'Paste the novelupdates.com URL for this work:',
+      confirmarRotulo: 'Add',
+    });
+    if (url === null) return;
+    const limpo = url.trim();
+    if (!limpo) return;
+    if (!/novelupdates\.com/i.test(limpo)) {
+      mostrarToast("That doesn't look like a novelupdates.com URL", 'info');
+      return;
+    }
+    setCampo('novelupdates_url', limpo);
+  }
+
   async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
     if (!id || !obra) return;
     const tituloNovo = await pedirTexto({
@@ -408,6 +442,9 @@ export function DetalheObraPage() {
       observacoes: null,
       obra_vinculada_id: null,
       classificacao: null,
+      // O link do NU refere-se à história: a contraparte nasce com o mesmo link (E6).
+      novelupdates_url: obra.novelupdates_url,
+      pdf: false,
     });
     mostrarToast(`"${nova.titulo}" created and linked ✓`);
     return nova;
@@ -521,56 +558,113 @@ export function DetalheObraPage() {
           onChange={(v) => setCampo('titulos_alternativos', v.length > 0 ? v : null)}
         />
 
-        <label>
-          Author
-          <input type="text" value={draft.autor ?? ''} onChange={(e) => setCampo('autor', e.target.value || null)} />
-        </label>
+        {/* Bloco topo (C): capa clicável à esquerda; Type, Corresponding work e
+            Novel Updates empilhados e independentes à direita. */}
+        <div className="obra-topo">
+          <div className="obra-topo-capa">
+            <CapaUploader capaUrl={draft.capa_url} onUploaded={(url) => setCampo('capa_url', url)} />
+          </div>
 
-        {/* Bloco de capa (C1): miniatura à esquerda, controles à direita, URL atrás de um botão. */}
-        <div className="capa-bloco">
-          {draft.capa_url ? (
-            <img src={draft.capa_url} alt="Cover preview" className="capa-preview" />
-          ) : (
-            <div className="capa-preview-vazia" aria-hidden="true">
-              <IconeImagem />
+          <div className="obra-topo-campos">
+            <label>
+              Type
+              <select value={draft.tipo ?? ''} onChange={(e) => setCampo('tipo', (e.target.value || null) as Draft['tipo'])}>
+                <option value="">—</option>
+                {tipos.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Corresponding work — Bloco D: "×" pequeno no lugar de "Unlink". */}
+            <div className="vinculo-obra">
+              {obraVinculada ? (
+                <span className="vinculo-obra-linha">
+                  Corresponding work: <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>
+                  <button
+                    type="button"
+                    className="btn-icone btn-icone-perigo"
+                    onClick={handleDesvincular}
+                    aria-label="Unlink corresponding work"
+                    title="Unlink"
+                  >
+                    <IconeX />
+                  </button>
+                </span>
+              ) : (
+                <>
+                  <label className="check-inline">
+                    <input
+                      type="checkbox"
+                      checked={mostrarVinculo}
+                      onChange={(e) => setMostrarVinculo(e.target.checked)}
+                    />
+                    This work has a corresponding novel/manga?
+                  </label>
+                  {mostrarVinculo && (
+                    <div className="vinculo-obra-acoes">
+                      <VinculoObraSelect excluirId={id} value={vinculoEscolhidoId} onChange={setVinculoEscolhidoId} />
+                      <button type="button" onClick={handleVincular} disabled={!vinculoEscolhidoId}>
+                        Link
+                      </button>
+                      <span>or</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}
+                      >
+                        Create
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          )}
-          <div className="capa-bloco-controles">
-            <CapaUploader onUploaded={(url) => setCampo('capa_url', url)} />
-            <button
-              type="button"
-              className="upload-capa-botao"
-              onClick={() => setMostrarUrlCapa((v) => !v)}
-              aria-expanded={mostrarUrlCapa}
-            >
-              {draft.capa_url ? 'Edit URL' : 'Cover URL'}
-            </button>
-            {mostrarUrlCapa && (
-              <input
-                type="text"
-                className="capa-url-input"
-                autoFocus
-                placeholder="https://…"
-                value={draft.capa_url ?? ''}
-                onChange={(e) => setCampo('capa_url', e.target.value || null)}
-              />
-            )}
+
+            {/* Novel Updates — Bloco E7: livrinho (aberto em nova aba) + ×, ou + pra adicionar. */}
+            <div className="novelupdates-campo">
+              <span className="novelupdates-label">Novel Updates</span>
+              <div className="novelupdates-acoes">
+                {draft.novelupdates_url ? (
+                  <>
+                    <a
+                      className="btn-icone"
+                      href={draft.novelupdates_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open on Novel Updates"
+                      title="Open on Novel Updates"
+                    >
+                      <IconeLivro />
+                    </a>
+                    <button
+                      type="button"
+                      className="btn-icone btn-icone-perigo"
+                      onClick={handleRemoverNU}
+                      aria-label="Remove Novel Updates link"
+                      title="Remove"
+                    >
+                      <IconeX />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    onClick={handleAdicionarNU}
+                    aria-label="Add Novel Updates link"
+                    title="Add Novel Updates link"
+                  >
+                    <IconeMais />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="detalhe-obra-grid">
-          <label>
-            Type
-            <select value={draft.tipo ?? ''} onChange={(e) => setCampo('tipo', (e.target.value || null) as Draft['tipo'])}>
-              <option value="">—</option>
-              {tipos.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <label>
             Reading status
             <select
@@ -629,21 +723,6 @@ export function DetalheObraPage() {
             </label>
           )}
 
-          <label>
-            Rating
-            <select
-              value={draft.nota ?? ''}
-              onChange={(e) => setCampo('nota', e.target.value === '' ? null : Number(e.target.value))}
-            >
-              <option value="">—</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {'★'.repeat(n)}
-                </option>
-              ))}
-            </select>
-          </label>
-
           {/* Classificação R-15/R-18 (Bloco D1): campo único, marcar uma desmarca a outra. */}
           <div className="classificacao-campo">
             <span className="classificacao-label">Content rating</span>
@@ -660,36 +739,30 @@ export function DetalheObraPage() {
               ))}
             </div>
           </div>
-        </div>
 
-        <div className="vinculo-obra">
-          {obraVinculada ? (
-            <p>
-              Corresponding work: <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>{' '}
-              <button type="button" onClick={handleDesvincular}>
-                Unlink
-              </button>
-            </p>
-          ) : (
-            <>
-              <label className="check-inline">
-                <input type="checkbox" checked={mostrarVinculo} onChange={(e) => setMostrarVinculo(e.target.checked)} />
-                This work has a corresponding novel/manga?
-              </label>
-              {mostrarVinculo && (
-                <div className="vinculo-obra-acoes">
-                  <VinculoObraSelect excluirId={id} value={vinculoEscolhidoId} onChange={setVinculoEscolhidoId} />
-                  <button type="button" onClick={handleVincular} disabled={!vinculoEscolhidoId}>
-                    Link
-                  </button>
-                  <span>or</span>
-                  <button type="button" onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}>
-                    Create
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+          <label>
+            Rating
+            <select
+              value={draft.nota ?? ''}
+              onChange={(e) => setCampo('nota', e.target.value === '' ? null : Number(e.target.value))}
+            >
+              <option value="">—</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {'★'.repeat(n)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* PDF (Bloco F): checkbox independente por obra (não espelhado), ao lado do Rating. */}
+          <div className="pdf-campo">
+            <span className="pdf-label">PDF</span>
+            <label className="check-inline">
+              <input type="checkbox" checked={draft.pdf} onChange={(e) => setCampo('pdf', e.target.checked)} />
+              Yes
+            </label>
+          </div>
         </div>
 
         <TagPicker

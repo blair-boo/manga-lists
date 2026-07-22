@@ -4,7 +4,7 @@
 // exposto ao navegador. Exige usuária autenticada (Supabase já valida o JWT
 // antes de invocar esta função).
 //
-// Body esperado: { "acao": "start" | "stop", "alvo": "capitulos" | "obras" | "fontes" | "designar" }
+// Body esperado: { "acao": "start" | "stop", "alvo": "capitulos" | "obras" | "fontes" | "designar" | "novelupdates" }
 
 const GITHUB_OWNER = 'blair-boo';
 const GITHUB_REPO = 'manga-lists';
@@ -15,6 +15,7 @@ const WORKFLOW_FILES: Record<string, string> = {
   obras: 'scraper-obras.yml',
   fontes: 'scraper-fontes.yml',
   designar: 'scraper-designar.yml',
+  novelupdates: 'scraper-novelupdates.yml',
 };
 
 const CORS_HEADERS = {
@@ -49,7 +50,7 @@ Deno.serve(async (req: Request) => {
 
   const workflowFile = WORKFLOW_FILES[alvo];
   if (!workflowFile) {
-    return jsonResponse({ error: 'alvo inválido, use "capitulos", "obras", "fontes" ou "designar"' }, 400);
+    return jsonResponse({ error: 'alvo inválido, use "capitulos", "obras", "fontes", "designar" ou "novelupdates"' }, 400);
   }
 
   const token = Deno.env.get('GH_ACTIONS_TOKEN');

@@ -44,6 +44,26 @@ export function IconeGrip() {
   );
 }
 
+/** Livrinho — indicador de obra vinculada ao Novel Updates (Bloco E7). */
+export function IconeLivro() {
+  return (
+    <svg {...base}>
+      <path d="M4 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z" />
+      <path d="M4 19a2 2 0 0 0 2 2h12" />
+    </svg>
+  );
+}
+
+/** "+" — adicionar (vínculo manual de Novel Updates, Bloco E7). */
+export function IconeMais() {
+  return (
+    <svg {...base}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 /** Moldura de imagem — placeholder da capa vazia. */
 export function IconeImagem() {
   return (
