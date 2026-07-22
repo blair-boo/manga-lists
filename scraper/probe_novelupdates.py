@@ -1,23 +1,33 @@
 """
-Sonda de acesso ao Novel Updates via Playwright (Handout 4, Fase 1 + diagnóstico
-do endpoint de busca). NÃO faz parte do scraper de produção.
+Sonda de acesso ao Novel Updates via Playwright (Handout 4 + diagnóstico de
+escala). NÃO faz parte do scraper de produção.
 
-Testa DOIS endpoints e imprime diagnóstico de cada um:
-  1) uma página de série (deve passar — o Cloudflare serve páginas cacheadas);
-  2) o endpoint de busca ?s=... (suspeito de bloqueio 403/challenge próprio).
+Testa se o Cloudflare do NU aguenta MÚLTIPLAS requisições seguidas de páginas de
+série numa mesma sessão de browser (o cenário real do scraper). Uma única página
+passa (sonda anterior); a dúvida é se a 2ª..Nª começam a tomar desafio/timeout.
+
+Carrega N páginas de série conhecidas, em sequência, com um pequeno delay, e
+imprime status/título/marcadores/tempo de cada uma.
 
 Uso: python scraper/probe_novelupdates.py
-Sai 0 se a página de série passou; 1 caso contrário.
+Sai 0 se TODAS passaram (og:url presente); 1 se alguma foi bloqueada.
 """
 
-import re
 import sys
+import time
 
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-SERIE = "https://www.novelupdates.com/series/unbeknownst-to-me-i-am-secretly-dating-the-emperor/"
-BUSCA = "https://www.novelupdates.com/?s=Solo%20Leveling&post_type=seriesplans"
+# Séries reais e estáveis do NU (slugs derivados de títulos conhecidos).
+ALVOS = [
+    "https://www.novelupdates.com/series/unbeknownst-to-me-i-am-secretly-dating-the-emperor/",
+    "https://www.novelupdates.com/series/solo-leveling/",
+    "https://www.novelupdates.com/series/the-beginning-after-the-end/",
+    "https://www.novelupdates.com/series/omniscient-readers-viewpoint/",
+    "https://www.novelupdates.com/series/the-remarried-empress/",
+    "https://www.novelupdates.com/series/lord-of-the-mysteries/",
+]
 MARCADORES_INTERSTICIAL = (
     "just a moment",
     "attention required",
@@ -25,9 +35,11 @@ MARCADORES_INTERSTICIAL = (
     "challenge-form",
     "cf-error-details",
 )
+DELAY = 1.5
 
 
 def carregar(pagina, url):
+    t0 = time.time()
     resp = pagina.goto(url, wait_until="domcontentloaded", timeout=60000)
     status = resp.status if resp else None
     try:
@@ -37,23 +49,12 @@ def carregar(pagina, url):
         )
     except Exception:
         pass
-    return status, pagina.title(), pagina.content()
-
-
-def diagnostico(rotulo, status, titulo, html):
-    baixo = html.lower()
-    marcadores = [m for m in MARCADORES_INTERSTICIAL if m in baixo]
-    series_links = len(set(re.findall(r"novelupdates\.com/series/[a-z0-9\-]+", baixo)))
-    print(f"--- {rotulo} ---")
-    print(f"  status_http = {status}")
-    print(f"  title       = {titulo!r}")
-    print(f"  len(html)   = {len(html)}")
-    print(f"  marcadores  = {marcadores}")
-    print(f"  series_links= {series_links}")
-    print(f"  html[:300]  = {html[:300].replace(chr(10), ' ')}")
+    html = pagina.content()
+    return status, pagina.title(), html, time.time() - t0
 
 
 def main():
+    resultados = []
     with sync_playwright() as p:
         navegador = p.chromium.launch(
             headless=True,
@@ -70,20 +71,24 @@ def main():
         )
         pagina = contexto.new_page()
 
-        s_status, s_title, s_html = carregar(pagina, SERIE)
-        diagnostico("SÉRIE", s_status, s_title, s_html)
-
-        b_status, b_title, b_html = carregar(pagina, BUSCA)
-        diagnostico("BUSCA", b_status, b_title, b_html)
+        for i, url in enumerate(ALVOS, 1):
+            time.sleep(DELAY)
+            status, titulo, html, dt = carregar(pagina, url)
+            baixo = html.lower()
+            marcadores = [m for m in MARCADORES_INTERSTICIAL if m in baixo]
+            tem_og = "og:url" in baixo
+            passou = tem_og and not marcadores
+            resultados.append(passou)
+            print(
+                f"[{i}] {dt:5.1f}s status={status} og:url={tem_og} "
+                f"marcadores={marcadores} title={titulo!r}"
+            )
 
         navegador.close()
 
-    soup = BeautifulSoup(s_html, "html.parser")
-    passou_serie = bool(
-        soup.find("meta", attrs={"property": "og:url"}) and soup.find(id="editassociated")
-    )
-    print(f"\nVEREDITO_SERIE={'PASSOU' if passou_serie else 'FALHOU'}")
-    sys.exit(0 if passou_serie else 1)
+    passaram = sum(resultados)
+    print(f"\nRESUMO: {passaram}/{len(ALVOS)} páginas de série passaram.")
+    sys.exit(0 if passaram == len(ALVOS) else 1)
 
 
 if __name__ == "__main__":
