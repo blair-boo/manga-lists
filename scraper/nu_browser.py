@@ -11,17 +11,27 @@ from contextlib import contextmanager
 
 from playwright.sync_api import sync_playwright
 
-MARCADORES_CHALLENGE = (
-    "just a moment",
-    "cf-challenge",
-    "challenge-platform",
-    "attention required",
-    "cf-turnstile",
+# Marcadores da PÁGINA de desafio/bloqueio em si (interstitial), não de scripts
+# que o Cloudflare injeta em páginas normais. Importante: NÃO usar "challenge-platform"
+# nem "cf-turnstile" soltos — eles aparecem no <head> de páginas servidas com sucesso
+# (ex.: a página de resultados de busca, que não tem og:url), gerando falso "bloqueado".
+# Estes só existem na interstitial "Just a moment" / no bloqueio 1020.
+MARCADORES_INTERSTICIAL = (
+    "just a moment",       # <title> da interstitial de managed challenge
+    "attention required",  # <title> do bloqueio 1020
+    "_cf_chl_opt",         # objeto JS de config do desafio (só na interstitial)
+    "challenge-form",      # <form id="challenge-form"> da interstitial
+    "cf-error-details",    # página de erro/bloqueio do Cloudflare
 )
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 )
+
+
+def _esta_bloqueado(html: str) -> bool:
+    baixo = html.lower()
+    return any(m in baixo for m in MARCADORES_INTERSTICIAL)
 
 
 class NuBrowser:
@@ -31,12 +41,12 @@ class NuBrowser:
     def get_html(self, url: str, timeout_ms: int = 60000) -> str | None:
         """HTML final da URL (desafio resolvido) ou None se bloqueado/erro."""
         try:
-            resp = self._pagina.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            self._pagina.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
         except Exception:
             return None
-        if resp is not None and resp.status in (403, 429):
-            # dá uma chance ao desafio antes de desistir
-            pass
+        # Dá tempo do desafio JS resolver, se houver: espera o <title> deixar de
+        # ser a interstitial "Just a moment" (teto de 40s). Páginas normais já
+        # entram com título real, então isso retorna na hora — sem espera.
         try:
             self._pagina.wait_for_function(
                 """() => !document.title.toLowerCase().includes('just a moment')""",
@@ -45,8 +55,7 @@ class NuBrowser:
         except Exception:
             pass
         html = self._pagina.content()
-        baixo = html.lower()
-        if any(m in baixo for m in MARCADORES_CHALLENGE) and "og:url" not in baixo:
+        if _esta_bloqueado(html):
             return None
         return html
 
