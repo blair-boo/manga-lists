@@ -17,18 +17,16 @@ import os
 import re
 import time
 import traceback
-from urllib.parse import quote, urljoin, urlparse
+import unicodedata
 
 from bs4 import BeautifulSoup
 
 from common import finalizar_run, get_supabase, iniciar_run
 from match_titulo import melhor_match
-from nu_browser import NuBrowser, abrir_nu_browser
+from nu_browser import abrir_nu_browser
 
 DELAY_ENTRE_REQUESTS = 1.5
 MAX_CANDIDATOS = 5
-
-BUSCA_URL = "https://www.novelupdates.com/?s={query}&post_type=seriesplans"
 
 # Scripts não-romanos a descartar ao enriquecer Alternative titles (Bloco E3):
 # Hiragana/Katakana, extensão Kana, CJK (chinês/kanji) e Hangul (coreano).
@@ -42,34 +40,42 @@ def eh_romano(s: str) -> bool:
     return not NAO_ROMANO.search(s)
 
 
-def buscar_series(titulo: str, browser: NuBrowser) -> list[str] | None:
+def slugify(s: str) -> str:
     """
-    URLs de páginas /series/<slug>/ retornadas pela busca do NU (dedupe, ordem
-    preservada). Retorna None se o fetch foi bloqueado (challenge/403); lista
-    vazia = busca ok, sem resultados.
+    Reproduz o slug que o NU (WordPress sanitize_title) gera a partir do título:
+    minúsculo, acentos viram ASCII, apóstrofos somem (não viram hífen), e qualquer
+    outra sequência não-alfanumérica vira um hífen. "I Became the Lead's Friend"
+    -> "i-became-the-leads-friend"; "Café au Lait" -> "cafe-au-lait".
     """
-    url = BUSCA_URL.format(query=quote(titulo))
-    html = browser.get_html(url)
-    if html is None:
-        return None
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = s.lower().replace("'", "").replace("’", "")
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return re.sub(r"-+", "-", s).strip("-")
 
-    soup = BeautifulSoup(html, "html.parser")
+
+def candidatos_series(obra: dict) -> list[str]:
+    """
+    URLs de páginas /series/<slug>/ candidatas, derivadas do título e dos títulos
+    alternativos da obra (dedupe, ordem preservada, teto de MAX_CANDIDATOS).
+
+    O endpoint de BUSCA do NU (?s=) responde 403 a IPs de datacenter (confirmado
+    na sonda: "Attention Required! | Cloudflare"), mas as PÁGINAS de série são
+    servidas normalmente (200). Como o slug do NU é derivado do título, chutamos o
+    slug e vamos direto à página — o match por og:title/Associated Names valida;
+    slug errado cai em 404, pontua 0 e é ignorado.
+    """
+    fontes = [obra["titulo"], *(obra.get("titulos_alternativos") or [])]
     vistos: set[str] = set()
-    series: list[str] = []
-    for a in soup.find_all("a", href=True):
-        href = urljoin("https://www.novelupdates.com/", a["href"])
-        p = urlparse(href)
-        if "novelupdates.com" not in (p.hostname or ""):
+    urls: list[str] = []
+    for titulo in fontes:
+        slug = slugify(titulo)
+        if not slug or slug in vistos:
             continue
-        partes = [seg for seg in p.path.split("/") if seg]
-        if len(partes) >= 2 and partes[0] == "series":
-            canonico = f"https://www.novelupdates.com/series/{partes[1]}/"
-            if canonico not in vistos:
-                vistos.add(canonico)
-                series.append(canonico)
-        if len(series) >= MAX_CANDIDATOS:
+        vistos.add(slug)
+        urls.append(f"https://www.novelupdates.com/series/{slug}/")
+        if len(urls) >= MAX_CANDIDATOS:
             break
-    return series
+    return urls
 
 
 def _meta(soup: BeautifulSoup, prop: str) -> str | None:
@@ -198,17 +204,14 @@ def executar(supabase) -> dict:
 
     with abrir_nu_browser() as browser:
         for obra in obras:
-            time.sleep(DELAY_ENTRE_REQUESTS)
-            series = buscar_series(obra["titulo"], browser)
-            if series is None:
-                contadores["bloqueadas"] += 1
-                continue
+            series = candidatos_series(obra)
             if not series:
                 contadores["ignoradas"] += 1
                 continue
 
             melhor = None  # (score, og_url, og_title, associados)
             algum_bloqueio = False
+            houve_match = False
             for serie_url in series:
                 time.sleep(DELAY_ENTRE_REQUESTS)
                 html = browser.get_html(serie_url)
@@ -216,13 +219,17 @@ def executar(supabase) -> dict:
                     algum_bloqueio = True
                     continue
                 og_title, og_url, associados = extrair_dados_serie(html)
+                if og_url is None:
+                    continue  # 404/slug errado: página sem og:url, não é série
+                houve_match = True
                 score = pontuar(obra, og_title, associados)
                 if melhor is None or score > melhor[0]:
-                    melhor = (score, og_url or serie_url, og_title or "", associados)
+                    melhor = (score, og_url, og_title or "", associados)
 
             if melhor is None:
-                # Nenhum candidato pontuou: bloqueio de acesso vs. ausência real de match.
-                contadores["bloqueadas" if algum_bloqueio else "ignoradas"] += 1
+                # Nenhum candidato virou página de série válida: distingue bloqueio de
+                # acesso (raro aqui, série é servida) de ausência real (slug não existe).
+                contadores["bloqueadas" if (algum_bloqueio and not houve_match) else "ignoradas"] += 1
                 continue
 
             score, url, titulo_encontrado, associados = melhor
