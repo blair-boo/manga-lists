@@ -202,6 +202,16 @@ def executar(supabase) -> dict:
     # (busca ok, mas nenhuma série casou) — desfaz a ambiguidade do run anterior.
     contadores = {"auto": 0, "pendentes": 0, "ignoradas": 0, "bloqueadas": 0}
 
+    # Guarda anti-desperdício: a sonda provou que o Cloudflare do NU serve só a 1ª
+    # requisição e depois passa a devolver o managed challenge "Just a moment" (403)
+    # que o Chromium headless não resolve a partir do IP do runner. Se as primeiras
+    # obras vierem todas bloqueadas e nada casar, aborta cedo em vez de gastar o job
+    # inteiro batendo em 403 — o acesso confiável exige proxy residencial / API
+    # gerenciada (ver README). abortado vira a mensagem da run.
+    ABORTAR_APOS_BLOQUEIOS = 15
+    consecutivas_bloqueadas = 0
+    abortado = False
+
     with abrir_nu_browser() as browser:
         for obra in obras:
             series = candidatos_series(obra)
@@ -229,8 +239,23 @@ def executar(supabase) -> dict:
             if melhor is None:
                 # Nenhum candidato virou página de série válida: distingue bloqueio de
                 # acesso (raro aqui, série é servida) de ausência real (slug não existe).
-                contadores["bloqueadas" if (algum_bloqueio and not houve_match) else "ignoradas"] += 1
+                bloqueada = algum_bloqueio and not houve_match
+                contadores["bloqueadas" if bloqueada else "ignoradas"] += 1
+                consecutivas_bloqueadas = consecutivas_bloqueadas + 1 if bloqueada else 0
+                if (
+                    consecutivas_bloqueadas >= ABORTAR_APOS_BLOQUEIOS
+                    and contadores["auto"] + contadores["pendentes"] == 0
+                ):
+                    abortado = True
+                    print(
+                        f"\nAbortando: {consecutivas_bloqueadas} obras seguidas bloqueadas pelo "
+                        "Cloudflare e nenhuma casada. Acesso automático indisponível a partir "
+                        "deste runner (ver README)."
+                    )
+                    break
                 continue
+
+            consecutivas_bloqueadas = 0
 
             score, url, titulo_encontrado, associados = melhor
 
@@ -250,6 +275,7 @@ def executar(supabase) -> dict:
             else:
                 contadores["ignoradas"] += 1
 
+    contadores["abortado"] = abortado
     print(
         f"\nConcluído. {contadores['auto']} auto-aprovada(s), "
         f"{contadores['pendentes']} pendente(s), {contadores['ignoradas']} ignorada(s), "
@@ -263,11 +289,12 @@ def main():
     run_id = iniciar_run(supabase, "novelupdates")
     try:
         c = executar(supabase)
+        prefixo = "Cloudflare bloqueou o acesso automático — " if c.get("abortado") else ""
         finalizar_run(
             supabase,
             run_id,
             "concluido",
-            f"{c['auto']} auto, {c['pendentes']} pendente(s), {c['ignoradas']} ignorada(s), {c['bloqueadas']} bloqueada(s)",
+            f"{prefixo}{c['auto']} auto, {c['pendentes']} pendente(s), {c['ignoradas']} ignorada(s), {c['bloqueadas']} bloqueada(s)",
             resumo={
                 "auto": c["auto"],
                 "pendentes": c["pendentes"],

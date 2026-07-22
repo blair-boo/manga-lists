@@ -44,13 +44,16 @@ class NuBrowser:
             self._pagina.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
         except Exception:
             return None
-        # Dá tempo do desafio JS resolver, se houver: espera o <title> deixar de
-        # ser a interstitial "Just a moment" (teto de 40s). Páginas normais já
-        # entram com título real, então isso retorna na hora — sem espera.
+        # Dá uma janela curta pro desafio JS resolver, se houver: espera o <title>
+        # deixar de ser a interstitial "Just a moment". Páginas normais já entram
+        # com título real e isso retorna na hora. O teto é baixo (8s) de propósito:
+        # a sonda provou que o managed challenge do NU NÃO é resolvido pelo Chromium
+        # headless a partir do IP do runner (ver README/handout), então esperar 40s
+        # por página só desperdiçaria o job — melhor desistir rápido e marcar bloqueio.
         try:
             self._pagina.wait_for_function(
                 """() => !document.title.toLowerCase().includes('just a moment')""",
-                timeout=40000,
+                timeout=8000,
             )
         except Exception:
             pass

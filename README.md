@@ -98,12 +98,23 @@ Também dá pra disparar manualmente em **Actions → Scraper de capítulos → 
 
 **Novel Updates (`scraper/novelupdates.py`):** casa cada obra com sua página no
 novelupdates.com pra guardar o link canônico e enriquecer os Alternative titles.
-O NU fica atrás do Cloudflare, então o fetch é feito por um Chromium real via
-Playwright (`scraper/nu_browser.py`) — por isso o workflow
-`scraper-novelupdates.yml` roda `python -m playwright install --with-deps chromium`
-antes de `python novelupdates.py`. Disparo manual pela aba Updates ("Find on Novel
-Updates") ou em **Actions → Scraper - Novel Updates**; o input opcional `limite`
-(env `NU_LIMITE_OBRAS`) processa em lotes quando a run inteira for longa demais.
+O fetch é por Chromium real via Playwright (`scraper/nu_browser.py`); o slug do NU
+é derivado do título e a página `/series/<slug>/` é aberta direto (o endpoint de
+busca `?s=` responde 403 a IPs de datacenter). Disparo manual pela aba Updates
+("Find on Novel Updates") ou em **Actions → Scraper - Novel Updates**; input
+opcional `limite` (env `NU_LIMITE_OBRAS`) pra rodar em lotes.
+
+> **Limitação de acesso conhecida:** o Cloudflare do NU serve só a **primeira**
+> requisição de cada sessão e depois passa a devolver o managed challenge "Just a
+> moment" (403) que o Chromium headless **não resolve** a partir do IP do GitHub
+> Actions (nem do IP de datacenter em geral) — comprovado pela sonda
+> `scraper/probe_novelupdates.py` (1/6 páginas passam). Ou seja, o scraper em
+> massa **não funciona** a partir do CI: ele aborta cedo e reporta "Cloudflare
+> bloqueou o acesso automático". Para vincular no CI seria preciso um proxy
+> residencial ou uma API de scraping gerenciada (chave via secret). Enquanto isso,
+> o vínculo funciona **manualmente**: o botão "+" no campo Novel Updates da página
+> da obra aceita colar a URL do NU à mão (do seu próprio navegador o Cloudflare não
+> bloqueia), e a fila de aprovação/espelhamento continua valendo.
 
 **Nota sobre o scraper:** a extração de número de capítulo é feita por uma
 heurística genérica (padrões tipo `chapter-123` em links/texto), já que não
