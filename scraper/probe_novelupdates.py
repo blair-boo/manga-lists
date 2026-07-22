@@ -1,39 +1,56 @@
 """
-Sonda de acesso ao Novel Updates via Playwright (Handout 4, Fase 1).
-NÃO faz parte do scraper de produção — serve só pra confirmar se o runner
-consegue passar pelo Cloudflare do NU antes de investir na conversão completa.
+Sonda de acesso ao Novel Updates via Playwright (Handout 4, Fase 1 + diagnóstico
+do endpoint de busca). NÃO faz parte do scraper de produção.
+
+Testa DOIS endpoints e imprime diagnóstico de cada um:
+  1) uma página de série (deve passar — o Cloudflare serve páginas cacheadas);
+  2) o endpoint de busca ?s=... (suspeito de bloqueio 403/challenge próprio).
 
 Uso: python scraper/probe_novelupdates.py
-Sai 0 se obteve HTML real; 1 se bloqueado/indefinido.
+Sai 0 se a página de série passou; 1 caso contrário.
 """
 
+import re
 import sys
 
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-ALVO = "https://www.novelupdates.com/series/unbeknownst-to-me-i-am-secretly-dating-the-emperor/"
-MARCADORES_CHALLENGE = (
+SERIE = "https://www.novelupdates.com/series/unbeknownst-to-me-i-am-secretly-dating-the-emperor/"
+BUSCA = "https://www.novelupdates.com/?s=Solo%20Leveling&post_type=seriesplans"
+MARCADORES_INTERSTICIAL = (
     "just a moment",
-    "cf-challenge",
-    "challenge-platform",
     "attention required",
-    "cf-turnstile",
+    "_cf_chl_opt",
+    "challenge-form",
+    "cf-error-details",
 )
 
 
-def classificar(status_http, html):
+def carregar(pagina, url):
+    resp = pagina.goto(url, wait_until="domcontentloaded", timeout=60000)
+    status = resp.status if resp else None
+    try:
+        pagina.wait_for_function(
+            """() => !document.title.toLowerCase().includes('just a moment')""",
+            timeout=40000,
+        )
+    except Exception:
+        pass
+    return status, pagina.title(), pagina.content()
+
+
+def diagnostico(rotulo, status, titulo, html):
     baixo = html.lower()
-    if status_http in (403, 429) or "error 1020" in baixo:
-        return "BLOQUEADO_403"
-    if any(m in baixo for m in MARCADORES_CHALLENGE) and "og:url" not in baixo:
-        return "BLOQUEADO_CHALLENGE"
-    soup = BeautifulSoup(html, "html.parser")
-    og_url = soup.find("meta", attrs={"property": "og:url"})
-    assoc = soup.find(id="editassociated")
-    if og_url and assoc:
-        return "PASSOU"
-    return "INDEFINIDO"
+    marcadores = [m for m in MARCADORES_INTERSTICIAL if m in baixo]
+    series_links = len(set(re.findall(r"novelupdates\.com/series/[a-z0-9\-]+", baixo)))
+    print(f"--- {rotulo} ---")
+    print(f"  status_http = {status}")
+    print(f"  title       = {titulo!r}")
+    print(f"  len(html)   = {len(html)}")
+    print(f"  marcadores  = {marcadores}")
+    print(f"  series_links= {series_links}")
+    print(f"  html[:300]  = {html[:300].replace(chr(10), ' ')}")
 
 
 def main():
@@ -52,36 +69,21 @@ def main():
             viewport={"width": 1366, "height": 768},
         )
         pagina = contexto.new_page()
-        resposta = pagina.goto(ALVO, wait_until="domcontentloaded", timeout=60000)
-        status_http = resposta.status if resposta else None
 
-        # Espera o desafio resolver: título deixa de ser "Just a moment" OU aparece og:url.
-        try:
-            pagina.wait_for_function(
-                """() => !document.title.toLowerCase().includes('just a moment')
-                         || !!document.querySelector('meta[property="og:url"]')""",
-                timeout=40000,
-            )
-        except Exception:
-            pass  # segue e classifica pelo que tiver
+        s_status, s_title, s_html = carregar(pagina, SERIE)
+        diagnostico("SÉRIE", s_status, s_title, s_html)
 
-        html = pagina.content()
+        b_status, b_title, b_html = carregar(pagina, BUSCA)
+        diagnostico("BUSCA", b_status, b_title, b_html)
+
         navegador.close()
 
-    veredito = classificar(status_http, html)
-    print(f"STATUS_HTTP={status_http}")
-    print(f"VEREDITO={veredito}")
-
-    if veredito == "PASSOU":
-        soup = BeautifulSoup(html, "html.parser")
-        print("og:url =", soup.find("meta", attrs={"property": "og:url"}).get("content"))
-        assoc = soup.find(id="editassociated")
-        nomes = [t.strip() for t in assoc.get_text("\n").split("\n") if t.strip()][:5]
-        print("Associated Names (amostra):", nomes)
-    else:
-        print("HTML (início):", html[:500].replace("\n", " "))
-
-    sys.exit(0 if veredito == "PASSOU" else 1)
+    soup = BeautifulSoup(s_html, "html.parser")
+    passou_serie = bool(
+        soup.find("meta", attrs={"property": "og:url"}) and soup.find(id="editassociated")
+    )
+    print(f"\nVEREDITO_SERIE={'PASSOU' if passou_serie else 'FALHOU'}")
+    sys.exit(0 if passou_serie else 1)
 
 
 if __name__ == "__main__":
