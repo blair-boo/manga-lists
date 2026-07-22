@@ -4,3 +4,4 @@ beautifulsoup4==4.12.3
 lxml==5.3.0
 rapidfuzz==3.10.1
 cloudscraper==1.2.71
+playwright==1.49.1

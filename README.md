@@ -96,6 +96,15 @@ Se o nome do repositório for diferente de `manga-lists`, ajuste a constante
 
 Também dá pra disparar manualmente em **Actions → Scraper de capítulos → Run workflow**.
 
+**Novel Updates (`scraper/novelupdates.py`):** casa cada obra com sua página no
+novelupdates.com pra guardar o link canônico e enriquecer os Alternative titles.
+O NU fica atrás do Cloudflare, então o fetch é feito por um Chromium real via
+Playwright (`scraper/nu_browser.py`) — por isso o workflow
+`scraper-novelupdates.yml` roda `python -m playwright install --with-deps chromium`
+antes de `python novelupdates.py`. Disparo manual pela aba Updates ("Find on Novel
+Updates") ou em **Actions → Scraper - Novel Updates**; o input opcional `limite`
+(env `NU_LIMITE_OBRAS`) processa em lotes quando a run inteira for longa demais.
+
 **Nota sobre o scraper:** a extração de número de capítulo é feita por uma
 heurística genérica (padrões tipo `chapter-123` em links/texto), já que não
 foi possível validar a estrutura HTML real de ezmanga.org/nyxscans.com a

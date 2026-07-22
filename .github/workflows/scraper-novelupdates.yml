@@ -4,7 +4,12 @@ name: Scraper - Novel Updates
 # Updates" na aba Updates do app (via Supabase Edge Function). Roda depois dos
 # estágios de obras/fontes, casando cada obra ainda sem novelupdates_url.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: 'Máximo de obras nesta run (vazio = todas). Útil pra lotes/observação.'
+        required: false
+        default: ''
 
 concurrency:
   group: scraper-novelupdates
@@ -25,9 +30,13 @@ jobs:
       - name: Instalar dependências
         run: pip install -r scraper/requirements.txt
 
+      - name: Instalar Chromium do Playwright
+        run: python -m playwright install --with-deps chromium
+
       - name: Casar obras com páginas do Novel Updates
         working-directory: scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NU_LIMITE_OBRAS: ${{ github.event.inputs.limite }}
         run: python novelupdates.py

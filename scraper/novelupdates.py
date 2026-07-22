@@ -13,17 +13,17 @@ Decisão por score de título (rapidfuzz), com os limiares de
 Uso: python scraper/novelupdates.py
 """
 
+import os
 import re
-import sys
 import time
 import traceback
 from urllib.parse import quote, urljoin, urlparse
 
-import requests
 from bs4 import BeautifulSoup
 
-from common import finalizar_run, get_supabase, http_get, iniciar_run
+from common import finalizar_run, get_supabase, iniciar_run
 from match_titulo import melhor_match
+from nu_browser import NuBrowser, abrir_nu_browser
 
 DELAY_ENTRE_REQUESTS = 1.5
 MAX_CANDIDATOS = 5
@@ -42,17 +42,18 @@ def eh_romano(s: str) -> bool:
     return not NAO_ROMANO.search(s)
 
 
-def buscar_series(titulo: str) -> list[str]:
-    """URLs de páginas /series/<slug>/ retornadas pela busca do NU (dedupe, ordem preservada)."""
+def buscar_series(titulo: str, browser: NuBrowser) -> list[str] | None:
+    """
+    URLs de páginas /series/<slug>/ retornadas pela busca do NU (dedupe, ordem
+    preservada). Retorna None se o fetch foi bloqueado (challenge/403); lista
+    vazia = busca ok, sem resultados.
+    """
     url = BUSCA_URL.format(query=quote(titulo))
-    try:
-        resp = http_get(url)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        print(f"    busca no NU falhou para '{titulo}': {exc}", file=sys.stderr)
-        return []
+    html = browser.get_html(url)
+    if html is None:
+        return None
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     vistos: set[str] = set()
     series: list[str] = []
     for a in soup.find_all("a", href=True):
@@ -184,54 +185,68 @@ def executar(supabase) -> dict:
     pendentes = supabase.table("novelupdates_pendentes").select("obra_id, novelupdates_url, status_aprovacao").execute().data
     reprovados = {p["obra_id"]: p["novelupdates_url"] for p in pendentes if p.get("status_aprovacao") == "reprovado"}
 
-    contadores = {"auto": 0, "pendentes": 0, "ignoradas": 0}
+    # Batching opcional (Handout 4, 2.4): NU_LIMITE_OBRAS limita quantas obras por
+    # run. Como o scraper já filtra por novelupdates_url IS NULL, cada run seguinte
+    # pega só o que sobrou. Default: sem limite.
+    limite = os.environ.get("NU_LIMITE_OBRAS")
+    if limite and limite.isdigit():
+        obras = obras[: int(limite)]
 
-    for obra in obras:
-        time.sleep(DELAY_ENTRE_REQUESTS)
-        series = buscar_series(obra["titulo"])
-        if not series:
-            contadores["ignoradas"] += 1
-            continue
+    # 'bloqueadas' (fetch devolveu None: challenge/403) é separado de 'ignoradas'
+    # (busca ok, mas nenhuma série casou) — desfaz a ambiguidade do run anterior.
+    contadores = {"auto": 0, "pendentes": 0, "ignoradas": 0, "bloqueadas": 0}
 
-        melhor = None  # (score, og_url, og_title, associados)
-        for serie_url in series:
+    with abrir_nu_browser() as browser:
+        for obra in obras:
             time.sleep(DELAY_ENTRE_REQUESTS)
-            try:
-                resp = http_get(serie_url)
-                resp.raise_for_status()
-            except requests.RequestException as exc:
-                print(f"    fetch {serie_url} falhou: {exc}", file=sys.stderr)
+            series = buscar_series(obra["titulo"], browser)
+            if series is None:
+                contadores["bloqueadas"] += 1
                 continue
-            og_title, og_url, associados = extrair_dados_serie(resp.text)
-            score = pontuar(obra, og_title, associados)
-            if melhor is None or score > melhor[0]:
-                melhor = (score, og_url or serie_url, og_title or "", associados)
+            if not series:
+                contadores["ignoradas"] += 1
+                continue
 
-        if melhor is None:
-            contadores["ignoradas"] += 1
-            continue
+            melhor = None  # (score, og_url, og_title, associados)
+            algum_bloqueio = False
+            for serie_url in series:
+                time.sleep(DELAY_ENTRE_REQUESTS)
+                html = browser.get_html(serie_url)
+                if html is None:
+                    algum_bloqueio = True
+                    continue
+                og_title, og_url, associados = extrair_dados_serie(html)
+                score = pontuar(obra, og_title, associados)
+                if melhor is None or score > melhor[0]:
+                    melhor = (score, og_url or serie_url, og_title or "", associados)
 
-        score, url, titulo_encontrado, associados = melhor
+            if melhor is None:
+                # Nenhum candidato pontuou: bloqueio de acesso vs. ausência real de match.
+                contadores["bloqueadas" if algum_bloqueio else "ignoradas"] += 1
+                continue
 
-        # Não reinserir uma URL já reprovada para a mesma obra (E5).
-        if reprovados.get(obra["id"]) == url:
-            contadores["ignoradas"] += 1
-            continue
+            score, url, titulo_encontrado, associados = melhor
 
-        if score >= auto:
-            aplicar_match_confirmado(supabase, obra, url, associados)
-            contadores["auto"] += 1
-            print(f"  {obra['titulo']}: {score:.2f} AUTO -> {url}")
-        elif score >= minimo:
-            upsert_pendente(supabase, obra["id"], url, titulo_encontrado, score, associados)
-            contadores["pendentes"] += 1
-            print(f"  {obra['titulo']}: {score:.2f} pendente -> {url}")
-        else:
-            contadores["ignoradas"] += 1
+            # Não reinserir uma URL já reprovada para a mesma obra (E5).
+            if reprovados.get(obra["id"]) == url:
+                contadores["ignoradas"] += 1
+                continue
+
+            if score >= auto:
+                aplicar_match_confirmado(supabase, obra, url, associados)
+                contadores["auto"] += 1
+                print(f"  {obra['titulo']}: {score:.2f} AUTO -> {url}")
+            elif score >= minimo:
+                upsert_pendente(supabase, obra["id"], url, titulo_encontrado, score, associados)
+                contadores["pendentes"] += 1
+                print(f"  {obra['titulo']}: {score:.2f} pendente -> {url}")
+            else:
+                contadores["ignoradas"] += 1
 
     print(
         f"\nConcluído. {contadores['auto']} auto-aprovada(s), "
-        f"{contadores['pendentes']} pendente(s), {contadores['ignoradas']} ignorada(s)."
+        f"{contadores['pendentes']} pendente(s), {contadores['ignoradas']} ignorada(s), "
+        f"{contadores['bloqueadas']} bloqueada(s)."
     )
     return contadores
 
@@ -245,8 +260,13 @@ def main():
             supabase,
             run_id,
             "concluido",
-            f"{c['auto']} auto, {c['pendentes']} pendente(s), {c['ignoradas']} ignorada(s)",
-            resumo={"auto": c["auto"], "pendentes": c["pendentes"], "ignoradas": c["ignoradas"]},
+            f"{c['auto']} auto, {c['pendentes']} pendente(s), {c['ignoradas']} ignorada(s), {c['bloqueadas']} bloqueada(s)",
+            resumo={
+                "auto": c["auto"],
+                "pendentes": c["pendentes"],
+                "ignoradas": c["ignoradas"],
+                "bloqueadas": c["bloqueadas"],
+            },
         )
     except Exception as exc:
         finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
