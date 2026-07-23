@@ -22,7 +22,7 @@
 }
 
 .vinculo-obra {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .vinculo-obra p {
@@ -129,11 +129,11 @@
   flex-wrap: wrap;
 }
 
-/* Novel Updates (Bloco E7): rótulo + ações (livrinho/×/+), todas com borda transparente. */
+/* Novel Updates (Bloco E7): rótulo + ações (livrinho/×/+) na mesma linha. */
 .novelupdates-campo {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
 }
 
 .novelupdates-label {

@@ -571,7 +571,7 @@ export function DetalheObraPage() {
         </label>
 
         <TagPicker
-          label="Alternative title"
+          label="Associated Names"
           value={draft.titulos_alternativos ?? []}
           options={[]}
           onChange={(v) => setCampo('titulos_alternativos', v.length > 0 ? v : null)}
@@ -648,7 +648,7 @@ export function DetalheObraPage() {
 
             {/* Novel Updates — Bloco E7: livrinho (aberto em nova aba) + ×, ou + pra adicionar. */}
             <div className="novelupdates-campo">
-              <span className="novelupdates-label">Novel Updates</span>
+              <span className="novelupdates-label">Novel Updates:</span>
               <div className="novelupdates-acoes">
                 {draft.novelupdates_url ? (
                   <>
