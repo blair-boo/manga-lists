@@ -1,0 +1,30 @@
+<!--
+Fixture sintético mínimo da página de série do magustoon (frontend Astro).
+Reproduz só o que o MagustoonAdapter.parse lê: links de leitura
+/series/<slug>/chapter-<N> do PRÓPRIO slug, numa janela dos mais recentes.
+
+Detalhes propositais:
+  - o slug alvo é "blade-of-dawn"; o maior capítulo próprio é 12.5 (decimal),
+    fora de ordem no HTML pra provar comparação numérica (não lexicográfica);
+  - há links de OUTRA série ("outra-serie/chapter-999") que NÃO podem contar,
+    provando o escopo por slug;
+  - marcador /_vcomics/ presente (fingerprint de conteúdo do matches()).
+-->
+<!doctype html>
+<html>
+  <head>
+    <title>Blade of Dawn Manhwa</title>
+    <script type="module" src="/_vcomics/Bnz_uZSS.js"></script>
+  </head>
+  <body>
+    <ul class="chapter-list">
+      <li><a href="/series/blade-of-dawn/chapter-11">Chapter 11</a></li>
+      <li><a href="/series/blade-of-dawn/chapter-12.5">Chapter 12.5</a></li>
+      <li><a href="/series/blade-of-dawn/chapter-9">Chapter 9</a></li>
+      <li><a href="/series/blade-of-dawn/chapter-10">Chapter 10</a></li>
+    </ul>
+    <aside class="recommended">
+      <a href="/series/outra-serie/chapter-999">Outra série cap. 999</a>
+    </aside>
+  </body>
+</html>

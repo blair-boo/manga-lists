@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from adapter_base import RawContent, STATUS_INVALIDA, STATUS_OK
+from adapter_base import RawContent, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
 from adapters import CmsGenericoAdapter, EzmangaAdapter
-from adapters_novos import MadaraAdapter
+from adapters_novos import MadaraAdapter, MagustoonAdapter
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -83,3 +83,37 @@ def test_madara_html_fora_do_formato_nao_levanta():
     raw = RawContent("ok", "https://example.com/manga/x/ajax/chapters/?t=1", text="<div>nada de capítulos</div>")
     resultado = MadaraAdapter().parse(raw)
     assert resultado.status == STATUS_INVALIDA
+
+
+# --- MagustoonAdapter (Astro, links /series/<slug>/chapter-<N>) --------------
+
+
+def test_magustoon_parse_ok():
+    raw = RawContent(
+        "ok", "https://magustoon.org/series/blade-of-dawn", text=fixture("magustoon_series.html")
+    )
+    resultado = MagustoonAdapter().parse(raw)
+    assert resultado.status == STATUS_OK
+    # 12.5 (decimal, fora de ordem no HTML) é o maior do próprio slug; a série
+    # recomendada com chapter-999 não conta (escopo por slug).
+    assert resultado.ultimo_capitulo == 12.5
+    assert resultado.link_capitulo == "https://magustoon.org/series/blade-of-dawn/chapter-12.5"
+
+
+def test_magustoon_normaliza_url_de_capitulo_para_overview():
+    adapter = MagustoonAdapter()
+    assert (
+        adapter._url_overview("https://magustoon.org/series/blade-of-dawn/chapter-12.5")
+        == "https://magustoon.org/series/blade-of-dawn"
+    )
+
+
+def test_magustoon_sem_links_do_slug_nao_levanta():
+    # Página só com capítulos de OUTRA série → estrutura vazia pro slug pedido.
+    raw = RawContent(
+        "ok",
+        "https://magustoon.org/series/blade-of-dawn",
+        text='<a href="/series/outra-serie/chapter-999">x</a>',
+    )
+    resultado = MagustoonAdapter().parse(raw)
+    assert resultado.status == STATUS_VAZIA

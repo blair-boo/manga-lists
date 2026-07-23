@@ -83,8 +83,9 @@ export function CsvBulkSection() {
       <p>
         Export the <code>obras</code> table (button below, or from the Supabase Table Editor), fill in whatever
         fields you want in Excel/Google Sheets and upload the file here. Do not change the <code>id</code> and{' '}
-        <code>titulo</code> columns. Empty cells keep the current value; in <code>generos</code>/<code>tags</code>,
-        separate multiple values with <code>;</code>.
+        <code>titulo</code> columns. Every column present in the file is written back, so an empty cell{' '}
+        <strong>clears</strong> that field (a column left out of the file entirely is not touched); in{' '}
+        <code>generos</code>/<code>tags</code>, separate multiple values with <code>;</code>.
       </p>
 
       <div className="csv-acoes">
@@ -101,7 +102,7 @@ export function CsvBulkSection() {
       {resultado && (
         <div className="atualizacao-massa-resultado">
           <p>{resultado.atualizadas} work(s) updated.</p>
-          <p>{resultado.semMudanca} row(s) with no field filled (ignored).</p>
+          <p>{resultado.semMudanca} row(s) with no updatable column (ignored).</p>
           {resultado.semId > 0 && <p>{resultado.semId} row(s) without an id column (ignored).</p>}
           {resultado.naoEncontradas.length > 0 && (
             <div>

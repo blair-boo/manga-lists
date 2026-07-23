@@ -320,6 +320,7 @@ class AdapterRegistry:
 # ReadhiveAdapter, VymangaAdapter, MangaFoxAdapter, SakurazeAdapter).
 from adapters_novos import (  # noqa: E402
     MadaraAdapter,
+    MagustoonAdapter,
     MangaFoxAdapter,
     MgreadAdapter,
     NovelsHubAdapter,
@@ -331,6 +332,11 @@ from adapters_novos import (  # noqa: E402
 
 REGISTRY = AdapterRegistry(
     [
+        # Magustoon vem antes do CmsGenerico de propósito: os dois reconhecem o
+        # domínio pela API compartilhada (api/posts), mas só o MagustoonAdapter
+        # lê o frontend Astro. Sem essa ordem, o CmsGenerico venceria a detecção
+        # e o parse falharia sempre (ver docstring do MagustoonAdapter).
+        MagustoonAdapter(),
         CmsGenericoAdapter(),
         EzmangaAdapter(),
         NovelsHubAdapter(),

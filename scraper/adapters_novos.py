@@ -543,3 +543,92 @@ class SakurazeAdapter(SourceAdapter):
         tipo_campo = (novel.get("novel_type") or novel.get("type") or "").lower()
         tipo_detectado = "novel" if "novel" in tipo_campo or not tipo_campo else detectar_tipo(raw.url)
         return ParseResult(STATUS_OK, titulo_site=novel.get("title"), ultimo_capitulo=numero_fmt, link_capitulo=raw.url, tipo_detectado=tipo_detectado)
+
+
+# --- A6. magustoon (Astro islands, /series/<slug>/chapter-<N>) ---------------
+
+
+class MagustoonAdapter(SourceAdapter):
+    """
+    magustoon.org — frontend Astro (bundle em `/_vcomics/`) sobre o MESMO
+    backend SaaS do CmsGenericoAdapter (a API `api.{host}/api/posts` responde
+    com a mesma forma `{"posts":[...]}`). Por isso o CmsGenericoAdapter casava
+    com o domínio (matches() só checa a API) mas o parse dele falhava sempre:
+    o parser do CMS genérico procura o array `\\"chapters\\":[` com aspas
+    escapadas por barra (payload RSC do Next.js), enquanto o Astro serializa os
+    dados da ilha com entidades HTML (`&quot;chapters&quot;`) e embrulha cada
+    valor em `[0, valor]` — formato incompatível. Resultado: as fontes
+    magustoon ficavam com `ultimo_capitulo_detectado` NULL indefinidamente.
+
+    Em vez de decodificar o payload da ilha, lê o sinal mais simples e estável
+    da página da série: os links `/series/<slug>/chapter-<N>` (o mesmo padrão
+    que Madara/ts_theme/mgread usam). A lista renderizada é uma janela dos
+    capítulos mais recentes com o mais novo no topo, então o maior N é sempre o
+    último lançado. Os links são filtrados pelo slug da própria série (extraído
+    da URL) pra não capturar capítulos de séries recomendadas na mesma página.
+
+    Registrado ANTES do CmsGenericoAdapter no REGISTRY pra vencer a detecção
+    (os dois reconhecem o domínio pela API compartilhada; só este lê o Astro).
+    """
+
+    id = "magustoon"
+    display_name = "Magus Toon (Astro, /series/<slug>/chapter-<N>)"
+    access_strategy_padrao = ACCESS_HTTP
+
+    def _slug_da_url(self, url: str) -> str | None:
+        partes = [p for p in urlparse(url).path.split("/") if p]
+        if "series" in partes:
+            idx = partes.index("series")
+            if idx + 1 < len(partes):
+                return partes[idx + 1]
+        return None
+
+    def _url_overview(self, url: str) -> str:
+        """Normaliza uma URL de leitura (/series/<slug>/chapter-N) pra overview da
+        série (/series/<slug>), que embute a lista de capítulos recentes."""
+        slug = self._slug_da_url(url)
+        if not slug:
+            return url
+        p = urlparse(url)
+        return f"{p.scheme}://{p.netloc}/series/{slug}"
+
+    def matches(self, url: str) -> bool:
+        host = (urlparse(url).hostname or "").lower()
+        if "magustoon" in host:
+            return True
+        # Fallback por conteúdo: o bundle Astro do motor fica em /_vcomics/,
+        # pra cobrir um domínio-espelho futuro do mesmo site sem hardcode.
+        raw = fetch_http(url)
+        return raw.status == "ok" and bool(raw.text) and "/_vcomics/" in raw.text
+
+    def fetch(self, url: str, access_strategy: str) -> RawContent:
+        return FETCHERS.get(access_strategy, fetch_http)(self._url_overview(url))
+
+    def parse(self, raw: RawContent) -> ParseResult:
+        if raw.status == "acesso_bloqueado":
+            return ParseResult(STATUS_BLOQUEADO, diagnostico=raw.diagnostico)
+        if raw.status != "ok" or not raw.text:
+            return ParseResult(STATUS_ERRO, diagnostico=raw.diagnostico or "sem conteúdo")
+
+        slug = self._slug_da_url(raw.url)
+        if not slug:
+            return ParseResult(STATUS_INVALIDA, diagnostico="URL sem slug de série reconhecível")
+
+        padrao = re.compile(rf'href="(/series/{re.escape(slug)}/chapter-([0-9]+(?:\.[0-9]+)?))"')
+        entradas = padrao.findall(raw.text)
+        if not entradas:
+            return ParseResult(
+                STATUS_VAZIA,
+                diagnostico="página da série reconhecida, sem links /chapter-<N> do próprio slug (obra sem capítulo?)",
+            )
+
+        href, numero_str = max(entradas, key=lambda e: float(e[1]))
+        numero = float(numero_str)
+        numero_fmt = int(numero) if numero.is_integer() else numero
+        p = urlparse(raw.url)
+        return ParseResult(
+            STATUS_OK,
+            ultimo_capitulo=numero_fmt,
+            link_capitulo=f"{p.scheme}://{p.netloc}{href}",
+            tipo_detectado=detectar_tipo(raw.url, raw.text),
+        )
