@@ -7,8 +7,15 @@ import type { Obra } from '../types';
  * como o valor é convertido. `id`/`titulo` ficam de fora (são identificadores —
  * o texto de ajuda pede pra não mexer neles) e `obra_vinculada_id` também
  * (o vínculo é mútuo e mantido por vincularObras/desvincularObra; editar o id
- * cru pelo CSV quebraria a reciprocidade). Qualquer coluna nova da tabela
- * `obras` passa a ser atualizada só adicionando o nome no grupo certo aqui.
+ * cru pelo CSV quebraria a reciprocidade). `criado_em`/`atualizado_em` (geridos
+ * pelo banco) também ficam de fora de propósito: buildUpdatePayload só lê
+ * colunas destes quatro grupos, então qualquer outra coluna do export bruto do
+ * Supabase Table Editor (incluindo essas) é ignorada, mesmo se vier corrompida
+ * no arquivo — ex.: planilhas costumam reformatar timestamp com vírgula sem
+ * citar o campo, o que quebra o alinhamento das colunas NAQUELA linha no CSV
+ * (parseCsvFile reporta essas linhas via `linhasComProblema`, ver abaixo).
+ * Qualquer coluna nova da tabela `obras` passa a ser atualizada só
+ * adicionando o nome no grupo certo aqui.
  */
 const CAMPOS_TEXTO = [
   'tipo',
@@ -106,9 +113,21 @@ export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
   return payload;
 }
 
-export function parseCsvFile(texto: string): LinhaCsv[] {
+export interface ResultadoParseCsv {
+  linhas: LinhaCsv[];
+  /** Número de linhas do arquivo com campos a mais/a menos que o cabeçalho —
+   * sinal de uma vírgula não citada (comum quando `criado_em`/`atualizado_em`
+   * é reformatado por Excel/Sheets). As colunas conhecidas ANTES do ponto de
+   * quebra ainda são lidas normalmente; só avisa, não bloqueia o upload. */
+  linhasComProblema: number;
+}
+
+export function parseCsvFile(texto: string): ResultadoParseCsv {
   const resultado = Papa.parse<LinhaCsv>(texto, { header: true, skipEmptyLines: true });
-  return resultado.data;
+  const linhasComProblema = new Set(
+    resultado.errors.filter((e) => e.code === 'TooManyFields' || e.code === 'TooFewFields').map((e) => e.row)
+  ).size;
+  return { linhas: resultado.data, linhasComProblema };
 }
 
 /**
