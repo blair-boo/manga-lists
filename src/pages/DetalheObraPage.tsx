@@ -44,6 +44,8 @@ import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeX } from '../comp
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
+import { renomearCapaSeNecessario } from '../lib/capaStorage';
+import { mensagemDeErro } from '../lib/erros';
 import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
@@ -300,10 +302,27 @@ export function DetalheObraPage() {
       const changes = camposAlterados(draft, snap);
       if (Object.keys(changes).length === 0) return;
       snapshotRef.current = draft;
-      void updateObra(id, changes);
+      void (async () => {
+        if (('titulo' in changes || 'tipo' in changes) && snap.capa_url) {
+          try {
+            const novaCapaUrl = await renomearCapaSeNecessario(
+              snap.capa_url,
+              snap.titulo,
+              snap.tipo,
+              draft.titulo,
+              draft.tipo
+            );
+            if (novaCapaUrl) changes.capa_url = novaCapaUrl;
+          } catch (err) {
+            mostrarToast(`Could not rename cover: ${mensagemDeErro(err)}`, 'erro');
+            // segue o autosave dos outros campos mesmo se o rename da capa falhar
+          }
+        }
+        await updateObra(id, changes);
+      })();
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
-  }, [draft, id, obra]);
+  }, [draft, id, obra, mostrarToast]);
 
   const notasDirty = notaDraft !== notaSalva;
 
@@ -562,7 +581,12 @@ export function DetalheObraPage() {
             Novel Updates empilhados e independentes à direita. */}
         <div className="obra-topo">
           <div className="obra-topo-capa">
-            <CapaUploader capaUrl={draft.capa_url} onUploaded={(url) => setCampo('capa_url', url)} />
+            <CapaUploader
+              capaUrl={draft.capa_url}
+              titulo={draft.titulo}
+              tipo={draft.tipo}
+              onUploaded={(url) => setCampo('capa_url', url)}
+            />
           </div>
 
           <div className="obra-topo-campos">
