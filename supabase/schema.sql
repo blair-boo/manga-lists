@@ -35,7 +35,8 @@ create table sites_suportados (
     ativo boolean not null default true,
     adaptador text, -- id do adaptador designado (NULL = sem adaptador ainda)
     access_strategy text, -- 'http' | 'playwright' | 'flaresolverr'; sobrescreve o padrão do adaptador
-    diagnostico jsonb -- relatório do modo diagnóstico quando nenhum adaptador se designou (NULL = designado/ok)
+    diagnostico jsonb, -- relatório do modo diagnóstico quando nenhum adaptador se designou (NULL = designado/ok)
+    criado_em timestamptz not null default now() -- quando o domínio foi pedido (fila de aprovação mostra "requested")
 );
 
 create table fontes (

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { criarObraComFontes, vincularObras, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
@@ -7,6 +7,8 @@ import { CapaUploader } from '../components/CapaUploader';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { registrarDominioManual } from '../lib/scraperConfig';
+import { renomearCapaSeNecessario } from '../lib/capaStorage';
+import { mensagemDeErro } from '../lib/erros';
 import type { Classificacao, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 interface Resultado {
@@ -52,6 +54,8 @@ export function CadastrarPage() {
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
 
+  const capaUploadRef = useRef<{ titulo: string; tipo: Tipo | null } | null>(null);
+
   function limparFormulario() {
     setTitulo('');
     setTitulosAlternativos([]);
@@ -70,6 +74,7 @@ export function CadastrarPage() {
     setObservacoes('');
     setTemVinculo(false);
     setObraVinculadaId('');
+    capaUploadRef.current = null;
   }
 
   function handleUrlChange(index: number, valor: string) {
@@ -90,12 +95,30 @@ export function CadastrarPage() {
     if (!titulo.trim() || !tipo) return;
 
     setSalvando(true);
+
+    let capaUrlFinal = capaUrl.trim() || null;
+    if (capaUrlFinal && capaUploadRef.current) {
+      try {
+        const renomeada = await renomearCapaSeNecessario(
+          capaUrlFinal,
+          capaUploadRef.current.titulo,
+          capaUploadRef.current.tipo,
+          titulo.trim(),
+          (tipo || null) as Tipo | null
+        );
+        if (renomeada) capaUrlFinal = renomeada;
+      } catch (err) {
+        mostrarToast(`Could not rename cover: ${mensagemDeErro(err)}`, 'erro');
+        // segue o cadastro com a capa_url antiga; dá pra reenviar a capa depois
+      }
+    }
+
     const obra: NovaObra = {
       tipo: (tipo || null) as Tipo | null,
       titulo: titulo.trim(),
       titulos_alternativos: titulosAlternativos.length > 0 ? titulosAlternativos : null,
       autor: null,
-      capa_url: capaUrl.trim() || null,
+      capa_url: capaUrlFinal,
       capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
       status_leitura: (statusLeitura || null) as StatusLeitura | null,
       status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
@@ -252,7 +275,15 @@ export function CadastrarPage() {
             {/* Bloco topo (C): capa clicável à esquerda; Corresponding work à direita. */}
             <div className="obra-topo">
               <div className="obra-topo-capa">
-                <CapaUploader capaUrl={capaUrl || null} onUploaded={setCapaUrl} />
+                <CapaUploader
+                  capaUrl={capaUrl || null}
+                  titulo={titulo}
+                  tipo={(tipo || null) as Tipo | null}
+                  onUploaded={(url) => {
+                    setCapaUrl(url);
+                    capaUploadRef.current = { titulo: titulo.trim(), tipo: (tipo || null) as Tipo | null };
+                  }}
+                />
               </div>
 
               <div className="obra-topo-campos">
