@@ -4,10 +4,27 @@ import type { Obra } from '../types';
 
 describe('parseCsvFile', () => {
   it('lê o cabeçalho e as linhas, pulando linhas vazias', () => {
-    const linhas = parseCsvFile('id,titulo,autor\n1,Solo Leveling,Chugong\n\n2,Omniscient Reader,singNsong\n');
+    const { linhas, linhasComProblema } = parseCsvFile(
+      'id,titulo,autor\n1,Solo Leveling,Chugong\n\n2,Omniscient Reader,singNsong\n'
+    );
     expect(linhas).toHaveLength(2);
     expect(linhas[0]).toMatchObject({ id: '1', titulo: 'Solo Leveling', autor: 'Chugong' });
     expect(linhas[1]).toMatchObject({ id: '2', titulo: 'Omniscient Reader' });
+    expect(linhasComProblema).toBe(0);
+  });
+
+  it('reporta linha com campos a mais (ex.: vírgula não citada num timestamp reformatado)', () => {
+    // atualizado_em reformatado por planilha com vírgula sem aspas quebra o
+    // alinhamento dessa linha; id/titulo/autor (antes do ponto de quebra)
+    // ainda são lidos normalmente.
+    const csv =
+      'id,titulo,autor,criado_em,atualizado_em\n' +
+      'abc-123,Solo Leveling,Chugong,7/12/2026 6:51:32 PM,7/23/2026, 8:30:10 PM\n' +
+      'def-456,Omniscient Reader,singNsong,7/12/2026 6:51:32 PM,7/23/2026 8:31:00 PM\n';
+    const { linhas, linhasComProblema } = parseCsvFile(csv);
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0]).toMatchObject({ id: 'abc-123', titulo: 'Solo Leveling', autor: 'Chugong' });
+    expect(linhasComProblema).toBe(1);
   });
 });
 
@@ -98,7 +115,8 @@ describe('obrasParaCsv', () => {
 
   it('gera CSV que o buildUpdatePayload lê de volta (round-trip)', () => {
     const csv = obrasParaCsv([obra]);
-    const [linha] = parseCsvFile(csv);
+    const { linhas } = parseCsvFile(csv);
+    const [linha] = linhas;
     expect(linha.id).toBe('abc-123');
     expect(linha.titulo).toBe('Solo Leveling');
 

@@ -110,6 +110,11 @@ function SecaoNovasFontes({ sitesSuportados }: { sitesSuportados: string[] }) {
   );
 }
 
+// Oculta a seção de Novel Updates na tela (não remove a funcionalidade — só a
+// renderização): o scraper de NU tem correções pendentes a fazer depois. Pra
+// reativar, troca pra true.
+const MOSTRAR_NOVELUPDATES = false;
+
 export function AtualizacoesPage() {
   const [sitesSuportados, setSitesSuportados] = useState<string[]>([]);
   const [matchAberto, setMatchAberto] = useState(false);
@@ -128,7 +133,7 @@ export function AtualizacoesPage() {
 
       <SecaoSitesSuportados sitesSuportados={sitesSuportados} />
       <SecaoNovasFontes sitesSuportados={sitesSuportados} />
-      <SecaoNovelUpdates />
+      {MOSTRAR_NOVELUPDATES && <SecaoNovelUpdates />}
 
       <section className="atualizacao-secao">
         <button

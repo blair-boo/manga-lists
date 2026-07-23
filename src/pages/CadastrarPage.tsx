@@ -266,7 +266,7 @@ export function CadastrarPage() {
         {completo && (
           <>
             <TagPicker
-              label="Alternative title"
+              label="Associated Names"
               value={titulosAlternativos}
               options={[]}
               onChange={setTitulosAlternativos}

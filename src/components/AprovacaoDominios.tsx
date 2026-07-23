@@ -24,6 +24,7 @@ function formatarData(iso: string | null): string {
  */
 export function AprovacaoDominios() {
   const { confirmar } = useDialogos();
+  const [aberta, setAberta] = useState(false);
   const [pendentes, setPendentes] = useState<DominioPendente[]>([]);
   const [processando, setProcessando] = useState<string | null>(null);
 
@@ -82,33 +83,52 @@ export function AprovacaoDominios() {
 
   const erro = erroCarregar ?? erroAprovar ?? erroRejeitar;
 
-  if (carregando) return <p className="execucao-status">Loading…</p>;
-  if (erro) return <p className="execucao-status execucao-erro">Error: {erro}</p>;
-  if (pendentes.length === 0) return <p className="execucao-status">No domains awaiting approval.</p>;
-
   return (
-    <ul className="dominios-lista">
-      {pendentes.map((d) => (
-        <li key={d.id} className="dominio-item">
-          <div className="dominio-cabecalho">
-            <span className="dominio-nome">{d.nome}</span>
-            {d.url_base && (
-              <a href={d.url_base} target="_blank" rel="noreferrer" className="dominio-link">
-                open
-              </a>
-            )}
-            <span className="dominio-data">requested {formatarData(d.criado_em)}</span>
-          </div>
-          <div className="fonte-acoes">
-            <button type="button" onClick={() => handleAprovar(d)} disabled={processando === d.id}>
-              {processando === d.id ? 'Please wait…' : 'Approve'}
-            </button>
-            <button type="button" onClick={() => handleRejeitar(d)} disabled={processando === d.id}>
-              Reject
-            </button>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="dominios-sem-adaptador">
+      <button
+        type="button"
+        className="fila-aprovacoes-toggle"
+        onClick={() => setAberta((v) => !v)}
+        aria-expanded={aberta}
+      >
+        {aberta ? '▾' : '▸'} Pending domains ({carregando ? '…' : pendentes.length})
+      </button>
+
+      {aberta && (
+        <div className="fila-aprovacoes-corpo">
+          {carregando ? (
+            <p className="execucao-status">Loading…</p>
+          ) : erro ? (
+            <p className="execucao-status execucao-erro">Error: {erro}</p>
+          ) : pendentes.length === 0 ? (
+            <p className="execucao-status">No domains awaiting approval.</p>
+          ) : (
+            <ul className="dominios-lista">
+              {pendentes.map((d) => (
+                <li key={d.id} className="dominio-item">
+                  <div className="dominio-cabecalho">
+                    <span className="dominio-nome">{d.nome}</span>
+                    {d.url_base && (
+                      <a href={d.url_base} target="_blank" rel="noreferrer" className="dominio-link">
+                        open
+                      </a>
+                    )}
+                    <span className="dominio-data">requested {formatarData(d.criado_em)}</span>
+                  </div>
+                  <div className="fonte-acoes">
+                    <button type="button" onClick={() => handleAprovar(d)} disabled={processando === d.id}>
+                      {processando === d.id ? 'Please wait…' : 'Approve'}
+                    </button>
+                    <button type="button" onClick={() => handleRejeitar(d)} disabled={processando === d.id}>
+                      Reject
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

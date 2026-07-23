@@ -2,8 +2,6 @@ import { supabase } from '../lib/supabaseClient';
 import { db, getLastSyncedAt, setLastSyncedAt } from '../db/localDb';
 import type { Fonte, ListaItem, Obra, SyncQueueItem } from '../types';
 
-let syncing = false;
-
 export function isOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
@@ -20,10 +18,21 @@ async function applyMutation(item: SyncQueueItem): Promise<void> {
   if (error) throw error;
 }
 
-/** Envia mutações pendentes da fila local para o Supabase, em ordem. Para no primeiro erro (ex: sem rede). */
-export async function pushPending(): Promise<void> {
+/**
+ * Envia mutações pendentes da fila local para o Supabase, em ordem por
+ * registro. Uma mutação que falha (ex.: uma linha com dado inválido) só pula
+ * as mutações SEGUINTES do MESMO registro (pra não reenviar fora de ordem) —
+ * não trava as de outros registros na fila. Sem isso, uma única linha
+ * problemática de uma atualização em massa via CSV bloqueava o envio de
+ * TODAS as outras linhas indefinidamente (a fila só reprocessa do início).
+ * Retorna quantos registros ficaram com mutação pendente por causa de erro.
+ */
+export async function pushPending(): Promise<{ falhas: number }> {
   const pending = await db.syncQueue.orderBy('createdAt').toArray();
+  const registrosComFalha = new Set<string>();
   for (const item of pending) {
+    const chave = `${item.entity}:${item.recordId}`;
+    if (registrosComFalha.has(chave)) continue;
     try {
       await applyMutation(item);
       if (item.id !== undefined) {
@@ -31,9 +40,10 @@ export async function pushPending(): Promise<void> {
       }
     } catch (err) {
       console.warn('Falha ao sincronizar mutação pendente, tentando novamente depois', item, err);
-      break;
+      registrosComFalha.add(chave);
     }
   }
+  return { falhas: registrosComFalha.size };
 }
 
 /** Puxa obras alteradas no servidor desde a última sync (incremental via atualizado_em). */
@@ -129,22 +139,38 @@ async function pullListas(): Promise<void> {
   if (rows.length > 0) await db.listas.bulkPut(rows);
 }
 
-/** Roda o ciclo completo: envia pendências, depois puxa mudanças do servidor. Silencioso se offline. */
-export async function syncNow(): Promise<{ ok: boolean; error?: unknown }> {
-  if (syncing) return { ok: false, error: 'already-syncing' };
-  if (!isOnline()) return { ok: false, error: 'offline' };
-  syncing = true;
-  try {
-    await pushPending();
-    await pullObras();
-    await reconciliarObrasDeletadas();
-    await pullFontes();
-    await pullListas();
-    return { ok: true };
-  } catch (error) {
-    console.error('Erro durante sincronização', error);
-    return { ok: false, error };
-  } finally {
-    syncing = false;
-  }
+let syncEmAndamento: Promise<{ ok: boolean; error?: unknown }> | null = null;
+
+/**
+ * Roda o ciclo completo: envia pendências, depois puxa mudanças do servidor.
+ * Silencioso se offline. Chamadas concorrentes (ex.: uma atualização em massa
+ * via CSV dispara uma por linha) compartilham a MESMA execução em andamento
+ * em vez de virar no-op — antes, só a primeira chamada realmente rodava
+ * pushPending e as demais recebiam `{ok: false, error: 'already-syncing'}`
+ * sem nunca reagendar o envio das suas próprias mutações, que ficavam presas
+ * na fila até o próximo ciclo periódico (5 min).
+ */
+export function syncNow(): Promise<{ ok: boolean; error?: unknown }> {
+  if (syncEmAndamento) return syncEmAndamento;
+  if (!isOnline()) return Promise.resolve({ ok: false, error: 'offline' });
+
+  syncEmAndamento = (async () => {
+    try {
+      const { falhas } = await pushPending();
+      await pullObras();
+      await reconciliarObrasDeletadas();
+      await pullFontes();
+      await pullListas();
+      return falhas > 0
+        ? { ok: false, error: `${falhas} alteração(ões) local(is) não sincronizaram, tentando de novo mais tarde` }
+        : { ok: true };
+    } catch (error) {
+      console.error('Erro durante sincronização', error);
+      return { ok: false, error };
+    } finally {
+      syncEmAndamento = null;
+    }
+  })();
+
+  return syncEmAndamento;
 }
