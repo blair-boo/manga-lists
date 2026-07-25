@@ -33,8 +33,10 @@
   margin-bottom: 12px;
 }
 
-/* Todos os botões da aba Updates em 13px (pedido pós-Handout 3). */
-.atualizacao-massa button {
+/* Botões da aba Updates em 13px — só os que herdavam fonte maior. :where()
+   zera a especificidade, então qualquer regra própria de botão (ex.: as de
+   12px da fila) continua valendo como antes. */
+.atualizacao-massa :where(button) {
   font-size: 13px;
 }
 
@@ -59,7 +61,7 @@
 .atualizar-status {
   background: none;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .execucao-status {
@@ -438,7 +440,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .fila-filtro.ativo {
@@ -467,7 +469,7 @@
 }
 
 .fila-acoes-massa button {
-  font-size: 13px;
+  font-size: 12px;
   padding: 4px 10px;
 }
 
@@ -475,7 +477,7 @@
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 12px;
   padding: 0;
   margin: 0 0 8px 10px;
 }

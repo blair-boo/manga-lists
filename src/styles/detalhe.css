@@ -8,11 +8,6 @@
   padding: 0 0 12px;
 }
 
-/* Todos os botões da página de obra em 13px (pedido pós-Handout 3). */
-.detalhe-obra button {
-  font-size: 13px;
-}
-
 .detalhe-obra-form, .cadastro-obra-form {
   display: flex;
   flex-direction: column;
@@ -310,7 +305,7 @@
 }
 
 .fonte-acoes button {
-  font-size: 13px;
+  font-size: 12px;
   padding: 4px 8px;
 }
 
