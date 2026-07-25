@@ -266,7 +266,7 @@ export function DetalheObraPage() {
   const [notaSalva, setNotaSalva] = useState<string | null>(null);
 
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
-  const [mostrarVinculo, setMostrarVinculo] = useState(false);
+  const [mostrarCaixaVinculo, setMostrarCaixaVinculo] = useState(false);
   const [vinculoEscolhidoId, setVinculoEscolhidoId] = useState('');
 
   // Reordenação de fontes (Bloco F3)
@@ -387,7 +387,7 @@ export function DetalheObraPage() {
     if (!id || !vinculoEscolhidoId) return;
     await vincularObras(id, vinculoEscolhidoId);
     setVinculoEscolhidoId('');
-    setMostrarVinculo(false);
+    setMostrarCaixaVinculo(false);
     mostrarToast('Works linked ✓');
   }
 
@@ -431,18 +431,13 @@ export function DetalheObraPage() {
     setCampo('novelupdates_url', limpo);
   }
 
+  // Cria a contraparte direto, sem pedir título — o título nasce espelhado da
+  // obra de origem (C2), e daí em diante o espelhamento contínuo mantém os dois.
   async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
     if (!id || !obra) return;
-    const tituloNovo = await pedirTexto({
-      titulo: 'Corresponding work',
-      mensagem: 'Title for the corresponding work:',
-      valorInicial: obra.titulo,
-      confirmarRotulo: 'Create',
-    });
-    if (!tituloNovo || !tituloNovo.trim()) return;
     const nova = await criarObraVinculada(id, {
       tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
-      titulo: tituloNovo.trim(),
+      titulo: obra.titulo,
       // Bloco B2: a obra correspondente nasce com os campos espelhados copiados
       // da origem (titulos_alternativos, generos, tags). Daí em diante o
       // espelhamento contínuo (B1) mantém os quatro campos sincronizados.
@@ -465,6 +460,7 @@ export function DetalheObraPage() {
       novelupdates_url: obra.novelupdates_url,
       pdf: false,
     });
+    setMostrarCaixaVinculo(false);
     mostrarToast(`"${nova.titulo}" created and linked ✓`);
     return nova;
   }
@@ -501,8 +497,6 @@ export function DetalheObraPage() {
       confirmarRotulo: 'Create and move',
     });
     if (criarContraparte) {
-      // Fluxo encadeado: se o pedido de título for cancelado, handleCriarVinculada
-      // retorna undefined e nada é gravado — mesmo comportamento do prompt nativo.
       const nova = await handleCriarVinculada(novoTipo);
       if (nova) await setFonteTipo(fonte.id, novoTipo, nova.id);
     } else {
@@ -602,47 +596,59 @@ export function DetalheObraPage() {
               </select>
             </label>
 
-            {/* Corresponding work — Bloco D: "×" pequeno no lugar de "Unlink". */}
-            <div className="vinculo-obra">
-              {obraVinculada ? (
-                <span className="vinculo-obra-linha">
-                  Corresponding work: <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>
-                  <button
-                    type="button"
-                    className="btn-icone btn-icone-perigo"
-                    onClick={handleDesvincular}
-                    aria-label="Unlink corresponding work"
-                    title="Unlink"
-                  >
-                    <IconeX />
-                  </button>
-                </span>
-              ) : (
-                <>
-                  <label className="check-inline">
-                    <input
-                      type="checkbox"
-                      checked={mostrarVinculo}
-                      onChange={(e) => setMostrarVinculo(e.target.checked)}
-                    />
-                    This work has a corresponding novel/manga?
-                  </label>
-                  {mostrarVinculo && (
-                    <div className="vinculo-obra-acoes">
-                      <VinculoObraSelect excluirId={id} value={vinculoEscolhidoId} onChange={setVinculoEscolhidoId} />
-                      <button type="button" onClick={handleVincular} disabled={!vinculoEscolhidoId}>
-                        Link
-                      </button>
-                      <span>or</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}
-                      >
-                        Create
-                      </button>
-                    </div>
-                  )}
-                </>
+            {/* Corresponding work — mesmo padrão visual do Novel Updates:
+                rótulo + "+" que abre a caixa de busca/criação (Handout 3, C1). */}
+            <div className="vinculo-obra-campo">
+              <span className="vinculo-obra-label">Corresponding work:</span>
+              <div className="vinculo-obra-acoes-topo">
+                {obraVinculada ? (
+                  <>
+                    <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>
+                    <button
+                      type="button"
+                      className="btn-icone btn-icone-perigo"
+                      onClick={handleDesvincular}
+                      aria-label="Unlink corresponding work"
+                      title="Unlink"
+                    >
+                      <IconeX />
+                    </button>
+                  </>
+                ) : (
+                  !mostrarCaixaVinculo && (
+                    <button
+                      type="button"
+                      className="btn-icone"
+                      onClick={() => setMostrarCaixaVinculo(true)}
+                      aria-label="Add corresponding work"
+                      title="Add corresponding work"
+                    >
+                      <IconeMais />
+                    </button>
+                  )
+                )}
+              </div>
+
+              {!obraVinculada && mostrarCaixaVinculo && (
+                <div className="vinculo-obra-caixa">
+                  <div className="vinculo-obra-caixa-linha">
+                    <VinculoObraSelect excluirId={id} value={vinculoEscolhidoId} onChange={setVinculoEscolhidoId} />
+                    <button type="button" onClick={handleVincular} disabled={!vinculoEscolhidoId}>
+                      Link
+                    </button>
+                  </div>
+                  <div className="vinculo-obra-caixa-acoes">
+                    <button
+                      type="button"
+                      onClick={() => handleCriarVinculada(familiaDeTipo(draft.tipo) === 'novel' ? 'manga' : 'novel')}
+                    >
+                      Create
+                    </button>
+                    <button type="button" className="botao-secundario" onClick={() => setMostrarCaixaVinculo(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

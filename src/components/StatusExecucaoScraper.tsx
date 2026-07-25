@@ -9,12 +9,16 @@ const LABEL: Record<ScraperRun['status'], string> = {
   rodando: 'Running…',
   concluido: 'Done',
   erro: 'Error',
+  nao_suportado: 'Not supported',
+  sem_adaptador: 'No adapter',
 };
 
 const CLASSE: Record<ScraperRun['status'], string> = {
   rodando: 'execucao-rodando',
   concluido: 'execucao-ok',
   erro: 'execucao-erro',
+  nao_suportado: '',
+  sem_adaptador: '',
 };
 
 export function StatusExecucaoScraper({

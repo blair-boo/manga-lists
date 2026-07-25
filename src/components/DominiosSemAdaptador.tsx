@@ -44,6 +44,7 @@ function EntradasDiagnostico({ diagnostico }: { diagnostico: DiagnosticoAdaptado
  */
 export function DominiosSemAdaptador() {
   const [aberta, setAberta] = useState(false);
+  const [expandido, setExpandido] = useState<string | null>(null);
   const [sites, setSites] = useState<SiteSuportado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -107,20 +108,28 @@ export function DominiosSemAdaptador() {
             <p className="execucao-status">Every registered domain has an adapter. Nothing to review.</p>
           ) : (
             <ul className="dominios-lista">
+              {/* Diagnóstico oculto até clicar no nome do domínio (Handout 3, Bloco B).
+                  O link "open" fica fora do botão de toggle — botão dentro de botão
+                  não é HTML válido. */}
               {sites.map((site) => (
                 <li key={site.id} className="dominio-item">
-                  <div className="dominio-cabecalho">
+                  <button
+                    type="button"
+                    className="dominio-cabecalho dominio-cabecalho-clicavel"
+                    onClick={() => setExpandido(expandido === site.id ? null : site.id)}
+                    aria-expanded={expandido === site.id}
+                  >
                     <span className="dominio-nome">{site.nome}</span>
                     <span className={`badge ${site.ativo ? 'badge-aprovado' : 'badge-pendente'}`}>
                       {site.ativo ? 'approved' : 'pending approval'}
                     </span>
-                    {site.url_base && (
-                      <a href={site.url_base} target="_blank" rel="noreferrer" className="dominio-link">
-                        open
-                      </a>
-                    )}
-                  </div>
-                  <EntradasDiagnostico diagnostico={site.diagnostico} />
+                  </button>
+                  {site.url_base && (
+                    <a href={site.url_base} target="_blank" rel="noreferrer" className="dominio-link">
+                      open
+                    </a>
+                  )}
+                  {expandido === site.id && <EntradasDiagnostico diagnostico={site.diagnostico} />}
                 </li>
               ))}
             </ul>

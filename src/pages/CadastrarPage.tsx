@@ -6,6 +6,7 @@ import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
+import { IconeMais } from '../components/Icones';
 import { registrarDominioManual } from '../lib/scraperConfig';
 import { renomearCapaSeNecessario } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
@@ -287,23 +288,42 @@ export function CadastrarPage() {
               </div>
 
               <div className="obra-topo-campos">
-                <div className="vinculo-obra">
-                  <label className="check-inline">
-                    <input
-                      type="checkbox"
-                      checked={temVinculo}
-                      onChange={(e) => {
-                        setTemVinculo(e.target.checked);
-                        if (!e.target.checked) setObraVinculadaId('');
-                      }}
-                    />
-                    This work has a corresponding novel/manga?
-                  </label>
+                {/* Mesmo padrão visual do detalhe (Handout 3, C4): rótulo + "+".
+                    Aqui só dá pra linkar a uma obra existente — a obra principal
+                    ainda não foi salva, então não há Create de contraparte. */}
+                <div className="vinculo-obra-campo">
+                  <span className="vinculo-obra-label">Corresponding work:</span>
+                  <div className="vinculo-obra-acoes-topo">
+                    {!temVinculo && (
+                      <button
+                        type="button"
+                        className="btn-icone"
+                        onClick={() => setTemVinculo(true)}
+                        aria-label="Add corresponding work"
+                        title="Add corresponding work"
+                      >
+                        <IconeMais />
+                      </button>
+                    )}
+                  </div>
                   {temVinculo && (
-                    <label>
-                      Corresponding work
-                      <VinculoObraSelect value={obraVinculadaId} onChange={setObraVinculadaId} />
-                    </label>
+                    <div className="vinculo-obra-caixa">
+                      <div className="vinculo-obra-caixa-linha">
+                        <VinculoObraSelect value={obraVinculadaId} onChange={setObraVinculadaId} />
+                      </div>
+                      <div className="vinculo-obra-caixa-acoes">
+                        <button
+                          type="button"
+                          className="botao-secundario"
+                          onClick={() => {
+                            setTemVinculo(false);
+                            setObraVinculadaId('');
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
