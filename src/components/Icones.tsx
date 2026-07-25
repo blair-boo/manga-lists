@@ -64,6 +64,18 @@ export function IconeMais() {
   );
 }
 
+/** Setas de troca (⇄) — ir pra obra correspondente (manga<->novel). */
+export function IconeTrocar() {
+  return (
+    <svg {...base}>
+      <path d="M8 3 4 7l4 4" />
+      <path d="M4 7h16" />
+      <path d="m16 21 4-4-4-4" />
+      <path d="M20 17H4" />
+    </svg>
+  );
+}
+
 /** Moldura de imagem — placeholder da capa vazia. */
 export function IconeImagem() {
   return (

@@ -8,6 +8,11 @@
   padding: 0 0 12px;
 }
 
+/* Todos os botões da página de obra em 13px (pedido pós-Handout 3). */
+.detalhe-obra button {
+  font-size: 13px;
+}
+
 .detalhe-obra-form, .cadastro-obra-form {
   display: flex;
   flex-direction: column;
@@ -37,6 +42,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Link-ícone pra obra correspondente (mesmo tratamento do livrinho do NU). */
+.vinculo-obra-acoes-topo a.btn-icone {
+  text-decoration: none;
 }
 
 .vinculo-obra-caixa {
@@ -300,7 +310,7 @@
 }
 
 .fonte-acoes button {
-  font-size: 12px;
+  font-size: 13px;
   padding: 4px 8px;
 }
 

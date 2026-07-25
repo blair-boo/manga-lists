@@ -33,6 +33,11 @@
   margin-bottom: 12px;
 }
 
+/* Todos os botões da aba Updates em 13px (pedido pós-Handout 3). */
+.atualizacao-massa button {
+  font-size: 13px;
+}
+
 .atualizacao-secao {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -54,7 +59,7 @@
 .atualizar-status {
   background: none;
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .execucao-status {
@@ -433,7 +438,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .fila-filtro.ativo {
@@ -462,7 +467,7 @@
 }
 
 .fila-acoes-massa button {
-  font-size: 12px;
+  font-size: 13px;
   padding: 4px 10px;
 }
 
@@ -470,7 +475,7 @@
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   padding: 0;
   margin: 0 0 8px 10px;
 }

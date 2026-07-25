@@ -40,7 +40,7 @@ import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
-import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeX } from '../components/Icones';
+import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
@@ -603,7 +603,15 @@ export function DetalheObraPage() {
               <div className="vinculo-obra-acoes-topo">
                 {obraVinculada ? (
                   <>
-                    <Link to={`/obra/${obraVinculada.id}`}>{obraVinculada.titulo}</Link>
+                    {/* Ícone no lugar do título — o title/aria-label seguem dizendo qual é a obra. */}
+                    <Link
+                      to={`/obra/${obraVinculada.id}`}
+                      className="btn-icone"
+                      aria-label={`Open corresponding work "${obraVinculada.titulo}"`}
+                      title={obraVinculada.titulo}
+                    >
+                      <IconeTrocar />
+                    </Link>
                     <button
                       type="button"
                       className="btn-icone btn-icone-perigo"
