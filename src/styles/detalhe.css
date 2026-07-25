@@ -21,28 +21,41 @@
   gap: 14px;
 }
 
-.vinculo-obra {
+/* Corresponding work (Handout 3, C1): rótulo + "+" no padrão do Novel Updates;
+   o "+" abre a caixa com busca/Link/Create/Cancel. */
+.vinculo-obra-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vinculo-obra-label {
   font-size: 14px;
 }
 
-.vinculo-obra p {
+.vinculo-obra-acoes-topo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0;
+  gap: 6px;
 }
 
-.vinculo-obra-acoes {
+.vinculo-obra-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.vinculo-obra-caixa-linha {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 8px;
 }
 
-.vinculo-obra-acoes span {
-  opacity: 0.6;
-  font-size: 12px;
+.vinculo-obra-caixa-acoes {
+  display: flex;
+  gap: 8px;
 }
 
 .excluir-obra {
@@ -121,12 +134,9 @@
   cursor: progress;
 }
 
-/* Corresponding work (Bloco D): título + "×" pequeno na mesma linha. */
-.vinculo-obra-linha {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+.vinculo-obra-caixa-acoes .botao-secundario {
+  background: none;
+  border: 1px solid var(--border);
 }
 
 /* Novel Updates (Bloco E7): rótulo + ações (livrinho/×/+) na mesma linha. */

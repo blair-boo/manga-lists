@@ -127,7 +127,7 @@ def main():
 
         if adapter is None:
             finalizar_run(
-                supabase, run_id, "concluido", "domínio sem adaptador designado — nada a varrer", resumo={"fontes_novas": 0}
+                supabase, run_id, "sem_adaptador", "domínio sem adaptador designado — nada a varrer", resumo={"fontes_novas": 0}
             )
             print(f"{nome}: sem adaptador designado, pulando.")
             continue
@@ -136,7 +136,7 @@ def main():
             finalizar_run(
                 supabase,
                 run_id,
-                "concluido",
+                "nao_suportado",
                 f"adaptador '{adapter.id}' não expõe catálogo (site de fonte única) — nada a varrer aqui",
                 resumo={"fontes_novas": 0},
             )

@@ -107,7 +107,7 @@ export interface ListaItem {
 }
 
 export type ScraperTipo = 'capitulos' | 'obras' | 'fontes' | 'designar' | 'novelupdates';
-export type ScraperStatus = 'rodando' | 'concluido' | 'erro';
+export type ScraperStatus = 'rodando' | 'concluido' | 'erro' | 'nao_suportado' | 'sem_adaptador';
 
 export interface ScraperRun {
   id: string;

@@ -116,7 +116,12 @@ export function ListaPrincipalPage() {
     if (!obras) return [];
     const buscaLower = busca.trim().toLowerCase();
     return obras
-      .filter((o) => !buscaLower || o.titulo.toLowerCase().includes(buscaLower))
+      .filter(
+        (o) =>
+          !buscaLower ||
+          o.titulo.toLowerCase().includes(buscaLower) ||
+          (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))
+      )
       .filter((o) => !tipo || o.tipo === tipo)
       .filter((o) => !statusLeitura || o.status_leitura === statusLeitura)
       .filter((o) => !statusPublicacao || o.status_publicacao === statusPublicacao)

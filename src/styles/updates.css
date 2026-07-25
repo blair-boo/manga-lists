@@ -212,12 +212,20 @@
   border-bottom: 1px solid var(--border);
 }
 
-.sites-suportados-cabecalho > span:first-child {
-  flex: 1;
-}
-
 .sites-suportados-cabecalho .atualizar-status {
   margin-left: auto;
+}
+
+.site-nome-col,
+.site-nome {
+  flex: 1;
+  min-width: 0;
+}
+
+.site-status-col {
+  width: 90px;
+  flex-shrink: 0;
+  text-align: right;
 }
 
 .site-linha {
@@ -239,7 +247,6 @@
 }
 
 .site-nome {
-  flex: 1;
   font-size: 14px;
   color: var(--text-h);
 }
@@ -261,6 +268,31 @@
   color: var(--text);
   opacity: 0.6;
   font-weight: 400;
+}
+.site-status-nao-suportado,
+.site-status-sem-adaptador {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+/* "Latest run" (Works/Chapters) acima da tabela de domínios (Handout 3, A5). */
+.latest-run-grupo {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.latest-run-item {
+  flex: 1 1 220px;
+}
+
+.latest-run-rotulo {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin-bottom: 4px;
 }
 
 .site-detalhe {
@@ -302,6 +334,23 @@
   align-items: baseline;
   gap: 8px;
   margin-bottom: 6px;
+}
+
+/* Cabeçalho como botão de toggle do diagnóstico (Handout 3, Bloco B).
+   inline-flex (largura só do conteúdo) pro link "open" ficar ao lado. */
+.dominio-cabecalho-clicavel {
+  display: inline-flex;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.dominio-cabecalho-clicavel + .dominio-link {
+  margin-left: 8px;
 }
 
 .dominio-nome {

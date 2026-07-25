@@ -66,22 +66,19 @@ def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:
     return {"tipo_detectado": tipo_detectado}
 
 
-def executar(supabase) -> dict:
-    """Retorna o resumo da run: {"verificadas": n, "atualizadas": n, "falhas": n}."""
-    fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
-    print(f"{len(fontes)} fontes aprovadas para verificar.")
-
-    designacoes = carregar_designacoes(supabase)
-
-    # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
-    sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
-    base_por_site = {s["nome"]: s.get("url_base") for s in sites}
-    for nome, cfg in SITES_NEXTJS_CMS.items():
-        base_por_site.setdefault(nome, cfg["site"])
-
-    # lista de (capitulo, veio_do_scraper) por obra, pra saber depois se o maior
-    # valor de cada obra foi atualizado pelo scraper ou é um valor manual antigo.
-    capitulos_por_obra: dict[str, list[tuple[float, bool]]] = {}
+def processar_grupo(
+    supabase,
+    fontes: list[dict],
+    designacoes: dict,
+    base_por_site: dict,
+    capitulos_por_obra: dict[str, list[tuple[float, bool]]],
+) -> tuple[int, int]:
+    """
+    Verifica as fontes de um grupo (um domínio, ou o residual sem site) e
+    acumula os capítulos encontrados em capitulos_por_obra — o recálculo de
+    `ultimo_capitulo_lancado` roda uma vez só no final, sobre todos os grupos.
+    Retorna (atualizadas, falhas).
+    """
     falhas = 0
     atualizadas = 0
 
@@ -126,6 +123,53 @@ def executar(supabase) -> dict:
                     (fonte["ultimo_capitulo_detectado"], fonte["atualizado_por_scraper"])
                 )
 
+    return atualizadas, falhas
+
+
+def executar(supabase) -> None:
+    """
+    Verifica as fontes aprovadas agrupadas por domínio, com uma run de
+    scraper_runs por domínio (mesmo padrão de update_obras.py) — é o que dá o
+    status real por site na tabela "Approved domains". Fontes sem `site`
+    preenchido (link avulso fora de domínio suportado) formam um grupo residual
+    com site_dominio nulo, preservando o comportamento antigo só pra elas.
+    """
+    fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
+    print(f"{len(fontes)} fontes aprovadas para verificar.")
+
+    designacoes = carregar_designacoes(supabase)
+
+    # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
+    sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
+    base_por_site = {s["nome"]: s.get("url_base") for s in sites}
+    for nome, cfg in SITES_NEXTJS_CMS.items():
+        base_por_site.setdefault(nome, cfg["site"])
+
+    grupos: dict[str | None, list[dict]] = {}
+    for fonte in fontes:
+        grupos.setdefault(fonte.get("site") or None, []).append(fonte)
+
+    # lista de (capitulo, veio_do_scraper) por obra, pra saber depois se o maior
+    # valor de cada obra foi atualizado pelo scraper ou é um valor manual antigo.
+    # Acumula de TODOS os grupos; o recálculo roda uma vez só, no final.
+    capitulos_por_obra: dict[str, list[tuple[float, bool]]] = {}
+    total_falhas = 0
+
+    for dominio, grupo in sorted(grupos.items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
+        rotulo = dominio or "(sem site)"
+        print(f"\n{rotulo}: {len(grupo)} fonte(s).")
+        run_id = iniciar_run(supabase, "capitulos", site_dominio=dominio)
+        try:
+            _, falhas = processar_grupo(supabase, grupo, designacoes, base_por_site, capitulos_por_obra)
+            total_falhas += falhas
+            status = "concluido" if falhas == 0 else "erro"
+            mensagem = None if falhas == 0 else f"{falhas} fonte(s) falharam ao verificar"
+            finalizar_run(supabase, run_id, status, mensagem, resumo={"verificadas": len(grupo), "falhas": falhas})
+        except Exception as exc:  # noqa: BLE001 - um domínio com erro não derruba os seguintes
+            total_falhas += 1
+            finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
+            print(f"  {rotulo}: erro — {exc}", file=sys.stderr)
+
     print(f"\nRecalculando ultimo_capitulo_lancado de {len(capitulos_por_obra)} obras…")
     for obra_id, capitulos in capitulos_por_obra.items():
         maior = max(c for c, _ in capitulos)
@@ -134,22 +178,12 @@ def executar(supabase) -> dict:
             {"ultimo_capitulo_lancado": maior, "ultimo_capitulo_via_scraper": via_scraper}
         ).eq("id", obra_id).execute()
 
-    print(f"Concluído. {falhas} falha(s) de {len(fontes)} fontes.")
-    return {"verificadas": len(fontes), "atualizadas": atualizadas, "falhas": falhas}
+    print(f"Concluído. {total_falhas} falha(s) de {len(fontes)} fontes.")
 
 
 def main():
     supabase = get_supabase()
-    run_id = iniciar_run(supabase, "capitulos")
-    try:
-        resumo = executar(supabase)
-        falhas = resumo["falhas"]
-        status = "concluido" if falhas == 0 else "erro"
-        mensagem = None if falhas == 0 else f"{falhas} fonte(s) falharam ao verificar"
-        finalizar_run(supabase, run_id, status, mensagem, resumo=resumo)
-    except Exception as exc:
-        finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
-        raise
+    executar(supabase)
 
 
 if __name__ == "__main__":

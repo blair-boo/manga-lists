@@ -26,7 +26,13 @@ export function VinculoObraSelect({ excluirId, value, onChange }: Props) {
   const sugestoes = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (obras ?? [])
-      .filter((o) => o.id !== excluirId && (!q || o.titulo.toLowerCase().includes(q)))
+      .filter(
+        (o) =>
+          o.id !== excluirId &&
+          (!q ||
+            o.titulo.toLowerCase().includes(q) ||
+            (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(q)))
+      )
       .sort((a, b) => a.titulo.localeCompare(b.titulo))
       .slice(0, 8);
   }, [obras, excluirId, query]);

@@ -3,9 +3,10 @@ import { supabase } from '../lib/supabaseClient';
 import { mensagemErroAcao } from '../lib/erros';
 import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
+import { useSitesSuportados } from '../hooks/useSitesSuportados';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { StatusExecucaoScraper } from '../components/StatusExecucaoScraper';
-import { ListaSitesSuportados } from '../components/ListaSitesSuportados';
+import { ListaSitesSuportados, StatusResumidoScraper } from '../components/ListaSitesSuportados';
 import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { AprovacaoDominios } from '../components/AprovacaoDominios';
 import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
@@ -17,6 +18,8 @@ import type { ScraperTipo } from '../types';
 
 function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }) {
   const capitulos = useScraperRun('capitulos');
+  const obras = useScraperRun('obras');
+  const sitesInfo = useSitesSuportados();
   const [acionando, setAcionando] = useState<ScraperTipo | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
@@ -25,7 +28,7 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
     setErroAcao(null);
     try {
       await controlarScraper(tipo, 'start');
-      if (tipo === 'capitulos') await capitulos.recarregar();
+      await Promise.all([capitulos.recarregar(), obras.recarregar(), sitesInfo.recarregar()]);
     } catch (err) {
       setErroAcao(mensagemErroAcao(err));
     } finally {
@@ -51,10 +54,19 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
-      <h4 className="atualizacao-subtitulo">Chapters — latest run</h4>
-      <StatusExecucaoScraper run={capitulos.run} carregando={capitulos.carregando} erro={capitulos.erro} />
+      <h4 className="atualizacao-subtitulo">Latest run</h4>
+      <div className="latest-run-grupo">
+        <div className="latest-run-item">
+          <span className="latest-run-rotulo">Works</span>
+          <StatusResumidoScraper run={obras.run} carregando={obras.carregando} erro={obras.erro} />
+        </div>
+        <div className="latest-run-item">
+          <span className="latest-run-rotulo">Chapters</span>
+          <StatusResumidoScraper run={capitulos.run} carregando={capitulos.carregando} erro={capitulos.erro} />
+        </div>
+      </div>
 
-      <ListaSitesSuportados />
+      <ListaSitesSuportados sites={sitesInfo.sites} carregando={sitesInfo.carregando} erro={sitesInfo.erro} />
 
       <h4 className="atualizacao-subtitulo">Domain approvals</h4>
       <p className="atualizacao-subtitulo-nota">
