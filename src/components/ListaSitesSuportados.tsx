@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { SiteComRun } from '../hooks/useSitesSuportados';
+import type { SiteComRun, StatusAgregadoRun } from '../hooks/useSitesSuportados';
 import type { ScraperRun } from '../types';
 
 const STATUS_LABEL: Record<ScraperRun['status'], string> = {
@@ -17,6 +17,39 @@ const STATUS_CLASSE: Record<ScraperRun['status'], string> = {
   nao_suportado: 'site-status-nao-suportado',
   sem_adaptador: 'site-status-sem-adaptador',
 };
+
+const AGREGADO_LABEL: Record<StatusAgregadoRun, string> = {
+  sem_runs: 'no run yet',
+  rodando: 'In progress',
+  erro: 'Error',
+  concluido: 'Done',
+};
+
+const AGREGADO_CLASSE: Record<StatusAgregadoRun, string> = {
+  sem_runs: 'site-status-nunca',
+  rodando: 'site-status-rodando',
+  erro: 'site-status-erro',
+  concluido: 'site-status-ok',
+};
+
+/**
+ * Status geral de um lote de runs por domínio ("Latest run" acima da tabela).
+ * Só existe em quatro estados: no run yet / In progress / Error / Done —
+ * "No adapter" e "Not supported" são detalhe por domínio, não status geral.
+ */
+export function StatusAgregadoScraper({
+  status,
+  carregando,
+  erro,
+}: {
+  status: StatusAgregadoRun;
+  carregando?: boolean;
+  erro?: string | null;
+}) {
+  if (carregando) return <span className="site-status">Loading…</span>;
+  if (erro) return <span className="site-status site-status-erro">Error: {erro}</span>;
+  return <span className={`site-status ${AGREGADO_CLASSE[status]}`}>{AGREGADO_LABEL[status]}</span>;
+}
 
 /** Só o status de conclusão de uma run, compacto (colunas Works/Chapters e "Latest run"). */
 export function StatusResumidoScraper({

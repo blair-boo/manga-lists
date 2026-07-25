@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { ScraperRun, SiteSuportado } from '../types';
 
@@ -6,6 +6,23 @@ export interface SiteComRun {
   site: SiteSuportado;
   ultimaRunObras: ScraperRun | null;
   ultimaRunCapitulos: ScraperRun | null;
+}
+
+/** Status geral de um lote de runs por domínio (o "Latest run" acima da tabela). */
+export type StatusAgregadoRun = 'sem_runs' | 'rodando' | 'erro' | 'concluido';
+
+/**
+ * Resume as últimas runs por domínio num status só: rodando se algum domínio
+ * ainda roda, erro se algum falhou, senão concluído. 'nao_suportado' e
+ * 'sem_adaptador' contam como conclusão normal — são comportamento esperado
+ * do domínio (limitação estrutural), não falha do scraper.
+ */
+function agregarStatus(runs: (ScraperRun | null)[]): StatusAgregadoRun {
+  const existentes = runs.filter((r): r is ScraperRun => r !== null);
+  if (existentes.length === 0) return 'sem_runs';
+  if (existentes.some((r) => r.status === 'rodando')) return 'rodando';
+  if (existentes.some((r) => r.status === 'erro')) return 'erro';
+  return 'concluido';
 }
 
 /**
@@ -59,5 +76,8 @@ export function useSitesSuportados() {
     void recarregar();
   }, [recarregar]);
 
-  return { sites, carregando, erro, recarregar };
+  const statusObras = useMemo(() => agregarStatus(sites.map((s) => s.ultimaRunObras)), [sites]);
+  const statusCapitulos = useMemo(() => agregarStatus(sites.map((s) => s.ultimaRunCapitulos)), [sites]);
+
+  return { sites, statusObras, statusCapitulos, carregando, erro, recarregar };
 }
