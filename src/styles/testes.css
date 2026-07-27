@@ -41,20 +41,8 @@
   width: 64px;
 }
 
-.testes-presets {
-  display: flex;
-  gap: 6px;
-}
-
-.testes-presets button {
-  font-size: 12px;
-  padding: 4px 10px;
-  background: none;
-}
-
-.testes-presets button.ativo {
-  background: var(--accent-bg);
-  border-color: var(--accent-border);
+.testes-refresh {
+  font-size: 14px;
 }
 
 .testes-secao {
@@ -105,4 +93,17 @@
   font-size: 11px;
   opacity: 0.7;
   word-break: break-all;
+}
+
+/* Ícone "pintado" via mask: usa a cor do tema (--text-h) em vez da cor fixa
+   do SVG original, então acompanha modo claro/escuro como os demais ícones. */
+.testes-icone-svg {
+  display: inline-block;
+  background-color: var(--text-h);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }

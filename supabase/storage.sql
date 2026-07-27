@@ -19,3 +19,17 @@ create policy "capas_update_autenticada" on storage.objects
 
 create policy "capas_delete_autenticada" on storage.objects
     for delete using (bucket_id = 'capas' and auth.role() = 'authenticated');
+
+-- Bucket de ícones (Supabase Storage)
+--
+-- Só leitura pública: sem essa policy de select, o bucket "public" ainda
+-- baixa arquivos direto por URL (rota /object/public/ ignora RLS), mas
+-- `.list()` continua vazio pro anon key porque passa pelas RLS de
+-- storage.objects (aba Tests, D1).
+
+insert into storage.buckets (id, name, public)
+values ('icons', 'icons', true)
+on conflict (id) do nothing;
+
+create policy "icons_leitura_publica" on storage.objects
+    for select using (bucket_id = 'icons');
