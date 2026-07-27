@@ -6,7 +6,6 @@ const BUCKET = 'icons';
 const TAMANHO_PADRAO = 16;
 const TAMANHO_MIN = 10;
 const TAMANHO_MAX = 64;
-const PRESETS = [16, 18];
 
 interface IconeArquivo {
   nome: string;
@@ -82,19 +81,12 @@ export function TestesPage() {
           />
           px
         </label>
-        <div className="testes-presets">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={tamanho === p ? 'ativo' : ''}
-              onClick={() => setTamanho(p)}
-            >
-              {p}px
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={() => void carregarIcones()} disabled={carregando}>
+        <button
+          type="button"
+          className="testes-refresh"
+          onClick={() => void carregarIcones()}
+          disabled={carregando}
+        >
           {carregando ? 'Refreshing…' : 'Refresh icons'}
         </button>
       </div>
@@ -116,7 +108,19 @@ export function TestesPage() {
         <div className="testes-icones-grid">
           {icones.map((icone) => (
             <div key={icone.nome} className="testes-icone-item">
-              <img src={icone.url} alt={icone.nome} style={{ width: tamanho, height: tamanho }} />
+              {/* Ícone "pintado" com mask (não <img>) pra herdar a cor do tema
+                  (--text-h), igual aos ícones inline nos botões da app. */}
+              <span
+                className="testes-icone-svg"
+                role="img"
+                aria-label={icone.nome}
+                style={{
+                  width: tamanho,
+                  height: tamanho,
+                  WebkitMaskImage: `url(${icone.url})`,
+                  maskImage: `url(${icone.url})`,
+                }}
+              />
               <span className="testes-icone-nome">{icone.nome}</span>
             </div>
           ))}
