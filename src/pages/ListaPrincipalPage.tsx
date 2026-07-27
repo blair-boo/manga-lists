@@ -5,11 +5,42 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
-import { capitulosAtrasados, temNovoCapitulo } from '../lib/obra';
+import { capitulosAtrasados, familiaDeTipo, temNovoCapitulo } from '../lib/obra';
 import type { Fonte, Obra } from '../types';
 
 type ViewMode = 'grid' | 'list';
 type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
+
+/**
+ * Estado dos filtros-botão (chips): 'off' não filtra, 'incluir' só mostra quem
+ * bate a condição, 'excluir' mostra todo mundo MENOS quem bate. Clicar cicla
+ * off -> incluir -> excluir -> off (Handout: filtros de exclusão nos chips).
+ */
+type EstadoFiltro = 'off' | 'incluir' | 'excluir';
+
+function proximoEstadoFiltro(atual: EstadoFiltro): EstadoFiltro {
+  if (atual === 'off') return 'incluir';
+  if (atual === 'incluir') return 'excluir';
+  return 'off';
+}
+
+function passaFiltro(estado: EstadoFiltro, condicaoBatida: boolean): boolean {
+  if (estado === 'incluir') return condicaoBatida;
+  if (estado === 'excluir') return !condicaoBatida;
+  return true;
+}
+
+function classeEstadoFiltro(estado: EstadoFiltro): string {
+  if (estado === 'incluir') return 'ativo';
+  if (estado === 'excluir') return 'excluido';
+  return '';
+}
+
+function tituloEstadoFiltro(estado: EstadoFiltro): string {
+  if (estado === 'incluir') return 'Showing only these — click to exclude instead';
+  if (estado === 'excluir') return 'Hiding these — click to clear';
+  return 'Click to show only these';
+}
 
 const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
   { valor: 'titulo', rotulo: 'Title (A–Z)' },
@@ -55,12 +86,13 @@ export function ListaPrincipalPage() {
 
   const [busca, setBusca] = useState('');
   const [tipo, setTipo] = useState('');
-  const [statusLeitura, setStatusLeitura] = useState('');
+  const [statusLeituraFiltros, setStatusLeituraFiltros] = useState<Record<string, EstadoFiltro>>({});
   const [statusPublicacao, setStatusPublicacao] = useState('');
   const [generosSel, setGenerosSel] = useState<string[]>([]);
   const [tagsSel, setTagsSel] = useState<string[]>([]);
-  const [soNovoCapitulo, setSoNovoCapitulo] = useState(false);
-  const [soUnsourced, setSoUnsourced] = useState(false);
+  const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>('off');
+  const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>('off');
+  const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>('off');
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -76,7 +108,25 @@ export function ListaPrincipalPage() {
   }
 
   function alternarStatusChip(valor: string) {
-    setStatusLeitura((atual) => (atual === valor ? '' : valor));
+    setStatusLeituraFiltros((atual) => ({
+      ...atual,
+      [valor]: proximoEstadoFiltro(atual[valor] ?? 'off'),
+    }));
+  }
+
+  // Dropdown "Reading status (all)" no painel de Filters: continua um seletor
+  // único (sem noção de excluir), então só reflete/produz o caso em que
+  // exatamente um chip está em 'incluir' e nenhum está em 'excluir'.
+  const statusLeituraDropdownValor = useMemo(() => {
+    const incluidos = Object.entries(statusLeituraFiltros)
+      .filter(([, v]) => v === 'incluir')
+      .map(([k]) => k);
+    const temExcluido = Object.values(statusLeituraFiltros).some((v) => v === 'excluir');
+    return incluidos.length === 1 && !temExcluido ? incluidos[0] : '';
+  }, [statusLeituraFiltros]);
+
+  function selecionarStatusLeituraDropdown(valor: string) {
+    setStatusLeituraFiltros(valor ? { [valor]: 'incluir' } : {});
   }
 
   const fontesPorObra = useMemo(() => {
@@ -102,6 +152,11 @@ export function ListaPrincipalPage() {
     [obras]
   );
 
+  const contagemNovel = useMemo(
+    () => (obras ?? []).filter((o) => familiaDeTipo(o.tipo) === 'novel').length,
+    [obras]
+  );
+
   const semFonte = useMemo(
     () => (o: Obra) => (fontesPorObra.get(o.id)?.length ?? 0) === 0,
     [fontesPorObra]
@@ -115,6 +170,10 @@ export function ListaPrincipalPage() {
   const filtradas = useMemo(() => {
     if (!obras) return [];
     const buscaLower = busca.trim().toLowerCase();
+    const statusLeituraEntradas = Object.entries(statusLeituraFiltros).filter(([, v]) => v !== 'off') as [
+      string,
+      EstadoFiltro,
+    ][];
     return obras
       .filter(
         (o) =>
@@ -123,34 +182,52 @@ export function ListaPrincipalPage() {
           (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))
       )
       .filter((o) => !tipo || o.tipo === tipo)
-      .filter((o) => !statusLeitura || o.status_leitura === statusLeitura)
+      .filter((o) =>
+        statusLeituraEntradas.every(([valor, estado]) => passaFiltro(estado, o.status_leitura === valor))
+      )
       .filter((o) => !statusPublicacao || o.status_publicacao === statusPublicacao)
       .filter((o) => generosSel.every((g) => (o.generos ?? []).includes(g)))
       .filter((o) => tagsSel.every((t) => (o.tags ?? []).includes(t)))
-      .filter((o) => !soNovoCapitulo || temNovoCapitulo(o))
-      .filter((o) => !soUnsourced || semFonte(o))
+      .filter((o) => passaFiltro(filtroNovoCapitulo, temNovoCapitulo(o)))
+      .filter((o) => passaFiltro(filtroNovel, familiaDeTipo(o.tipo) === 'novel'))
+      .filter((o) => passaFiltro(filtroUnsourced, semFonte(o)))
       .sort((a, b) => comparar(a, b, ordenacao));
-  }, [obras, busca, tipo, statusLeitura, statusPublicacao, generosSel, tagsSel, soNovoCapitulo, soUnsourced, semFonte, ordenacao]);
+  }, [
+    obras,
+    busca,
+    tipo,
+    statusLeituraFiltros,
+    statusPublicacao,
+    generosSel,
+    tagsSel,
+    filtroNovoCapitulo,
+    filtroNovel,
+    filtroUnsourced,
+    semFonte,
+    ordenacao,
+  ]);
 
   const temFiltroAtivo =
     !!busca ||
     !!tipo ||
-    !!statusLeitura ||
+    Object.values(statusLeituraFiltros).some((v) => v !== 'off') ||
     !!statusPublicacao ||
     generosSel.length > 0 ||
     tagsSel.length > 0 ||
-    soNovoCapitulo ||
-    soUnsourced;
+    filtroNovoCapitulo !== 'off' ||
+    filtroNovel !== 'off' ||
+    filtroUnsourced !== 'off';
 
   function limparFiltros() {
     setBusca('');
     setTipo('');
-    setStatusLeitura('');
+    setStatusLeituraFiltros({});
     setStatusPublicacao('');
     setGenerosSel([]);
     setTagsSel([]);
-    setSoNovoCapitulo(false);
-    setSoUnsourced(false);
+    setFiltroNovoCapitulo('off');
+    setFiltroNovel('off');
+    setFiltroUnsourced('off');
   }
 
   const carregando = obras === undefined;
@@ -169,18 +246,29 @@ export function ListaPrincipalPage() {
       <div className="status-chips">
         <button
           type="button"
-          className={`status-chip status-chip-novo ${soNovoCapitulo ? 'ativo' : ''}`}
-          onClick={() => setSoNovoCapitulo((v) => !v)}
+          className={`status-chip status-chip-novo ${classeEstadoFiltro(filtroNovoCapitulo)}`}
+          onClick={() => setFiltroNovoCapitulo(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroNovoCapitulo)}
         >
           New chapters
           <span className="status-chip-contagem">{contagemNovoCapitulo}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-novel ${classeEstadoFiltro(filtroNovel)}`}
+          onClick={() => setFiltroNovel(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroNovel)}
+        >
+          Novel
+          <span className="status-chip-contagem">{contagemNovel}</span>
         </button>
         {statusLeituraOpcoes.map((v) => (
           <button
             key={v}
             type="button"
-            className={`status-chip ${statusLeitura === v ? 'ativo' : ''}`}
+            className={`status-chip ${classeEstadoFiltro(statusLeituraFiltros[v] ?? 'off')}`}
             onClick={() => alternarStatusChip(v)}
+            title={tituloEstadoFiltro(statusLeituraFiltros[v] ?? 'off')}
           >
             {v}
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
@@ -188,8 +276,9 @@ export function ListaPrincipalPage() {
         ))}
         <button
           type="button"
-          className={`status-chip status-chip-unsourced ${soUnsourced ? 'ativo' : ''}`}
-          onClick={() => setSoUnsourced((v) => !v)}
+          className={`status-chip status-chip-unsourced ${classeEstadoFiltro(filtroUnsourced)}`}
+          onClick={() => setFiltroUnsourced(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroUnsourced)}
         >
           Unsourced
           <span className="status-chip-contagem">{contagemUnsourced}</span>
@@ -223,7 +312,7 @@ export function ListaPrincipalPage() {
               </option>
             ))}
           </select>
-          <select value={statusLeitura} onChange={(e) => setStatusLeitura(e.target.value)}>
+          <select value={statusLeituraDropdownValor} onChange={(e) => selecionarStatusLeituraDropdown(e.target.value)}>
             <option value="">Reading status (all)</option>
             {statusLeituraOpcoes.map((v) => (
               <option key={v} value={v}>

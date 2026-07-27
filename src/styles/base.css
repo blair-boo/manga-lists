@@ -167,9 +167,9 @@ label {
 /* Botões de ícone com borda transparente (Blocos E2 e F3). */
 .btn-icone {
   background: none;
-  border: 1px solid transparent;
+  border: 1px solid #0000;
   border-radius: 6px;
-  padding: 4px 6px;
+  padding: 1px 1px;
   cursor: pointer;
   color: var(--text-h);
   display: inline-flex;

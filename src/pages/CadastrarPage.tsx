@@ -292,19 +292,21 @@ export function CadastrarPage() {
                     Aqui só dá pra linkar a uma obra existente — a obra principal
                     ainda não foi salva, então não há Create de contraparte. */}
                 <div className="vinculo-obra-campo">
-                  <span className="vinculo-obra-label">Corresponding work:</span>
-                  <div className="vinculo-obra-acoes-topo">
-                    {!temVinculo && (
-                      <button
-                        type="button"
-                        className="btn-icone"
-                        onClick={() => setTemVinculo(true)}
-                        aria-label="Add corresponding work"
-                        title="Add corresponding work"
-                      >
-                        <IconeMais />
-                      </button>
-                    )}
+                  <div className="vinculo-obra-topo-linha">
+                    <span className="vinculo-obra-label">Corresponding work:</span>
+                    <div className="vinculo-obra-acoes-topo">
+                      {!temVinculo && (
+                        <button
+                          type="button"
+                          className="btn-icone"
+                          onClick={() => setTemVinculo(true)}
+                          aria-label="Add corresponding work"
+                          title="Add corresponding work"
+                        >
+                          <IconeMais />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {temVinculo && (
                     <div className="vinculo-obra-caixa">

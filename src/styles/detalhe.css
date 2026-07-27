@@ -29,6 +29,14 @@
   gap: 6px;
 }
 
+/* Rótulo + ícone de link + botão de excluir na mesma linha (mesmo padrão do
+   Novel Updates); a caixa de busca/criação continua abaixo, fora desta linha. */
+.vinculo-obra-topo-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .vinculo-obra-label {
   font-size: 14px;
 }

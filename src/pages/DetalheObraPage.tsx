@@ -599,42 +599,44 @@ export function DetalheObraPage() {
             {/* Corresponding work — mesmo padrão visual do Novel Updates:
                 rótulo + "+" que abre a caixa de busca/criação (Handout 3, C1). */}
             <div className="vinculo-obra-campo">
-              <span className="vinculo-obra-label">Corresponding work:</span>
-              <div className="vinculo-obra-acoes-topo">
-                {obraVinculada ? (
-                  <>
-                    {/* Ícone no lugar do título — o title/aria-label seguem dizendo qual é a obra. */}
-                    <Link
-                      to={`/obra/${obraVinculada.id}`}
-                      className="btn-icone"
-                      aria-label={`Open corresponding work "${obraVinculada.titulo}"`}
-                      title={obraVinculada.titulo}
-                    >
-                      <IconeTrocar />
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn-icone btn-icone-perigo"
-                      onClick={handleDesvincular}
-                      aria-label="Unlink corresponding work"
-                      title="Unlink"
-                    >
-                      <IconeX />
-                    </button>
-                  </>
-                ) : (
-                  !mostrarCaixaVinculo && (
-                    <button
-                      type="button"
-                      className="btn-icone"
-                      onClick={() => setMostrarCaixaVinculo(true)}
-                      aria-label="Add corresponding work"
-                      title="Add corresponding work"
-                    >
-                      <IconeMais />
-                    </button>
-                  )
-                )}
+              <div className="vinculo-obra-topo-linha">
+                <span className="vinculo-obra-label">Corresponding work:</span>
+                <div className="vinculo-obra-acoes-topo">
+                  {obraVinculada ? (
+                    <>
+                      {/* Ícone no lugar do título — o title/aria-label seguem dizendo qual é a obra. */}
+                      <Link
+                        to={`/obra/${obraVinculada.id}`}
+                        className="btn-icone"
+                        aria-label={`Open corresponding work "${obraVinculada.titulo}"`}
+                        title={obraVinculada.titulo}
+                      >
+                        <IconeTrocar />
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn-icone btn-icone-perigo"
+                        onClick={handleDesvincular}
+                        aria-label="Unlink corresponding work"
+                        title="Unlink"
+                      >
+                        <IconeX />
+                      </button>
+                    </>
+                  ) : (
+                    !mostrarCaixaVinculo && (
+                      <button
+                        type="button"
+                        className="btn-icone"
+                        onClick={() => setMostrarCaixaVinculo(true)}
+                        aria-label="Add corresponding work"
+                        title="Add corresponding work"
+                      >
+                        <IconeMais />
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
 
               {!obraVinculada && mostrarCaixaVinculo && (
