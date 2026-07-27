@@ -4,6 +4,7 @@ import { ListaPrincipalPage } from './pages/ListaPrincipalPage';
 import { DetalheObraPage } from './pages/DetalheObraPage';
 import { CadastrarPage } from './pages/CadastrarPage';
 import { AtualizacoesPage } from './pages/AtualizacoesPage';
+import { TestesPage } from './pages/TestesPage';
 
 export const router = createBrowserRouter(
   [
@@ -14,6 +15,7 @@ export const router = createBrowserRouter(
         { index: true, element: <ListaPrincipalPage /> },
         { path: 'obra/:id', element: <DetalheObraPage /> },
         { path: 'cadastrar', element: <CadastrarPage /> },
+        { path: 'testes', element: <TestesPage /> },
         // Redirecionam as rotas antigas para a tela unificada de cadastro.
         { path: 'nova-obra', element: <Navigate to="/cadastrar" replace /> },
         { path: 'cadastro-rapido', element: <Navigate to="/cadastrar" replace /> },

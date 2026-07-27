@@ -121,6 +121,16 @@
   color: var(--text-h);
 }
 
+/* Estado "excluir" (3 estados nos chips: off -> incluir -> excluir -> off):
+   risca o rótulo e usa a cor de perigo, pra ficar óbvio que a obra some da
+   lista quando bate essa condição. */
+.status-chip.excluido {
+  background: rgba(209, 38, 79, 0.1);
+  border-color: rgba(209, 38, 79, 0.5);
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
 .status-chip-novo.ativo {
   background: rgba(31, 157, 85, 0.16);
   border-color: rgba(31, 157, 85, 0.6);

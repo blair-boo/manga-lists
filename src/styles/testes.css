@@ -1,0 +1,108 @@
+/* Aba Tests: preview de fonte/ícones em tamanho ajustável (sem duplicar por tamanho). */
+
+.testes-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+}
+
+.testes-cabecalho h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.testes-subtitulo {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+.testes-controle-tamanho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+}
+
+.testes-tamanho-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.testes-tamanho-input {
+  width: 64px;
+}
+
+.testes-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.testes-presets button {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: none;
+}
+
+.testes-presets button.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.testes-secao {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.testes-secao h2 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.testes-fonte-amostra {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.testes-fonte-amostra p {
+  margin: 0;
+}
+
+.testes-fonte-muted {
+  opacity: 0.7;
+}
+
+.testes-erro {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.testes-icones-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.testes-icone-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 96px;
+  text-align: center;
+}
+
+.testes-icone-nome {
+  font-size: 11px;
+  opacity: 0.7;
+  word-break: break-all;
+}

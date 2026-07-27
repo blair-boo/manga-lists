@@ -54,6 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink to="/atualizacoes">Updates</NavLink>
               <NavLink to="/cadastrar">Add</NavLink>
+              <NavLink to="/testes">Tests</NavLink>
             </nav>
           </div>
         </header>
