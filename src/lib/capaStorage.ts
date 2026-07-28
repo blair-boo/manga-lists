@@ -25,7 +25,10 @@ function pathNoBucket(capaUrl: string): string | null {
   const marcador = `/storage/v1/object/public/${BUCKET}/`;
   const i = capaUrl.indexOf(marcador);
   if (i === -1) return null;
-  return capaUrl.slice(i + marcador.length);
+  // Remove querystring (ex.: cache buster "?v=..." adicionado pelo upload) antes
+  // de comparar com o slug esperado.
+  const semQuery = capaUrl.slice(i + marcador.length).split('?')[0];
+  return semQuery;
 }
 
 /**
