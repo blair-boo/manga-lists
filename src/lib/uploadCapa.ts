@@ -12,5 +12,9 @@ export async function uploadCapa(file: File, titulo: string, tipo: Tipo | null):
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
   if (error) throw error;
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  // Cache buster: como o path é determinístico pelo slug, trocar a capa de uma
+  // obra existente sobrescreve o mesmo arquivo e devolve a MESMA publicUrl —
+  // sem isso o <img> não recarrega (fica servindo a capa antiga do cache do
+  // navegador/CDN) e parece que a troca não funcionou.
+  return `${data.publicUrl}?v=${Date.now()}`;
 }

@@ -488,9 +488,32 @@
 
 /* Cadastrar */
 
+.cadastro-rapido-resultado-wrap {
+  position: relative;
+}
+
 .cadastro-rapido-resultado {
-  margin-top: 20px;
   font-size: 14px;
+}
+
+/* X fora do modal, no canto superior direito (Bloco C-resultado). */
+.cadastro-rapido-resultado-fechar {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .toggle-completo {

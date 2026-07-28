@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { criarObraComFontes, vincularObras, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
@@ -18,6 +18,7 @@ interface Resultado {
 }
 
 export function CadastrarPage() {
+  const navigate = useNavigate();
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
@@ -377,17 +378,37 @@ export function CadastrarPage() {
       </form>
 
       {resultado && (
-        <div className="cadastro-rapido-resultado">
-          {resultado.jaExistia ? (
-            <p>
-              A work titled "{resultado.obra.titulo}" already exists.{' '}
-              <Link to={`/obra/${resultado.obra.id}`}>View existing work</Link>
-            </p>
-          ) : (
-            <p>
-              "{resultado.obra.titulo}" added. <Link to={`/obra/${resultado.obra.id}`}>View work</Link>
-            </p>
-          )}
+        <div
+          className="modal-backdrop"
+          onKeyDown={(e) => e.key === 'Escape' && setResultado(null)}
+        >
+          <div className="cadastro-rapido-resultado-wrap">
+            <button
+              type="button"
+              className="cadastro-rapido-resultado-fechar"
+              onClick={() => setResultado(null)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <div
+              className="modal cadastro-rapido-resultado"
+              role="dialog"
+              aria-modal="true"
+              aria-label={resultado.jaExistia ? 'Work already exists' : 'Work added'}
+            >
+              <p>
+                {resultado.jaExistia
+                  ? `A work titled "${resultado.obra.titulo}" already exists.`
+                  : `"${resultado.obra.titulo}" added.`}
+              </p>
+              <div className="modal-acoes">
+                <button type="button" onClick={() => navigate(`/obra/${resultado.obra.id}`)} data-autofocus>
+                  Go to work
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
