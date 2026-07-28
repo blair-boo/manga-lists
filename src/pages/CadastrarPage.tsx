@@ -139,13 +139,10 @@ export function CadastrarPage() {
     const r = await criarObraComFontes(obra, urlsValidas);
     setSalvando(false);
     setResultado(r);
-    if (r.jaExistia) {
-      mostrarToast('Work already exists', 'info');
-    } else {
+    if (!r.jaExistia) {
       // Fontes inseridas manualmente: registra domínios novos como sites suportados.
       for (const url of urlsValidas) void registrarDominioManual(url);
       if (temVinculo && obraVinculadaId) void vincularObras(r.obra.id, obraVinculadaId);
-      mostrarToast('Work added ✓');
       limparFormulario();
       setCompleto(false);
     }
