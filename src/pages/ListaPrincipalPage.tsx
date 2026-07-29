@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
@@ -59,6 +59,66 @@ function lerOrdenacaoSalva(): Ordenacao {
   return ORDENACOES.some((o) => o.valor === v) ? (v as Ordenacao) : 'titulo';
 }
 
+/** Filtros da lista persistem entre navegações (só somem no "Clear filters"),
+ * então salvamos tudo num único item do localStorage. */
+const FILTROS_KEY = 'filtrosLista';
+
+interface FiltrosSalvos {
+  busca: string;
+  tipo: string;
+  statusLeituraFiltros: Record<string, EstadoFiltro>;
+  statusPublicacao: string;
+  generosSel: string[];
+  tagsSel: string[];
+  filtroNovoCapitulo: EstadoFiltro;
+  filtroNovel: EstadoFiltro;
+  filtroUnsourced: EstadoFiltro;
+}
+
+const FILTROS_PADRAO: FiltrosSalvos = {
+  busca: '',
+  tipo: '',
+  statusLeituraFiltros: {},
+  statusPublicacao: '',
+  generosSel: [],
+  tagsSel: [],
+  filtroNovoCapitulo: 'off',
+  filtroNovel: 'off',
+  filtroUnsourced: 'off',
+};
+
+function estadoFiltroValido(v: unknown): EstadoFiltro {
+  return v === 'incluir' || v === 'excluir' ? v : 'off';
+}
+
+function lerFiltrosSalvos(): FiltrosSalvos {
+  try {
+    const bruto = localStorage.getItem(FILTROS_KEY);
+    if (!bruto) return FILTROS_PADRAO;
+    const dados = JSON.parse(bruto) as Partial<FiltrosSalvos>;
+    const statusLeituraFiltros: Record<string, EstadoFiltro> = {};
+    for (const [k, v] of Object.entries(dados.statusLeituraFiltros ?? {})) {
+      statusLeituraFiltros[k] = estadoFiltroValido(v);
+    }
+    return {
+      busca: typeof dados.busca === 'string' ? dados.busca : FILTROS_PADRAO.busca,
+      tipo: typeof dados.tipo === 'string' ? dados.tipo : FILTROS_PADRAO.tipo,
+      statusLeituraFiltros,
+      statusPublicacao: typeof dados.statusPublicacao === 'string' ? dados.statusPublicacao : FILTROS_PADRAO.statusPublicacao,
+      generosSel: Array.isArray(dados.generosSel) ? dados.generosSel : FILTROS_PADRAO.generosSel,
+      tagsSel: Array.isArray(dados.tagsSel) ? dados.tagsSel : FILTROS_PADRAO.tagsSel,
+      filtroNovoCapitulo: estadoFiltroValido(dados.filtroNovoCapitulo),
+      filtroNovel: estadoFiltroValido(dados.filtroNovel),
+      filtroUnsourced: estadoFiltroValido(dados.filtroUnsourced),
+    };
+  } catch {
+    return FILTROS_PADRAO;
+  }
+}
+
+/** Posição de scroll da lista, restaurada quando se volta da tela da obra. */
+const SCROLL_KEY = 'listaScrollY';
+
 function comparar(a: Obra, b: Obra, ordem: Ordenacao): number {
   switch (ordem) {
     case 'atualizado':
@@ -84,18 +144,49 @@ export function ListaPrincipalPage() {
   const generos = useListasPorCategoria('genero');
   const tags = useListasPorCategoria('tag');
 
-  const [busca, setBusca] = useState('');
-  const [tipo, setTipo] = useState('');
-  const [statusLeituraFiltros, setStatusLeituraFiltros] = useState<Record<string, EstadoFiltro>>({});
-  const [statusPublicacao, setStatusPublicacao] = useState('');
-  const [generosSel, setGenerosSel] = useState<string[]>([]);
-  const [tagsSel, setTagsSel] = useState<string[]>([]);
-  const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>('off');
-  const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>('off');
-  const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>('off');
+  const [busca, setBusca] = useState(() => lerFiltrosSalvos().busca);
+  const [tipo, setTipo] = useState(() => lerFiltrosSalvos().tipo);
+  const [statusLeituraFiltros, setStatusLeituraFiltros] = useState<Record<string, EstadoFiltro>>(
+    () => lerFiltrosSalvos().statusLeituraFiltros
+  );
+  const [statusPublicacao, setStatusPublicacao] = useState(() => lerFiltrosSalvos().statusPublicacao);
+  const [generosSel, setGenerosSel] = useState<string[]>(() => lerFiltrosSalvos().generosSel);
+  const [tagsSel, setTagsSel] = useState<string[]>(() => lerFiltrosSalvos().tagsSel);
+  const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>(
+    () => lerFiltrosSalvos().filtroNovoCapitulo
+  );
+  const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroNovel);
+  const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroUnsourced);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+
+  // Persiste os filtros a cada mudança — só somem de fato ao clicar "Clear
+  // filters" (limparFiltros), mesmo saindo da tela e voltando depois.
+  useEffect(() => {
+    const dados: FiltrosSalvos = {
+      busca,
+      tipo,
+      statusLeituraFiltros,
+      statusPublicacao,
+      generosSel,
+      tagsSel,
+      filtroNovoCapitulo,
+      filtroNovel,
+      filtroUnsourced,
+    };
+    localStorage.setItem(FILTROS_KEY, JSON.stringify(dados));
+  }, [
+    busca,
+    tipo,
+    statusLeituraFiltros,
+    statusPublicacao,
+    generosSel,
+    tagsSel,
+    filtroNovoCapitulo,
+    filtroNovel,
+    filtroUnsourced,
+  ]);
 
   function alternarViewMode(modo: ViewMode) {
     setViewMode(modo);
@@ -232,6 +323,28 @@ export function ListaPrincipalPage() {
 
   const carregando = obras === undefined;
   const acervoVazio = !carregando && obras.length === 0;
+
+  // Guarda a posição de scroll o tempo todo (não só ao sair) — cobre tanto o
+  // "voltar" da obra quanto qualquer outra navegação pra fora da lista.
+  useEffect(() => {
+    function salvarScroll() {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    }
+    window.addEventListener('scroll', salvarScroll, { passive: true });
+    return () => window.removeEventListener('scroll', salvarScroll);
+  }, []);
+
+  // Restaura a posição salva só depois que a lista de verdade renderizou
+  // (não no esqueleto de loading), senão a altura da página ainda não bate.
+  const scrollRestaurado = useRef(false);
+  useLayoutEffect(() => {
+    if (scrollRestaurado.current || carregando) return;
+    scrollRestaurado.current = true;
+    const salvo = sessionStorage.getItem(SCROLL_KEY);
+    if (salvo) {
+      window.scrollTo(0, Number(salvo));
+    }
+  }, [carregando]);
 
   return (
     <div className="lista-principal">
