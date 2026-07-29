@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
+import { IconeLivro } from './Icones';
 import { updateObra } from '../db/repo';
 import { temNovoCapitulo } from '../lib/obra';
 import { dominioDeUrl } from '../lib/scraperConfig';
@@ -78,6 +79,55 @@ function CapituloAtualEditavel({ obra }: { obra: Obra }) {
   );
 }
 
+/** Link + badges + status de uma fonte — conteúdo reaproveitado no <li> normal
+ * e no <li> da última fonte (que também carrega o botão do Novel Updates). */
+function ConteudoFonte({ fonte, sitesAtivos }: { fonte: Fonte; sitesAtivos?: Set<string> }) {
+  const nomeSite = fonte.site || dominioDeUrl(fonte.url) || fonte.url;
+  const naoMonitorada = !!sitesAtivos && !sitesAtivos.has(nomeSite.toLowerCase());
+  return (
+    <>
+      <a href={fonte.url} target="_blank" rel="noreferrer">
+        {nomeSite}
+      </a>
+      {naoMonitorada && (
+        <span className="badge-nao-monitorada" title="Domain not approved for scraping">
+          unmonitored
+        </span>
+      )}
+      {fonte.ultimo_capitulo_detectado != null && <span> · ch. {fonte.ultimo_capitulo_detectado}</span>}
+      <StatusScraper fonte={fonte} compact />
+    </>
+  );
+}
+
+/** Botão do Novel Updates no canto do card: link real se a obra tiver o
+ * vínculo cadastrado, ou ícone translúcido e não clicável caso contrário. */
+function NovelUpdatesBotao({ obra }: { obra: Obra }) {
+  if (obra.novelupdates_url) {
+    return (
+      <a
+        className="btn-icone obra-card-nu-botao"
+        href={obra.novelupdates_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Open on Novel Updates"
+        title="Open on Novel Updates"
+      >
+        <IconeLivro />
+      </a>
+    );
+  }
+  return (
+    <span
+      className="btn-icone obra-card-nu-botao obra-card-nu-botao-vazio"
+      aria-hidden
+      title="No Novel Updates link registered"
+    >
+      <IconeLivro />
+    </span>
+  );
+}
+
 interface Props {
   obra: Obra;
   fontes: Fonte[];
@@ -122,27 +172,30 @@ export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
         <ProgressoBarra obra={obra} />
         <Estrelas nota={obra.nota} />
 
-        {fontes.length > 0 && (
+        {fontes.length > 0 ? (
           <ul className="obra-card-fontes">
-            {fontes.map((f) => {
-              const nomeSite = f.site || dominioDeUrl(f.url) || f.url;
-              const naoMonitorada = !!sitesAtivos && !sitesAtivos.has(nomeSite.toLowerCase());
+            {fontes.map((f, indice) => {
+              const ultima = indice === fontes.length - 1;
               return (
-                <li key={f.id}>
-                  <a href={f.url} target="_blank" rel="noreferrer">
-                    {nomeSite}
-                  </a>
-                  {naoMonitorada && (
-                    <span className="badge-nao-monitorada" title="Domain not approved for scraping">
-                      unmonitored
-                    </span>
+                <li key={f.id} className={ultima ? 'obra-card-fonte-ultima' : undefined}>
+                  {ultima ? (
+                    <>
+                      <span className="obra-card-fonte-texto">
+                        <ConteudoFonte fonte={f} sitesAtivos={sitesAtivos} />
+                      </span>
+                      <NovelUpdatesBotao obra={obra} />
+                    </>
+                  ) : (
+                    <ConteudoFonte fonte={f} sitesAtivos={sitesAtivos} />
                   )}
-                  {f.ultimo_capitulo_detectado != null && <span> · ch. {f.ultimo_capitulo_detectado}</span>}
-                  <StatusScraper fonte={f} compact />
                 </li>
               );
             })}
           </ul>
+        ) : (
+          <div className="obra-card-nu-linha">
+            <NovelUpdatesBotao obra={obra} />
+          </div>
         )}
       </div>
     </div>

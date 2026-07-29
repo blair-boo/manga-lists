@@ -286,6 +286,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .obra-card-titulo {
@@ -313,6 +315,36 @@
 
 .obra-card-fontes a:hover {
   text-decoration: underline;
+}
+
+/* Última fonte compartilha a linha com o botão do Novel Updates, que fica
+   sempre na última linha do card (com ou sem fontes cadastradas). */
+.obra-card-fonte-ultima {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.obra-card-fonte-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.obra-card-nu-linha {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.obra-card-nu-botao {
+  flex-shrink: 0;
+}
+
+.obra-card-nu-botao-vazio {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
 .obra-card-meta {

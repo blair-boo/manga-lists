@@ -1,34 +1,25 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
-import { capitulosAtrasados, familiaDeTipo, temNovoCapitulo } from '../lib/obra';
+import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
+import {
+  FILTROS_KEY,
+  ORDENACOES,
+  lerFiltrosSalvos,
+  lerOrdenacaoSalva,
+  obrasFiltradasOrdenadas,
+  proximoEstadoFiltro,
+  type EstadoFiltro,
+  type FiltrosSalvos,
+  type Ordenacao,
+} from '../lib/filtrosLista';
 import type { Fonte, Obra } from '../types';
 
 type ViewMode = 'grid' | 'list';
-type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
-
-/**
- * Estado dos filtros-botão (chips): 'off' não filtra, 'incluir' só mostra quem
- * bate a condição, 'excluir' mostra todo mundo MENOS quem bate. Clicar cicla
- * off -> incluir -> excluir -> off (Handout: filtros de exclusão nos chips).
- */
-type EstadoFiltro = 'off' | 'incluir' | 'excluir';
-
-function proximoEstadoFiltro(atual: EstadoFiltro): EstadoFiltro {
-  if (atual === 'off') return 'incluir';
-  if (atual === 'incluir') return 'excluir';
-  return 'off';
-}
-
-function passaFiltro(estado: EstadoFiltro, condicaoBatida: boolean): boolean {
-  if (estado === 'incluir') return condicaoBatida;
-  if (estado === 'excluir') return !condicaoBatida;
-  return true;
-}
 
 function classeEstadoFiltro(estado: EstadoFiltro): string {
   if (estado === 'incluir') return 'ativo';
@@ -42,37 +33,12 @@ function tituloEstadoFiltro(estado: EstadoFiltro): string {
   return 'Click to show only these';
 }
 
-const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
-  { valor: 'titulo', rotulo: 'Title (A–Z)' },
-  { valor: 'atualizado', rotulo: 'Recently updated' },
-  { valor: 'atrasados', rotulo: 'Most chapters behind' },
-  { valor: 'nota', rotulo: 'Highest rating' },
-  { valor: 'criado', rotulo: 'Recently added' },
-];
-
 function lerViewModeSalvo(): ViewMode {
   return localStorage.getItem('viewMode') === 'list' ? 'list' : 'grid';
 }
 
-function lerOrdenacaoSalva(): Ordenacao {
-  const v = localStorage.getItem('ordenacao');
-  return ORDENACOES.some((o) => o.valor === v) ? (v as Ordenacao) : 'titulo';
-}
-
-function comparar(a: Obra, b: Obra, ordem: Ordenacao): number {
-  switch (ordem) {
-    case 'atualizado':
-      return (b.atualizado_em ?? '').localeCompare(a.atualizado_em ?? '');
-    case 'criado':
-      return (b.criado_em ?? '').localeCompare(a.criado_em ?? '');
-    case 'nota':
-      return (b.nota ?? -1) - (a.nota ?? -1) || a.titulo.localeCompare(b.titulo);
-    case 'atrasados':
-      return capitulosAtrasados(b) - capitulosAtrasados(a) || a.titulo.localeCompare(b.titulo);
-    default:
-      return a.titulo.localeCompare(b.titulo);
-  }
-}
+/** Posição de scroll da lista, restaurada quando se volta da tela da obra. */
+const SCROLL_KEY = 'listaScrollY';
 
 export function ListaPrincipalPage() {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
@@ -84,18 +50,49 @@ export function ListaPrincipalPage() {
   const generos = useListasPorCategoria('genero');
   const tags = useListasPorCategoria('tag');
 
-  const [busca, setBusca] = useState('');
-  const [tipo, setTipo] = useState('');
-  const [statusLeituraFiltros, setStatusLeituraFiltros] = useState<Record<string, EstadoFiltro>>({});
-  const [statusPublicacao, setStatusPublicacao] = useState('');
-  const [generosSel, setGenerosSel] = useState<string[]>([]);
-  const [tagsSel, setTagsSel] = useState<string[]>([]);
-  const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>('off');
-  const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>('off');
-  const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>('off');
+  const [busca, setBusca] = useState(() => lerFiltrosSalvos().busca);
+  const [tipo, setTipo] = useState(() => lerFiltrosSalvos().tipo);
+  const [statusLeituraFiltros, setStatusLeituraFiltros] = useState<Record<string, EstadoFiltro>>(
+    () => lerFiltrosSalvos().statusLeituraFiltros
+  );
+  const [statusPublicacao, setStatusPublicacao] = useState(() => lerFiltrosSalvos().statusPublicacao);
+  const [generosSel, setGenerosSel] = useState<string[]>(() => lerFiltrosSalvos().generosSel);
+  const [tagsSel, setTagsSel] = useState<string[]>(() => lerFiltrosSalvos().tagsSel);
+  const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>(
+    () => lerFiltrosSalvos().filtroNovoCapitulo
+  );
+  const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroNovel);
+  const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroUnsourced);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+
+  // Persiste os filtros a cada mudança — só somem de fato ao clicar "Clear
+  // filters" (limparFiltros), mesmo saindo da tela e voltando depois.
+  useEffect(() => {
+    const dados: FiltrosSalvos = {
+      busca,
+      tipo,
+      statusLeituraFiltros,
+      statusPublicacao,
+      generosSel,
+      tagsSel,
+      filtroNovoCapitulo,
+      filtroNovel,
+      filtroUnsourced,
+    };
+    localStorage.setItem(FILTROS_KEY, JSON.stringify(dados));
+  }, [
+    busca,
+    tipo,
+    statusLeituraFiltros,
+    statusPublicacao,
+    generosSel,
+    tagsSel,
+    filtroNovoCapitulo,
+    filtroNovel,
+    filtroUnsourced,
+  ]);
 
   function alternarViewMode(modo: ViewMode) {
     setViewMode(modo);
@@ -169,29 +166,18 @@ export function ListaPrincipalPage() {
 
   const filtradas = useMemo(() => {
     if (!obras) return [];
-    const buscaLower = busca.trim().toLowerCase();
-    const statusLeituraEntradas = Object.entries(statusLeituraFiltros).filter(([, v]) => v !== 'off') as [
-      string,
-      EstadoFiltro,
-    ][];
-    return obras
-      .filter(
-        (o) =>
-          !buscaLower ||
-          o.titulo.toLowerCase().includes(buscaLower) ||
-          (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))
-      )
-      .filter((o) => !tipo || o.tipo === tipo)
-      .filter((o) =>
-        statusLeituraEntradas.every(([valor, estado]) => passaFiltro(estado, o.status_leitura === valor))
-      )
-      .filter((o) => !statusPublicacao || o.status_publicacao === statusPublicacao)
-      .filter((o) => generosSel.every((g) => (o.generos ?? []).includes(g)))
-      .filter((o) => tagsSel.every((t) => (o.tags ?? []).includes(t)))
-      .filter((o) => passaFiltro(filtroNovoCapitulo, temNovoCapitulo(o)))
-      .filter((o) => passaFiltro(filtroNovel, familiaDeTipo(o.tipo) === 'novel'))
-      .filter((o) => passaFiltro(filtroUnsourced, semFonte(o)))
-      .sort((a, b) => comparar(a, b, ordenacao));
+    const filtros: FiltrosSalvos = {
+      busca,
+      tipo,
+      statusLeituraFiltros,
+      statusPublicacao,
+      generosSel,
+      tagsSel,
+      filtroNovoCapitulo,
+      filtroNovel,
+      filtroUnsourced,
+    };
+    return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao);
   }, [
     obras,
     busca,
@@ -203,7 +189,7 @@ export function ListaPrincipalPage() {
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
-    semFonte,
+    fontesPorObra,
     ordenacao,
   ]);
 
@@ -232,6 +218,28 @@ export function ListaPrincipalPage() {
 
   const carregando = obras === undefined;
   const acervoVazio = !carregando && obras.length === 0;
+
+  // Guarda a posição de scroll o tempo todo (não só ao sair) — cobre tanto o
+  // "voltar" da obra quanto qualquer outra navegação pra fora da lista.
+  useEffect(() => {
+    function salvarScroll() {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    }
+    window.addEventListener('scroll', salvarScroll, { passive: true });
+    return () => window.removeEventListener('scroll', salvarScroll);
+  }, []);
+
+  // Restaura a posição salva só depois que a lista de verdade renderizou
+  // (não no esqueleto de loading), senão a altura da página ainda não bate.
+  const scrollRestaurado = useRef(false);
+  useLayoutEffect(() => {
+    if (scrollRestaurado.current || carregando) return;
+    scrollRestaurado.current = true;
+    const salvo = sessionStorage.getItem(SCROLL_KEY);
+    if (salvo) {
+      window.scrollTo(0, Number(salvo));
+    }
+  }, [carregando]);
 
   return (
     <div className="lista-principal">

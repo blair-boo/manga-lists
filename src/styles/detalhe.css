@@ -2,6 +2,11 @@
 
 /* Detalhe obra */
 
+.detalhe-obra-nav {
+  display: flex;
+  justify-content: space-between;
+}
+
 .voltar {
   background: none;
   border: none;
