@@ -5,30 +5,21 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
-import { capitulosAtrasados, familiaDeTipo, temNovoCapitulo } from '../lib/obra';
+import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
+import {
+  FILTROS_KEY,
+  ORDENACOES,
+  lerFiltrosSalvos,
+  lerOrdenacaoSalva,
+  obrasFiltradasOrdenadas,
+  proximoEstadoFiltro,
+  type EstadoFiltro,
+  type FiltrosSalvos,
+  type Ordenacao,
+} from '../lib/filtrosLista';
 import type { Fonte, Obra } from '../types';
 
 type ViewMode = 'grid' | 'list';
-type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
-
-/**
- * Estado dos filtros-botão (chips): 'off' não filtra, 'incluir' só mostra quem
- * bate a condição, 'excluir' mostra todo mundo MENOS quem bate. Clicar cicla
- * off -> incluir -> excluir -> off (Handout: filtros de exclusão nos chips).
- */
-type EstadoFiltro = 'off' | 'incluir' | 'excluir';
-
-function proximoEstadoFiltro(atual: EstadoFiltro): EstadoFiltro {
-  if (atual === 'off') return 'incluir';
-  if (atual === 'incluir') return 'excluir';
-  return 'off';
-}
-
-function passaFiltro(estado: EstadoFiltro, condicaoBatida: boolean): boolean {
-  if (estado === 'incluir') return condicaoBatida;
-  if (estado === 'excluir') return !condicaoBatida;
-  return true;
-}
 
 function classeEstadoFiltro(estado: EstadoFiltro): string {
   if (estado === 'incluir') return 'ativo';
@@ -42,97 +33,12 @@ function tituloEstadoFiltro(estado: EstadoFiltro): string {
   return 'Click to show only these';
 }
 
-const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
-  { valor: 'titulo', rotulo: 'Title (A–Z)' },
-  { valor: 'atualizado', rotulo: 'Recently updated' },
-  { valor: 'atrasados', rotulo: 'Most chapters behind' },
-  { valor: 'nota', rotulo: 'Highest rating' },
-  { valor: 'criado', rotulo: 'Recently added' },
-];
-
 function lerViewModeSalvo(): ViewMode {
   return localStorage.getItem('viewMode') === 'list' ? 'list' : 'grid';
 }
 
-function lerOrdenacaoSalva(): Ordenacao {
-  const v = localStorage.getItem('ordenacao');
-  return ORDENACOES.some((o) => o.valor === v) ? (v as Ordenacao) : 'titulo';
-}
-
-/** Filtros da lista persistem entre navegações (só somem no "Clear filters"),
- * então salvamos tudo num único item do localStorage. */
-const FILTROS_KEY = 'filtrosLista';
-
-interface FiltrosSalvos {
-  busca: string;
-  tipo: string;
-  statusLeituraFiltros: Record<string, EstadoFiltro>;
-  statusPublicacao: string;
-  generosSel: string[];
-  tagsSel: string[];
-  filtroNovoCapitulo: EstadoFiltro;
-  filtroNovel: EstadoFiltro;
-  filtroUnsourced: EstadoFiltro;
-}
-
-const FILTROS_PADRAO: FiltrosSalvos = {
-  busca: '',
-  tipo: '',
-  statusLeituraFiltros: {},
-  statusPublicacao: '',
-  generosSel: [],
-  tagsSel: [],
-  filtroNovoCapitulo: 'off',
-  filtroNovel: 'off',
-  filtroUnsourced: 'off',
-};
-
-function estadoFiltroValido(v: unknown): EstadoFiltro {
-  return v === 'incluir' || v === 'excluir' ? v : 'off';
-}
-
-function lerFiltrosSalvos(): FiltrosSalvos {
-  try {
-    const bruto = localStorage.getItem(FILTROS_KEY);
-    if (!bruto) return FILTROS_PADRAO;
-    const dados = JSON.parse(bruto) as Partial<FiltrosSalvos>;
-    const statusLeituraFiltros: Record<string, EstadoFiltro> = {};
-    for (const [k, v] of Object.entries(dados.statusLeituraFiltros ?? {})) {
-      statusLeituraFiltros[k] = estadoFiltroValido(v);
-    }
-    return {
-      busca: typeof dados.busca === 'string' ? dados.busca : FILTROS_PADRAO.busca,
-      tipo: typeof dados.tipo === 'string' ? dados.tipo : FILTROS_PADRAO.tipo,
-      statusLeituraFiltros,
-      statusPublicacao: typeof dados.statusPublicacao === 'string' ? dados.statusPublicacao : FILTROS_PADRAO.statusPublicacao,
-      generosSel: Array.isArray(dados.generosSel) ? dados.generosSel : FILTROS_PADRAO.generosSel,
-      tagsSel: Array.isArray(dados.tagsSel) ? dados.tagsSel : FILTROS_PADRAO.tagsSel,
-      filtroNovoCapitulo: estadoFiltroValido(dados.filtroNovoCapitulo),
-      filtroNovel: estadoFiltroValido(dados.filtroNovel),
-      filtroUnsourced: estadoFiltroValido(dados.filtroUnsourced),
-    };
-  } catch {
-    return FILTROS_PADRAO;
-  }
-}
-
 /** Posição de scroll da lista, restaurada quando se volta da tela da obra. */
 const SCROLL_KEY = 'listaScrollY';
-
-function comparar(a: Obra, b: Obra, ordem: Ordenacao): number {
-  switch (ordem) {
-    case 'atualizado':
-      return (b.atualizado_em ?? '').localeCompare(a.atualizado_em ?? '');
-    case 'criado':
-      return (b.criado_em ?? '').localeCompare(a.criado_em ?? '');
-    case 'nota':
-      return (b.nota ?? -1) - (a.nota ?? -1) || a.titulo.localeCompare(b.titulo);
-    case 'atrasados':
-      return capitulosAtrasados(b) - capitulosAtrasados(a) || a.titulo.localeCompare(b.titulo);
-    default:
-      return a.titulo.localeCompare(b.titulo);
-  }
-}
 
 export function ListaPrincipalPage() {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
@@ -260,29 +166,18 @@ export function ListaPrincipalPage() {
 
   const filtradas = useMemo(() => {
     if (!obras) return [];
-    const buscaLower = busca.trim().toLowerCase();
-    const statusLeituraEntradas = Object.entries(statusLeituraFiltros).filter(([, v]) => v !== 'off') as [
-      string,
-      EstadoFiltro,
-    ][];
-    return obras
-      .filter(
-        (o) =>
-          !buscaLower ||
-          o.titulo.toLowerCase().includes(buscaLower) ||
-          (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))
-      )
-      .filter((o) => !tipo || o.tipo === tipo)
-      .filter((o) =>
-        statusLeituraEntradas.every(([valor, estado]) => passaFiltro(estado, o.status_leitura === valor))
-      )
-      .filter((o) => !statusPublicacao || o.status_publicacao === statusPublicacao)
-      .filter((o) => generosSel.every((g) => (o.generos ?? []).includes(g)))
-      .filter((o) => tagsSel.every((t) => (o.tags ?? []).includes(t)))
-      .filter((o) => passaFiltro(filtroNovoCapitulo, temNovoCapitulo(o)))
-      .filter((o) => passaFiltro(filtroNovel, familiaDeTipo(o.tipo) === 'novel'))
-      .filter((o) => passaFiltro(filtroUnsourced, semFonte(o)))
-      .sort((a, b) => comparar(a, b, ordenacao));
+    const filtros: FiltrosSalvos = {
+      busca,
+      tipo,
+      statusLeituraFiltros,
+      statusPublicacao,
+      generosSel,
+      tagsSel,
+      filtroNovoCapitulo,
+      filtroNovel,
+      filtroUnsourced,
+    };
+    return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao);
   }, [
     obras,
     busca,
@@ -294,7 +189,7 @@ export function ListaPrincipalPage() {
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
-    semFonte,
+    fontesPorObra,
     ordenacao,
   ]);
 

@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import {
   DndContext,
@@ -43,6 +43,7 @@ import { useDialogos } from '../components/Dialogo';
 import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
+import { lerFiltrosSalvos, lerOrdenacaoSalva, obrasFiltradasOrdenadas } from '../lib/filtrosLista';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
 import { renomearCapaSeNecessario } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
@@ -251,6 +252,24 @@ export function DetalheObraPage() {
   );
   const sitesAtivos = useSitesAtivos();
 
+  // Pro botão Next: mesma lista filtrada/ordenada da tela List (filtros e
+  // ordenação persistidos em localStorage), pra achar a próxima obra.
+  const todasObras = useLiveQuery(() => db.obras.toArray(), []);
+  const todasFontes = useLiveQuery(() => db.fontes.toArray(), []);
+  const proximaObra = useMemo(() => {
+    if (!todasObras || !todasFontes || !id) return null;
+    const fontesPorObra = new Map<string, Fonte[]>();
+    for (const f of todasFontes) {
+      const lista = fontesPorObra.get(f.obra_id) ?? [];
+      lista.push(f);
+      fontesPorObra.set(f.obra_id, lista);
+    }
+    const ordenadas = obrasFiltradasOrdenadas(todasObras, fontesPorObra, lerFiltrosSalvos(), lerOrdenacaoSalva());
+    const indice = ordenadas.findIndex((o) => o.id === id);
+    if (indice === -1 || indice === ordenadas.length - 1) return null;
+    return ordenadas[indice + 1];
+  }, [todasObras, todasFontes, id]);
+
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
@@ -375,7 +394,9 @@ export function DetalheObraPage() {
       status_aprovacao: 'aprovado',
       descoberta_automaticamente: false,
       ultima_verificacao: null,
-      tipo_detectado: null,
+      // Fonte cadastrada à mão direto na obra já nasce com o tipo da obra
+      // (Manga/Manwha/Manhua contam todos como 'manga' — familiaDeTipo).
+      tipo_detectado: familiaDeTipo(draft?.tipo ?? null),
       tipo_manual: false,
       ordem: maiorOrdem + 1,
     });
@@ -554,9 +575,20 @@ export function DetalheObraPage() {
 
   return (
     <div className="detalhe-obra">
-      <button type="button" className="voltar" onClick={() => navigate(-1)}>
-        ← Back
-      </button>
+      <div className="detalhe-obra-nav">
+        <button type="button" className="voltar" onClick={() => navigate(-1)}>
+          ← Back
+        </button>
+        {proximaObra && (
+          <button
+            type="button"
+            className="voltar"
+            onClick={() => navigate(`/obra/${proximaObra.id}`, { replace: true })}
+          >
+            Next →
+          </button>
+        )}
+      </div>
 
       <div className="detalhe-obra-form">
         <label>
