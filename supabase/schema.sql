@@ -11,7 +11,7 @@ create table obras (
     autor text,
     capa_url text,
     capitulo_atual numeric,
-    status_leitura text, -- 'To read' | 'Reading' | 'Complete' | 'Paused' | 'Dropped'
+    status_leitura text, -- 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped'
     status_publicacao text, -- 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' | 'Canceled'
     fim_de_temporada boolean not null default false, -- só relevante quando status_publicacao = 'Hiatus'
     ultimo_capitulo_lancado numeric,

@@ -1,6 +1,6 @@
 export type Tipo = 'Manga' | 'Manwha' | 'Manhua' | 'Novel';
 
-export type StatusLeitura = 'To read' | 'Reading' | 'Complete' | 'Paused' | 'Dropped';
+export type StatusLeitura = 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped';
 
 export type StatusPublicacao = 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' | 'Canceled';
 

@@ -15,7 +15,7 @@ export default defineConfig(({ command }) => ({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon-32.png'],
       manifest: {
         name: `${APP_NAME} — Manga & Novels`,
         short_name: APP_NAME,

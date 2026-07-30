@@ -2,7 +2,40 @@
 
 /* Lista principal */
 
-/* Busca por título: elemento próprio, sempre visível no topo (fora dos filtros). */
+/* Busca por título: elemento próprio, sempre visível no topo (fora dos filtros).
+   .busca-linha é o container do BuscaObras (input + acaoDireita, ex.: Clear
+   filters na tela da obra); .busca-input-wrap é o único que precisa de
+   position:relative, pra o dropdown de sugestões não se estender por baixo
+   da acaoDireita. */
+.busca-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.busca-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.busca-linha .busca-topo {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+@media (max-width: 400px) {
+  .busca-linha {
+    flex-wrap: wrap;
+  }
+
+  .busca-linha .busca-input-wrap {
+    flex-basis: 100%;
+  }
+}
+
 .busca-topo {
   width: 100%;
   margin-bottom: 14px;
