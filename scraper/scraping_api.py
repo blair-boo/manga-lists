@@ -82,36 +82,39 @@ def _host_de(url: str) -> str:
     return host.removeprefix("www.")
 
 
-def _construir_scraperapi(target: str) -> tuple[str, dict]:
+# Cada builder devolve (base_url, query_params, headers). `headers` é None pros
+# providers que autenticam por query param; o ScrapingBee usa header Bearer.
+def _construir_scraperapi(target: str) -> tuple[str, dict, dict | None]:
     params = {"api_key": os.environ["SCRAPERAPI_KEY"], "url": target}
     if _env_flag("SCRAPING_API_RENDER", True):
         params["render"] = "true"
     if _env_flag("SCRAPERAPI_ULTRA", False):
         params["ultra_premium"] = "true"
-    return "https://api.scraperapi.com/", params
+    return "https://api.scraperapi.com/", params, None
 
 
-def _construir_scrapingbee(target: str) -> tuple[str, dict]:
-    # Formato canônico documentado do ScrapingBee: api_key na query string +
-    # render_js. (O sample do dashboard do usuário mostrou um header
-    # `Authorization: Bearer`, que é um estilo alternativo/mais novo — se a
-    # chave da conta exigir Bearer em vez de api_key, é trocar aqui; como o
-    # ScrapingBee é fallback nesta ordem, uma eventual troca não trava o fluxo.)
-    # stealth_proxy é o modo anti-Cloudflare do ScrapingBee (caro), opt-in.
-    params = {"api_key": os.environ["SCRAPINGBEE_KEY"], "url": target}
+def _construir_scrapingbee(target: str) -> tuple[str, dict, dict | None]:
+    # Auth por header `Authorization: Bearer <chave>` (confirmado no sample do
+    # dashboard do usuário — NÃO é api_key na query string). `render_js` liga a
+    # execução de JS (necessária pro challenge do Cloudflare); `stealth_proxy`
+    # é o modo anti-bot mais forte (caro), opt-in. Não passamos `json_response`
+    # (embrulharia a resposta num envelope JSON e quebraria o parser) nem
+    # `country_code` (o comix é global).
+    params = {"url": target}
     params["render_js"] = "true" if _env_flag("SCRAPING_API_RENDER", True) else "false"
     if _env_flag("SCRAPINGBEE_STEALTH", False):
         params["stealth_proxy"] = "true"
-    return "https://app.scrapingbee.com/api/v1/", params
+    headers = {"Authorization": f"Bearer {os.environ['SCRAPINGBEE_KEY']}"}
+    return "https://app.scrapingbee.com/api/v1", params, headers
 
 
-def _construir_scrapedo(target: str) -> tuple[str, dict]:
+def _construir_scrapedo(target: str) -> tuple[str, dict, dict | None]:
     params = {"token": os.environ["SCRAPEDO_TOKEN"], "url": target}
     if _env_flag("SCRAPING_API_RENDER", True):
         params["render"] = "true"
     if _env_flag("SCRAPEDO_SUPER", False):
         params["super"] = "true"
-    return "https://api.scrape.do/", params
+    return "https://api.scrape.do/", params, None
 
 
 # nome -> (env da credencial, builder). A ordem real vem de SCRAPING_API_ORDER.
@@ -160,9 +163,9 @@ def buscar(sessao, url: str, params=None):
     ultima_resp = None
     ultima_exc = None
     for nome, construir in _provedores_ativos():
-        base, pparams = construir(alvo)
+        base, pparams, pheaders = construir(alvo)
         try:
-            resp = sessao.get(base, params=pparams, timeout=SCRAPING_TIMEOUT)
+            resp = sessao.get(base, params=pparams, headers=pheaders, timeout=SCRAPING_TIMEOUT)
         except Exception as exc:  # noqa: BLE001 - rede/provider fora do ar: tenta o próximo
             ultima_exc = exc
             print(f"  scraping_api[{nome}]: falha de rede em {alvo}: {exc}", file=sys.stderr)

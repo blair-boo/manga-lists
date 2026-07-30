@@ -39,8 +39,8 @@ class SessaoFake:
         self._respostas = list(respostas)
         self.chamadas = []
 
-    def get(self, base, params=None, timeout=None):
-        self.chamadas.append({"base": base, "params": params, "timeout": timeout})
+    def get(self, base, params=None, headers=None, timeout=None):
+        self.chamadas.append({"base": base, "params": params, "headers": headers, "timeout": timeout})
         r = self._respostas.pop(0)
         if isinstance(r, Exception):
             raise r
@@ -91,16 +91,17 @@ def test_target_respeita_query_existente():
 
 def test_scraperapi_render_default_on(monkeypatch):
     monkeypatch.setenv("SCRAPERAPI_KEY", "K")
-    base, params = scraping_api._construir_scraperapi("https://comix.to/x")
+    base, params, headers = scraping_api._construir_scraperapi("https://comix.to/x")
     assert base == "https://api.scraperapi.com/"
     assert params == {"api_key": "K", "url": "https://comix.to/x", "render": "true"}
+    assert headers is None
 
 
 def test_scraperapi_render_off_e_ultra(monkeypatch):
     monkeypatch.setenv("SCRAPERAPI_KEY", "K")
     monkeypatch.setenv("SCRAPING_API_RENDER", "false")
     monkeypatch.setenv("SCRAPERAPI_ULTRA", "true")
-    _, params = scraping_api._construir_scraperapi("https://comix.to/x")
+    _, params, _ = scraping_api._construir_scraperapi("https://comix.to/x")
     assert "render" not in params
     assert params["ultra_premium"] == "true"
 
@@ -108,25 +109,40 @@ def test_scraperapi_render_off_e_ultra(monkeypatch):
 def test_scrapedo_token_e_super(monkeypatch):
     monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
     monkeypatch.setenv("SCRAPEDO_SUPER", "true")
-    base, params = scraping_api._construir_scrapedo("https://comix.to/x")
+    base, params, headers = scraping_api._construir_scrapedo("https://comix.to/x")
     assert base == "https://api.scrape.do/"
     assert params == {"token": "T", "url": "https://comix.to/x", "render": "true", "super": "true"}
+    assert headers is None
 
 
-def test_scrapingbee_api_key_e_render(monkeypatch):
+def test_scrapingbee_bearer_header_e_render(monkeypatch):
     monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
-    base, params = scraping_api._construir_scrapingbee("https://comix.to/x")
-    assert base == "https://app.scrapingbee.com/api/v1/"
-    assert params == {"api_key": "B", "url": "https://comix.to/x", "render_js": "true"}
+    base, params, headers = scraping_api._construir_scrapingbee("https://comix.to/x")
+    assert base == "https://app.scrapingbee.com/api/v1"
+    # Auth por header Bearer, NÃO api_key na query.
+    assert headers == {"Authorization": "Bearer B"}
+    assert params == {"url": "https://comix.to/x", "render_js": "true"}
+    assert "api_key" not in params
 
 
 def test_scrapingbee_render_off_e_stealth(monkeypatch):
     monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
     monkeypatch.setenv("SCRAPING_API_RENDER", "false")
     monkeypatch.setenv("SCRAPINGBEE_STEALTH", "true")
-    _, params = scraping_api._construir_scrapingbee("https://comix.to/x")
+    _, params, headers = scraping_api._construir_scrapingbee("https://comix.to/x")
     assert params["render_js"] == "false"
     assert params["stealth_proxy"] == "true"
+    assert headers == {"Authorization": "Bearer B"}
+
+
+def test_scrapingbee_manda_o_header_no_get(monkeypatch):
+    # Confirma que o Bearer chega no sessao.get (não só no builder).
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    monkeypatch.setenv("SCRAPING_API_ORDER", "scrapingbee")
+    sessao = SessaoFake([RespFake(200, "ok")])
+    scraping_api.buscar(sessao, "https://comix.to/x")
+    assert sessao.chamadas[0]["headers"] == {"Authorization": "Bearer B"}
+    assert sessao.chamadas[0]["base"] == "https://app.scrapingbee.com/api/v1"
 
 
 # --- buscar (ordem / fallthrough) --------------------------------------------
@@ -177,7 +193,7 @@ def test_buscar_ordem_tres_providers_scraperapi_scrapingbee_scrapedo(monkeypatch
     assert resp.text == "html-do"
     assert [c["base"] for c in sessao.chamadas] == [
         "https://api.scraperapi.com/",
-        "https://app.scrapingbee.com/api/v1/",
+        "https://app.scrapingbee.com/api/v1",
         "https://api.scrape.do/",
     ]
 

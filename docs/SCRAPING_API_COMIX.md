@@ -90,14 +90,12 @@ ajuda a decidir.
 - **ScraperAPI + scrape.do**: validados ao vivo na run de capítulos de 30/07
   (15/18 pelo ScraperAPI, 3/18 pelo scrape.do no fallthrough). O bypass do
   Cloudflare do comix funciona.
-- **ScrapingBee**: implementado no formato canônico da API (`api_key` na query
-  + `render_js`), mas **ainda não exercitado ao vivo** (é o 2º na ordem, então
-  só é chamado quando o ScraperAPI falha). O sample do dashboard do usuário
-  mostrou um header `Authorization: Bearer` em vez de `api_key` — se a conta
-  exigir Bearer, é uma linha em `_construir_scrapingbee`. Como o ScrapingBee é
-  fallback e o que falhar cai no scrape.do (que funciona), um formato errado
-  não trava o fluxo; só aparece como `scraping_api[scrapingbee]: HTTP 401` no
-  log, que é o sinal pra trocar pro Bearer.
+- **ScrapingBee**: auth por header `Authorization: Bearer <chave>` +
+  `render_js` na query (confirmado contra o sample do dashboard do usuário — é
+  header Bearer, não `api_key`). **Ainda não exercitado ao vivo** (é o 2º na
+  ordem, só chamado quando o ScraperAPI falha, ~3/18); a 1ª vez que cair nele
+  confirma. Não passamos `json_response` (embrulharia a resposta e quebraria o
+  parser) nem `country_code`.
 - **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre,
   mas o endpoint é JSON. Puxar JSON com `render` ligado pode voltar embrulhado
   em HTML e quebrar o `resp.json()` — a validar (testando 1 página, de
