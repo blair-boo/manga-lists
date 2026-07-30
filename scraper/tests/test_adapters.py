@@ -9,7 +9,14 @@ import pytest
 
 from adapter_base import RawContent, STATUS_BLOQUEADO, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
 from adapters import CmsGenericoAdapter, EzmangaAdapter
-from adapters_novos import ComixAdapter, MadaraAdapter, MagustoonAdapter, _order as comix_order
+from adapters_novos import (
+    ComixAdapter,
+    MadaraAdapter,
+    MagustoonAdapter,
+    _order as comix_order,
+    _pares_titulo_url as comix_pares,
+    _titulos_do_item as comix_titulos,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -252,6 +259,35 @@ def test_comix_hid_da_url():
 def test_comix_url_da_fonte(slug, esperado):
     adapter = ComixAdapter()
     assert adapter.url_da_fonte("https://comix.to/", slug) == esperado
+
+
+def test_comix_titulos_inclui_alternativos():
+    # Casa por título principal E alternativos (pedido da dona).
+    item = {"title": "Marchioness Maron", "altTitles": ["마론 후작부인", "Lady Maron"], "url": "/title/x"}
+    assert comix_titulos(item) == ["Marchioness Maron", "마론 후작부인", "Lady Maron"]
+
+
+def test_comix_titulos_altTitles_como_objetos():
+    item = {"title": "A", "altTitles": [{"title": "B"}, {"name": "C"}, {"outro": "z"}]}
+    assert comix_titulos(item) == ["A", "B", "C"]
+
+
+def test_comix_titulos_sem_alternativos():
+    assert comix_titulos({"title": "Só principal"}) == ["Só principal"]
+    assert comix_titulos({"title": "X", "altTitles": None}) == ["X"]
+
+
+def test_comix_pares_expande_um_par_por_titulo():
+    itens = [
+        {"title": "Alfa", "altTitles": ["Alpha"], "url": "/title/a"},
+        {"title": "Beta", "url": "/title/b"},
+        {"title": "Sem url", "altTitles": ["x"]},  # sem url -> ignorado
+    ]
+    assert comix_pares(itens) == [
+        ("Alfa", "/title/a"),
+        ("Alpha", "/title/a"),
+        ("Beta", "/title/b"),
+    ]
 
 
 def test_comix_order_notacao_de_colchetes():
