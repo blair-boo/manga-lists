@@ -10,6 +10,8 @@ from urllib.parse import urljoin, urlparse
 import requests
 from supabase import create_client
 
+import scraping_api
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -70,8 +72,21 @@ def http_get(url: str, **kwargs):
     antes de propagar/retornar. NÃO retenta em 403/503 com cara de Cloudflare —
     isso já tem o fallback via curl em adapter_base.fetch_http, e insistir só
     queimaria reputação de IP.
+
+    Hosts configurados em SCRAPING_API_HOSTS (com credencial de provider no
+    ambiente) são roteados por uma API de scraping (ScraperAPI/scrape.do) que
+    resolve o challenge JS do Cloudflare — o caso do comix.to, que challenge
+    direto/curl não passa. Roteando aqui, os três estágios (capítulos,
+    catálogo, descoberta) herdam o desvio de uma vez, já que todos passam por
+    http_get. Sem chave/host, é no-op: segue o caminho direto de sempre. Ver
+    scraping_api.py.
     """
     kwargs.setdefault("timeout", TIMEOUT)
+
+    if scraping_api.deve_rotear(url):
+        params = kwargs.get("params")
+        return scraping_api.buscar(_sessao_http(), url, params=params)
+
     try:
         resp = _sessao_http().get(url, **kwargs)
     except requests.RequestException:
