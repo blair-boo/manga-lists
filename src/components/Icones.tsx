@@ -93,6 +93,12 @@ export function IconeTrocar() {
   return <IconeMascarado arquivo="corresponding-work.svg" />;
 }
 
+/** Limpar filtros — SVG fornecido pela usuária (Supabase storage
+ * icons/clear_filter.svg), 20px fixo, colorido via mask. */
+export function IconeLimparFiltros() {
+  return <IconeMascarado arquivo="clear_filter.svg" />;
+}
+
 /** Moldura de imagem — placeholder da capa vazia. */
 export function IconeImagem() {
   return (
