@@ -17,11 +17,18 @@ devolve o HTML/JSON já liberado. O código está em `scraper/scraping_api.py` e
 é acionado dentro de `common.http_get`, então cobre os três estágios de uma
 vez (capítulos, catálogo e descoberta), já que todos passam por ali.
 
-Suporta dois providers, na ordem em que se quiser: **ScraperAPI** e
-**scrape.do**. Ambos têm plano grátis (trial/mensal). A ordem é o que permite
-"usar o trial do ScraperAPI e, quando esgotar, cair no free tier do scrape.do"
-sem trocar código — quando o primeiro provider devolve erro de cota, o próximo
-é tentado automaticamente.
+Suporta três providers, na ordem em que se quiser: **ScraperAPI**,
+**ScrapingBee** e **scrape.do**. Todos têm plano grátis (trial/mensal). A ordem
+(`SCRAPING_API_ORDER`, default `scraperapi,scrapingbee,scrapedo`) permite
+"gastar o crédito que expira primeiro e cair no próximo quando esgotar" sem
+trocar código — quando um provider devolve erro (cota/500), o próximo é tentado
+automaticamente. Só entram na cascata os providers que têm chave configurada.
+
+**Resultado da 1ª run real (30/07, capítulos):** o ScraperAPI (só `render_js`
+básico, sem `ultra`) venceu o Cloudflare do comix em **15 de 18** páginas; as
+outras 3 deram HTTP 500 transiente e caíram pro próximo provider, que entregou.
+Ou seja: `render` básico já resolve o comix, não precisa do tier residencial
+(`SCRAPERAPI_ULTRA`/`SCRAPINGBEE_STEALTH`/`SCRAPEDO_SUPER`) por enquanto.
 
 **Importante:** é *no-op* enquanto não houver credencial no ambiente. Os
 workflows já mandam `SCRAPING_API_HOSTS: comix.to,comix.ws`, mas nada é
@@ -31,12 +38,13 @@ roteado (nem custa crédito) até uma das secrets de chave existir.
 
 1. Criar conta e pegar a credencial de pelo menos um provider:
    - ScraperAPI → `SCRAPERAPI_KEY` (o "API Key" do dashboard).
+   - ScrapingBee → `SCRAPINGBEE_KEY` (o "API Key" do dashboard).
    - scrape.do → `SCRAPEDO_TOKEN` (o "Token" do dashboard).
 
 2. Adicionar como **secrets do repositório** no GitHub
    (Settings → Secrets and variables → Actions → New repository secret):
-   - `SCRAPERAPI_KEY`
-   - `SCRAPEDO_TOKEN` (opcional; adicione quando for usar o fallback)
+   - `SCRAPERAPI_KEY`, `SCRAPINGBEE_KEY`, `SCRAPEDO_TOKEN` (o que tiver; os
+     ausentes são pulados na cascata).
 
 3. Pronto. Os workflows `scraper-capitulos`, `scraper-obras` e `scraper-fontes`
    já leem essas secrets. Rodar o "Scraper - Capítulos" (ou esperar o cron das
@@ -48,10 +56,12 @@ roteado (nem custa crédito) até uma das secrets de chave existir.
 |---|---|---|
 | `SCRAPING_API_HOSTS` | *(vazio)* | Hosts a rotear, separados por vírgula. Já setado nos workflows como `comix.to,comix.ws`. |
 | `SCRAPERAPI_KEY` | — | Chave do ScraperAPI. Sem ela, ScraperAPI não entra. |
+| `SCRAPINGBEE_KEY` | — | Chave do ScrapingBee. Sem ela, ScrapingBee não entra. |
 | `SCRAPEDO_TOKEN` | — | Token do scrape.do. Sem ele, scrape.do não entra. |
-| `SCRAPING_API_ORDER` | `scraperapi,scrapedo` | Ordem de tentativa entre os providers configurados. |
+| `SCRAPING_API_ORDER` | `scraperapi,scrapingbee,scrapedo` | Ordem de tentativa entre os providers configurados. Já setado nos workflows. |
 | `SCRAPING_API_RENDER` | `true` | Executa JS no provider. Necessário pro challenge do Cloudflare. |
 | `SCRAPERAPI_ULTRA` | `false` | `ultra_premium` no ScraperAPI (proxies residenciais; mais caro). |
+| `SCRAPINGBEE_STEALTH` | `false` | `stealth_proxy=true` no ScrapingBee (proxies stealth; mais caro). |
 | `SCRAPEDO_SUPER` | `false` | `super=true` no scrape.do (proxies residenciais). |
 
 ## Se ainda vier bloqueado
@@ -75,10 +85,20 @@ ajuda a decidir.
   consome, por paginar o acervo inteiro. Rodar com parcimônia enquanto no
   plano grátis.
 
-## O que não foi testado
+## Estado da validação
 
-Não consegui validar o bypass ao vivo daqui: sem uma chave real, e o acesso a
-comix.to segue bloqueado neste ambiente. A lógica de roteamento/ordem/fallback
-tem testes (`scraper/tests/test_scraping_api.py`, sem rede), mas a confirmação
-de que o provider realmente passa do Cloudflare do comix só acontece na
-primeira run com a secret configurada.
+- **ScraperAPI + scrape.do**: validados ao vivo na run de capítulos de 30/07
+  (15/18 pelo ScraperAPI, 3/18 pelo scrape.do no fallthrough). O bypass do
+  Cloudflare do comix funciona.
+- **ScrapingBee**: implementado no formato canônico da API (`api_key` na query
+  + `render_js`), mas **ainda não exercitado ao vivo** (é o 2º na ordem, então
+  só é chamado quando o ScraperAPI falha). O sample do dashboard do usuário
+  mostrou um header `Authorization: Bearer` em vez de `api_key` — se a conta
+  exigir Bearer, é uma linha em `_construir_scrapingbee`. Como o ScrapingBee é
+  fallback e o que falhar cai no scrape.do (que funciona), um formato errado
+  não trava o fluxo; só aparece como `scraping_api[scrapingbee]: HTTP 401` no
+  log, que é o sinal pra trocar pro Bearer.
+- **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre,
+  mas o endpoint é JSON. Puxar JSON com `render` ligado pode voltar embrulhado
+  em HTML e quebrar o `resp.json()` — a validar (testando 1 página, de
+  preferência com `render=false`) antes de confiar no catálogo.

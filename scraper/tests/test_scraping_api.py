@@ -12,10 +12,12 @@ def _limpa_env(monkeypatch):
     for var in (
         "SCRAPING_API_HOSTS",
         "SCRAPERAPI_KEY",
+        "SCRAPINGBEE_KEY",
         "SCRAPEDO_TOKEN",
         "SCRAPING_API_ORDER",
         "SCRAPING_API_RENDER",
         "SCRAPERAPI_ULTRA",
+        "SCRAPINGBEE_STEALTH",
         "SCRAPEDO_SUPER",
     ):
         monkeypatch.delenv(var, raising=False)
@@ -111,6 +113,22 @@ def test_scrapedo_token_e_super(monkeypatch):
     assert params == {"token": "T", "url": "https://comix.to/x", "render": "true", "super": "true"}
 
 
+def test_scrapingbee_api_key_e_render(monkeypatch):
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    base, params = scraping_api._construir_scrapingbee("https://comix.to/x")
+    assert base == "https://app.scrapingbee.com/api/v1/"
+    assert params == {"api_key": "B", "url": "https://comix.to/x", "render_js": "true"}
+
+
+def test_scrapingbee_render_off_e_stealth(monkeypatch):
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    monkeypatch.setenv("SCRAPING_API_RENDER", "false")
+    monkeypatch.setenv("SCRAPINGBEE_STEALTH", "true")
+    _, params = scraping_api._construir_scrapingbee("https://comix.to/x")
+    assert params["render_js"] == "false"
+    assert params["stealth_proxy"] == "true"
+
+
 # --- buscar (ordem / fallthrough) --------------------------------------------
 
 
@@ -144,6 +162,38 @@ def test_buscar_ordem_customizada(monkeypatch):
     sessao = SessaoFake([RespFake(200, "html-do")])
     scraping_api.buscar(sessao, "https://comix.to/x")
     assert sessao.chamadas[0]["base"] == "https://api.scrape.do/"
+
+
+def test_buscar_ordem_tres_providers_scraperapi_scrapingbee_scrapedo(monkeypatch):
+    # A ordem pedida pelo usuário: queima o ScraperAPI (crédito que expira)
+    # primeiro, ScrapingBee em seguida, scrape.do por último. Aqui os dois
+    # primeiros falham (500) e o terceiro entrega — confirma a cascata inteira.
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
+    monkeypatch.setenv("SCRAPING_API_ORDER", "scraperapi,scrapingbee,scrapedo")
+    sessao = SessaoFake([RespFake(500), RespFake(500), RespFake(200, "html-do")])
+    resp = scraping_api.buscar(sessao, "https://comix.to/x")
+    assert resp.text == "html-do"
+    assert [c["base"] for c in sessao.chamadas] == [
+        "https://api.scraperapi.com/",
+        "https://app.scrapingbee.com/api/v1/",
+        "https://api.scrape.do/",
+    ]
+
+
+def test_buscar_scraperapi_primeiro_ok_nao_chama_os_outros(monkeypatch):
+    # Caso normal (o que o log da run real mostrou em 15/18): ScraperAPI
+    # entrega de primeira, ScrapingBee e scrape.do nem são tocados (1 cobrança).
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
+    monkeypatch.setenv("SCRAPING_API_ORDER", "scraperapi,scrapingbee,scrapedo")
+    sessao = SessaoFake([RespFake(200, "html-api")])
+    resp = scraping_api.buscar(sessao, "https://comix.to/x")
+    assert resp.text == "html-api"
+    assert len(sessao.chamadas) == 1
+    assert sessao.chamadas[0]["base"] == "https://api.scraperapi.com/"
 
 
 def test_buscar_todos_falham_devolve_ultima_resp(monkeypatch):

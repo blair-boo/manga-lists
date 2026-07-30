@@ -34,13 +34,17 @@ Variáveis de ambiente:
   SCRAPING_API_HOSTS   Lista separada por vírgula dos hosts a rotear
                        (ex.: "comix.to,comix.ws"). Sem isto, nada é roteado.
   SCRAPERAPI_KEY       Chave do ScraperAPI (https://scraperapi.com).
+  SCRAPINGBEE_KEY      Chave do ScrapingBee (https://scrapingbee.com).
   SCRAPEDO_TOKEN       Token do scrape.do (https://scrape.do).
-  SCRAPING_API_ORDER   Ordem de tentativa (default "scraperapi,scrapedo").
+  SCRAPING_API_ORDER   Ordem de tentativa (default
+                       "scraperapi,scrapingbee,scrapedo").
   SCRAPING_API_RENDER  "true"/"false" — executa JS no provider (default true;
                        necessário pra passar do interstitial "Just a moment"
                        do Cloudflare).
   SCRAPERAPI_ULTRA     "true" -> ultra_premium no ScraperAPI (proxies
                        residenciais; mais caro, pra anti-bot mais duro).
+  SCRAPINGBEE_STEALTH  "true" -> stealth_proxy=true no ScrapingBee (proxies
+                       stealth; mais caro, anti-bot mais duro).
   SCRAPEDO_SUPER       "true" -> super=true no scrape.do (proxies
                        residenciais; equivalente ao ultra do ScraperAPI).
 
@@ -87,6 +91,20 @@ def _construir_scraperapi(target: str) -> tuple[str, dict]:
     return "https://api.scraperapi.com/", params
 
 
+def _construir_scrapingbee(target: str) -> tuple[str, dict]:
+    # Formato canônico documentado do ScrapingBee: api_key na query string +
+    # render_js. (O sample do dashboard do usuário mostrou um header
+    # `Authorization: Bearer`, que é um estilo alternativo/mais novo — se a
+    # chave da conta exigir Bearer em vez de api_key, é trocar aqui; como o
+    # ScrapingBee é fallback nesta ordem, uma eventual troca não trava o fluxo.)
+    # stealth_proxy é o modo anti-Cloudflare do ScrapingBee (caro), opt-in.
+    params = {"api_key": os.environ["SCRAPINGBEE_KEY"], "url": target}
+    params["render_js"] = "true" if _env_flag("SCRAPING_API_RENDER", True) else "false"
+    if _env_flag("SCRAPINGBEE_STEALTH", False):
+        params["stealth_proxy"] = "true"
+    return "https://app.scrapingbee.com/api/v1/", params
+
+
 def _construir_scrapedo(target: str) -> tuple[str, dict]:
     params = {"token": os.environ["SCRAPEDO_TOKEN"], "url": target}
     if _env_flag("SCRAPING_API_RENDER", True):
@@ -99,13 +117,14 @@ def _construir_scrapedo(target: str) -> tuple[str, dict]:
 # nome -> (env da credencial, builder). A ordem real vem de SCRAPING_API_ORDER.
 _PROVEDORES = {
     "scraperapi": ("SCRAPERAPI_KEY", _construir_scraperapi),
+    "scrapingbee": ("SCRAPINGBEE_KEY", _construir_scrapingbee),
     "scrapedo": ("SCRAPEDO_TOKEN", _construir_scrapedo),
 }
 
 
 def _provedores_ativos() -> list[tuple[str, callable]]:
     """(nome, builder) dos providers com credencial, na ordem configurada."""
-    ordem = os.environ.get("SCRAPING_API_ORDER", "scraperapi,scrapedo")
+    ordem = os.environ.get("SCRAPING_API_ORDER", "scraperapi,scrapingbee,scrapedo")
     ativos: list[tuple[str, callable]] = []
     for nome in (n.strip().lower() for n in ordem.split(",")):
         entrada = _PROVEDORES.get(nome)
