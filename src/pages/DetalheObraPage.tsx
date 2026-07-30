@@ -41,7 +41,15 @@ import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { BuscaObras } from '../components/BuscaObras';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
-import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
+import {
+  IconeDisquete,
+  IconeGrip,
+  IconeLimparFiltros,
+  IconeLivro,
+  IconeMais,
+  IconeTrocar,
+  IconeX,
+} from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import {
@@ -602,6 +610,24 @@ export function DetalheObraPage() {
 
   return (
     <div className="detalhe-obra">
+      <BuscaObras
+        value={busca}
+        onChange={alterarBusca}
+        acaoDireita={
+          filtroAtivo ? (
+            <button
+              type="button"
+              className="btn-icone"
+              onClick={handleLimparFiltros}
+              aria-label="Clear filters"
+              title="Clear filters"
+            >
+              <IconeLimparFiltros />
+            </button>
+          ) : null
+        }
+      />
+
       <div className="detalhe-obra-nav">
         <button type="button" className="voltar" onClick={() => navigate(-1)}>
           ← Back
@@ -616,18 +642,6 @@ export function DetalheObraPage() {
           </button>
         )}
       </div>
-
-      <BuscaObras
-        value={busca}
-        onChange={alterarBusca}
-        acaoDireita={
-          filtroAtivo ? (
-            <button type="button" className="filtros-limpar" onClick={handleLimparFiltros}>
-              Clear filters
-            </button>
-          ) : null
-        }
-      />
 
       <div className="detalhe-obra-form">
         <label>
