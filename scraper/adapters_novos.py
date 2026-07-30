@@ -644,29 +644,26 @@ _COMIX_INITIAL_DATA_RE = re.compile(
 )
 _COMIX_HID_RE = re.compile(r"/title/([0-9A-Za-z]+)-")
 
-# [VERIFICAR, ver HANDOUT_SCRAPER_COMIX seção 5] Path do endpoint de listagem
-# usado por catálogo/busca. NÃO confirmado empiricamente: comix.to, comix.ws e
-# o próprio candidato de API devolveram, pra todo GET direto a partir deste
-# ambiente de execução (checado em 2026-07-30), a página real de challenge
-# "Just a moment..." do Cloudflare (JS, com script de nonce e
-# challenges.cloudflare.com) — não um 403 seco. curl (mesmo padrão de
-# bypass usado em adapter_base._fetch_via_curl pra bloqueio de fingerprint
-# TLS) devolveu a mesma página, então isto não é fingerprint de cliente: é
-# challenge ativo, resolvido só com execução de JS (browser real ou
-# FlareSolverr). Pode ser reputação de IP deste ambiente especificamente, ou
-# pode significar que ACCESS_HTTP não basta em produção também — o runner do
-# GitHub Actions é outro IP (datacenter, como este), então não é garantido
-# que passe sem challenge. `fetch_http`/`_parece_cloudflare` já tratam esse
-# caso como STATUS_BLOQUEADO (não derruba o run), então o pior caso é o
-# catálogo ficar vazio até isso ser confirmado. Escolhido o primeiro
-# candidato da lista do handout, em ordem de probabilidade; os outros três
-# (`/api/v1/mangas`, `/api/v1/comics`, `/api/v1/titles`) ficam como próxima
-# tentativa se este não bater. Conferir contra o site (de um IP que não leve
-# challenge) antes de confiar em catálogo/busca em produção — o estágio de
-# capítulos (`parse()`) não depende disto.
+# Path do endpoint de listagem, usado por catálogo/busca. CONFIRMADO em
+# 2026-07-30, não contra o site ao vivo (Cloudflare continua bloqueando com
+# um challenge JS real, "Just a moment...", todo GET direto deste ambiente —
+# curl incluso, então não é fingerprint de cliente), mas lendo o bundle real
+# do app (`env-tiv3b5-C62t0jdR.js`, arquivo servido por comix.to e capturado
+# fora deste ambiente): a constante de rota é `W.manga.list = "/manga"`, e o
+# client de busca do próprio app chama exatamente essa rota
+# (`N.list({keyword:o,limit:12})`, em `main-tiv3b5-D41wynCQ.js`) — confirma
+# ao mesmo tempo o path e que busca/catálogo são a mesma função, como o
+# handout já indicava. `fetch_http`/`_parece_cloudflare` tratam o bloqueio
+# como STATUS_BLOQUEADO (não derruba o run), então o pior caso enquanto o
+# challenge não for contornado (browser real / FlareSolverr) é o catálogo
+# ficar vazio.
 _COMIX_PATH_LISTA = "/api/v1/manga"
 
-_COMIX_LIMITE_PAGINA = 100  # handout: ajustar se a API impuser teto menor (não confirmado, ver acima)
+# Nunca visto acima de 31 no bundle real (browse=28, home=31, busca=12); 100
+# é a aposta do handout pra reduzir o nº de páginas, não um teto confirmado.
+# Sem risco funcional se a API cortar silenciosamente: a paginação só confia
+# em meta.hasNext, não na contagem pedida.
+_COMIX_LIMITE_PAGINA = 100
 _COMIX_MAX_PAGINAS = 400  # trava de segurança contra loop infinito
 _COMIX_DELAY = 0.5  # segundos entre páginas do catálogo
 
@@ -677,20 +674,36 @@ def _sem_espacos(s: str) -> str:
 
 def _order(criterio: dict) -> dict:
     """
-    Serialização dos parâmetros de ordenação. NÃO confirmada empiricamente
-    (mesmo bloqueio do Cloudflare descrito em `_COMIX_PATH_LISTA` impediu o
-    teste A/B título:asc vs. título:desc da seção 5.2 do handout).
+    Serialização dos parâmetros de ordenação. CONFIRMADO em 2026-07-30 pela
+    combinação de duas evidências (não por request ao vivo, ver
+    `_COMIX_PATH_LISTA`):
 
-    Variante A (abaixo): axios com paramsSerializer padrão, que faz
-    JSON.stringify de objetos aninhados — è o comportamento default da
-    biblioteca, então é a aposta mais provável na ausência de confirmação.
+    1. O bundle real (`env-tiv3b5-C62t0jdR.js`) cria o client Axios sem
+       `paramsSerializer` custom (`_.create({baseURL:"/api/v1",
+       withCredentials:!0,timeout:15e3,headers:{...}})`), e `main-*.js` passa
+       `order` como objeto JS puro (`order:{chapter_updated_at:"desc"}`,
+       várias ocorrências) — nunca `JSON.stringify(order)`. Ou seja, o que
+       vai pra URL é o que o serializador PADRÃO do Axios produz.
+    2. Lendo o fonte do Axios instalado neste ambiente
+       (`axios/lib/helpers/toFormData.js`, `renderKey()`): sem `dots:true`
+       explícito (que o app não passa), objeto aninhado vira notação de
+       colchetes — `renderKey` monta `parent[child]`, não JSON.stringify.
+       Esse comportamento é o do Axios pós-reescrita (>=0.27, a lib de
+       `AxiosURLSearchParams` usa `toFormData` por baixo); a suposição
+       antiga (JSON.stringify) valia só no serializer legado pré-0.27.
+
+    Variante B (colchetes) é portanto a aposta correta, invertendo a
+    suposição inicial (Variante A, JSON.stringify) que este código tinha
+    antes de ler o bundle real.
     """
-    return {"order": json.dumps(criterio, separators=(",", ":"))}
-    # Variante B (notação de colchetes, comum em apps Laravel/PHP no backend):
-    # descartada como PRIMEIRA tentativa só por ser menos provável com axios,
-    # não por teste que a reprovou — se a Variante A não ordenar nada (mesmo
-    # resultado pra asc/desc), tentar esta antes de qualquer outra coisa.
-    # return {f"order[{k}]": v for k, v in criterio.items()}
+    return {f"order[{k}]": v for k, v in criterio.items()}
+    # Variante A (JSON.stringify) — comportamento do serializer LEGADO do
+    # Axios (pré-0.27), descartada: o bundle real não usa dots/serializer
+    # custom, e a lib instalada (>=0.27) não faz JSON.stringify por padrão
+    # pra objeto aninhado em `params`. Mantida comentada só como próxima
+    # tentativa se a B, por algum motivo (versão de Axios mais antiga no
+    # bundle real do site), não ordenar nada.
+    # return {"order": json.dumps(criterio, separators=(",", ":"))}
 
 
 class ComixAdapter(SourceAdapter):
@@ -703,12 +716,14 @@ class ComixAdapter(SourceAdapter):
     O `<meta name="cfg">` da página é o sitekey do Turnstile (captcha dos
     formulários de conta), não um token de acesso. Leitura é anônima.
 
-    Catálogo e busca usam o mesmo endpoint de listagem da API (`/api/v1`),
-    variando só os parâmetros. Ver `_endpoint_lista`. O path exato e a
-    serialização de `order` NÃO foram confirmados contra o site (Cloudflare
-    bloqueou todo acesso direto deste ambiente, ver comentário em
-    `_COMIX_PATH_LISTA`) — checar antes de confiar em catálogo/busca em
-    produção. O estágio de capítulos não depende disso.
+    Catálogo e busca usam o mesmo endpoint de listagem da API (`/api/v1/manga`),
+    variando só os parâmetros — confirmado lendo o bundle real do app (ver
+    comentário em `_COMIX_PATH_LISTA`): a busca client-side chama
+    `N.list({keyword,limit:12})`, a mesma função usada pelo catálogo. Path e
+    serialização de `order` (notação de colchetes) também confirmados assim,
+    não por request ao vivo — o site segue atrás de um challenge JS do
+    Cloudflare pra qualquer acesso direto deste ambiente. O estágio de
+    capítulos (`parse()`) não depende de nenhum dos dois.
 
     Ressalvas registradas (HANDOUT_SCRAPER_COMIX seção 8, sem prova negativa):
 
@@ -893,10 +908,11 @@ class ComixAdapter(SourceAdapter):
         return resultado
 
     def buscar(self, url: str, titulo: str) -> list[tuple[str, str]]:
-        itens, _ = self._consultar(
-            url,
-            {"keyword": titulo, "limit": 12, **_order({"relevance": "desc"})},
-        )
+        # {"keyword": ..., "limit": 12}, sem `order`: é exatamente a chamada
+        # que o diálogo de busca do próprio app faz (N.list({keyword,limit:12})
+        # em main-tiv3b5-D41wynCQ.js) — sem parâmetro de ordenação, o servidor
+        # decide (presumivelmente já por relevância pra busca por keyword).
+        itens, _ = self._consultar(url, {"keyword": titulo, "limit": 12})
         return [
             (str(it["title"]), str(it["url"]))
             for it in itens

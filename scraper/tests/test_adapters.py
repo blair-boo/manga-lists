@@ -9,7 +9,7 @@ import pytest
 
 from adapter_base import RawContent, STATUS_BLOQUEADO, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
 from adapters import CmsGenericoAdapter, EzmangaAdapter
-from adapters_novos import ComixAdapter, MadaraAdapter, MagustoonAdapter
+from adapters_novos import ComixAdapter, MadaraAdapter, MagustoonAdapter, _order as comix_order
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -252,3 +252,11 @@ def test_comix_hid_da_url():
 def test_comix_url_da_fonte(slug, esperado):
     adapter = ComixAdapter()
     assert adapter.url_da_fonte("https://comix.to/", slug) == esperado
+
+
+def test_comix_order_notacao_de_colchetes():
+    # Confirmado lendo o bundle real do app + o fonte do Axios instalado
+    # (toFormData.renderKey): sem paramsSerializer custom, objeto aninhado em
+    # `params` vira notação de colchetes, não JSON.stringify (ver docstring
+    # de `_order` em adapters_novos.py).
+    assert comix_order({"chapter_updated_at": "desc"}) == {"order[chapter_updated_at]": "desc"}
