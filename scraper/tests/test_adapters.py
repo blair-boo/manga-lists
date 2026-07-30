@@ -2,13 +2,14 @@
 comentários nos arquivos de scraper/tests/fixtures/). Só exercitam parse():
 nenhum teste toca rede, fetch ou Supabase."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from adapter_base import RawContent, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
+from adapter_base import RawContent, STATUS_BLOQUEADO, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
 from adapters import CmsGenericoAdapter, EzmangaAdapter
-from adapters_novos import MadaraAdapter, MagustoonAdapter
+from adapters_novos import ComixAdapter, MadaraAdapter, MagustoonAdapter
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -117,3 +118,137 @@ def test_magustoon_sem_links_do_slug_nao_levanta():
     )
     resultado = MagustoonAdapter().parse(raw)
     assert resultado.status == STATUS_VAZIA
+
+
+# --- ComixAdapter (React Query initial-data) ---------------------------------
+
+
+def _comix_html(detalhe: dict | None, hid: str = "l78rz", com_chave_groups: bool = True) -> str:
+    """HTML mínimo com o bloco #initial-data, pro teste montar cenários sem
+    depender do fixture completo (mesmo padrão dos outros adaptadores)."""
+    queries = {}
+    if detalhe is not None:
+        chave = json.dumps(["manga", "detail", hid], separators=(",", ":"))
+        queries[chave] = detalhe
+    if com_chave_groups:
+        chave_groups = json.dumps(["manga", "groups", hid], separators=(",", ":"))
+        queries[chave_groups] = {}
+    blob = {"page": "manga", "queries": queries, "manga": {"hid": hid}}
+    blob_json = json.dumps(blob, separators=(",", ":"))
+    return f'<html><body><script type="application/json" id="initial-data">{blob_json}</script></body></html>'
+
+
+def test_comix_parse_ok():
+    raw = RawContent(
+        "ok",
+        "https://comix.to/title/l78rz-marchioness-maron",
+        text=fixture("comix_title.html"),
+    )
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_OK
+    assert r.ultimo_capitulo == 48
+    assert isinstance(r.ultimo_capitulo, int)
+    assert r.titulo_site == "Marchioness Maron"
+    assert r.tipo_detectado == "manga"
+    assert r.link_capitulo == (
+        "https://comix.to/title/l78rz-marchioness-maron/11128392-chapter-48"
+    )
+
+
+def test_comix_capitulo_decimal_vira_float():
+    detalhe = {
+        "title": "Some Title",
+        "type": "manga",
+        "hasChapters": True,
+        "latestChapter": 48.5,
+        "latestChapterUrl": "/title/l78rz-some-title/1-chapter-48-5",
+    }
+    raw = RawContent(
+        "ok", "https://comix.to/title/l78rz-some-title", text=_comix_html(detalhe)
+    )
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_OK
+    assert r.ultimo_capitulo == 48.5
+    assert isinstance(r.ultimo_capitulo, float)
+
+
+def test_comix_hasChapters_false_vazia_mas_preenche_titulo():
+    detalhe = {"title": "Sem Capítulos Ainda", "type": "manga", "hasChapters": False}
+    raw = RawContent(
+        "ok", "https://comix.to/title/l78rz-sem-capitulos", text=_comix_html(detalhe)
+    )
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_VAZIA
+    assert r.titulo_site == "Sem Capítulos Ainda"
+
+
+def test_comix_latestChapter_zero_vazia():
+    detalhe = {
+        "title": "Zero",
+        "type": "manga",
+        "hasChapters": True,
+        "latestChapter": 0,
+        "latestChapterUrl": "/title/l78rz-zero/1-chapter-0",
+    }
+    raw = RawContent("ok", "https://comix.to/title/l78rz-zero", text=_comix_html(detalhe))
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_VAZIA
+
+
+def test_comix_sem_bloco_initial_data_nao_levanta():
+    raw = RawContent("ok", "https://comix.to/title/l78rz-x", text="<html><body>nada aqui</body></html>")
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_INVALIDA
+
+
+def test_comix_blob_sem_chave_detail_invalida():
+    # ex.: página de browse, cujo blob não traz nenhuma chave ["manga","detail",...].
+    blob = {"page": "browse", "queries": {'["manga","list"]': {"items": []}}}
+    html = (
+        '<html><body><script type="application/json" id="initial-data">'
+        + json.dumps(blob, separators=(",", ":"))
+        + "</script></body></html>"
+    )
+    raw = RawContent("ok", "https://comix.to/browse?types=manga", text=html)
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_INVALIDA
+
+
+def test_comix_fallback_estrutural_sem_hid_na_url():
+    # URL sem hid reconhecível, mas o blob tem a chave ["manga","detail",...]:
+    # a varredura estrutural ainda encontra o registro.
+    detalhe = {
+        "title": "Achado Sem Hid",
+        "type": "manhua",
+        "hasChapters": True,
+        "latestChapter": 3,
+        "latestChapterUrl": "/title/xyz-achado/1-chapter-3",
+    }
+    raw = RawContent("ok", "https://comix.to/algo", text=_comix_html(detalhe, hid="xyz"))
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_OK
+    assert r.titulo_site == "Achado Sem Hid"
+
+
+def test_comix_acesso_bloqueado():
+    raw = RawContent("acesso_bloqueado", "https://comix.to/title/l78rz-x", diagnostico="HTTP 403 (possível Cloudflare)")
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_BLOQUEADO
+
+
+def test_comix_hid_da_url():
+    adapter = ComixAdapter()
+    assert adapter._hid_da_url("https://comix.to/title/l78rz-marchioness-maron") == "l78rz"
+    assert adapter._hid_da_url("https://comix.to/browse?types=manga") is None
+
+
+@pytest.mark.parametrize(
+    "slug,esperado",
+    [
+        ("/title/l78rz-marchioness-maron", "https://comix.to/title/l78rz-marchioness-maron"),
+        ("title/l78rz-marchioness-maron", "https://comix.to/title/l78rz-marchioness-maron"),
+    ],
+)
+def test_comix_url_da_fonte(slug, esperado):
+    adapter = ComixAdapter()
+    assert adapter.url_da_fonte("https://comix.to/", slug) == esperado

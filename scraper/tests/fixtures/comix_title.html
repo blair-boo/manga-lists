@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- Fixture SINTÉTICO mínimo do cache React Query embutido pelo comix
+     (ComixAdapter): bloco script de id initial-data com a chave
+     ["manga","detail","<hid>"] (mais uma chave ["manga","groups","<hid>"]
+     vazia, pra preservar a estrutura externa). O HTML real da obra não
+     estava disponível neste ambiente (acesso a comix.to bloqueado por
+     Cloudflare, ver comentário em _COMIX_PATH_LISTA em adapters_novos.py),
+     então os valores abaixo (título, hid, número/URL do capítulo) seguem
+     exatamente os exemplos do HANDOUT_SCRAPER_COMIX (obra "Marchioness
+     Maron"). Trocar por um dump real quando houver. As chaves do JSON não
+     têm espaço (separators=(",",":")), que é o formato que o parser
+     encontra na vida real (json.dumps sem espaço, não reformatado). -->
+<html>
+<head><title>Marchioness Maron | Comix</title>
+<meta name="cfg" content="0x4AAAAAAAAAAAAAAAAAAAAA">
+</head>
+<body>
+<script type="application/json" id="initial-data">{"page":"manga","queries":{"[\"manga\",\"detail\",\"l78rz\"]":{"id":118292,"hid":"l78rz","title":"Marchioness Maron","type":"manhwa","status":"ongoing","hasChapters":true,"latestChapter":48,"latestChapterUrl":"/title/l78rz-marchioness-maron/11128392-chapter-48"},"[\"manga\",\"groups\",\"l78rz\"]":{}},"manga":{"hid":"l78rz","id":118292}}</script>
+</body>
+</html>
