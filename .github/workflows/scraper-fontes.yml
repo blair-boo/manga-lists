@@ -29,4 +29,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Roteamento por API de scraping (ScraperAPI/scrape.do) pros hosts
+          # atrás de challenge JS do Cloudflare (comix.to). Só ativa quando a
+          # secret da chave existe; sem ela, é no-op. Ver scraper/scraping_api.py.
+          SCRAPING_API_HOSTS: comix.to,comix.ws
+          SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
+          SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }}
         run: python discover_fontes.py
