@@ -91,4 +91,54 @@ describe('obrasFiltradasOrdenadas', () => {
     const resultado = obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, 'titulo');
     expect(resultado.map((o) => o.id)).toEqual(['1']);
   });
+
+  it('filtroSemCapa em "incluir" só mostra obras sem capa', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', capa_url: 'https://img/a.jpg' }),
+      obraFake({ id: '2', titulo: 'B', capa_url: null }),
+    ];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemCapa: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
+
+  it('filtroSemCapa em "excluir" some com quem não tem capa', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', capa_url: 'https://img/a.jpg' }),
+      obraFake({ id: '2', titulo: 'B', capa_url: null }),
+    ];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemCapa: 'excluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['1']);
+  });
+
+  it('capa como string vazia conta como sem capa', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', capa_url: 'https://img/a.jpg' }),
+      obraFake({ id: '2', titulo: 'B', capa_url: '' }),
+    ];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemCapa: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
+
+  it('filtroSemNu em "incluir" só mostra obras sem novelupdates_url', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', novelupdates_url: 'https://novelupdates.com/a' }),
+      obraFake({ id: '2', titulo: 'B', novelupdates_url: null }),
+    ];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemNu: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
+
+  it('novelupdates_url undefined (registro legado) conta como sem link', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', novelupdates_url: 'https://novelupdates.com/a' }),
+      obraFake({ id: '2', titulo: 'B', novelupdates_url: undefined as unknown as null }),
+    ];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemNu: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
 });

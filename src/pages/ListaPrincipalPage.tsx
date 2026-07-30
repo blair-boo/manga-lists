@@ -3,16 +3,20 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
+import { BuscaObras } from '../components/BuscaObras';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
 import {
-  FILTROS_KEY,
   ORDENACOES,
   lerFiltrosSalvos,
   lerOrdenacaoSalva,
+  limparFiltrosSalvos,
   obrasFiltradasOrdenadas,
   proximoEstadoFiltro,
+  salvarFiltros,
+  semCapa,
+  temFiltroAtivo as calcularTemFiltroAtivo,
   type EstadoFiltro,
   type FiltrosSalvos,
   type Ordenacao,
@@ -63,6 +67,8 @@ export function ListaPrincipalPage() {
   );
   const [filtroNovel, setFiltroNovel] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroNovel);
   const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroUnsourced);
+  const [filtroSemCapa, setFiltroSemCapa] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemCapa);
+  const [filtroSemNu, setFiltroSemNu] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemNu);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -80,8 +86,10 @@ export function ListaPrincipalPage() {
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
+      filtroSemCapa,
+      filtroSemNu,
     };
-    localStorage.setItem(FILTROS_KEY, JSON.stringify(dados));
+    salvarFiltros(dados);
   }, [
     busca,
     tipo,
@@ -92,6 +100,8 @@ export function ListaPrincipalPage() {
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
+    filtroSemCapa,
+    filtroSemNu,
   ]);
 
   function alternarViewMode(modo: ViewMode) {
@@ -164,6 +174,12 @@ export function ListaPrincipalPage() {
     [obras, semFonte]
   );
 
+  const contagemSemCapa = useMemo(() => (obras ?? []).filter(semCapa).length, [obras]);
+  const contagemSemNu = useMemo(
+    () => (obras ?? []).filter((o) => !o.novelupdates_url).length,
+    [obras]
+  );
+
   const filtradas = useMemo(() => {
     if (!obras) return [];
     const filtros: FiltrosSalvos = {
@@ -176,6 +192,8 @@ export function ListaPrincipalPage() {
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
+      filtroSemCapa,
+      filtroSemNu,
     };
     return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao);
   }, [
@@ -189,20 +207,25 @@ export function ListaPrincipalPage() {
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
+    filtroSemCapa,
+    filtroSemNu,
     fontesPorObra,
     ordenacao,
   ]);
 
-  const temFiltroAtivo =
-    !!busca ||
-    !!tipo ||
-    Object.values(statusLeituraFiltros).some((v) => v !== 'off') ||
-    !!statusPublicacao ||
-    generosSel.length > 0 ||
-    tagsSel.length > 0 ||
-    filtroNovoCapitulo !== 'off' ||
-    filtroNovel !== 'off' ||
-    filtroUnsourced !== 'off';
+  const temFiltroAtivo = calcularTemFiltroAtivo({
+    busca,
+    tipo,
+    statusLeituraFiltros,
+    statusPublicacao,
+    generosSel,
+    tagsSel,
+    filtroNovoCapitulo,
+    filtroNovel,
+    filtroUnsourced,
+    filtroSemCapa,
+    filtroSemNu,
+  });
 
   function limparFiltros() {
     setBusca('');
@@ -214,6 +237,9 @@ export function ListaPrincipalPage() {
     setFiltroNovoCapitulo('off');
     setFiltroNovel('off');
     setFiltroUnsourced('off');
+    setFiltroSemCapa('off');
+    setFiltroSemNu('off');
+    limparFiltrosSalvos();
   }
 
   const carregando = obras === undefined;
@@ -243,13 +269,7 @@ export function ListaPrincipalPage() {
 
   return (
     <div className="lista-principal">
-      <input
-        type="search"
-        placeholder="Search by title…"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        className="busca-topo"
-      />
+      <BuscaObras value={busca} onChange={setBusca} />
 
       <div className="status-chips">
         <button
@@ -290,6 +310,24 @@ export function ListaPrincipalPage() {
         >
           Unsourced
           <span className="status-chip-contagem">{contagemUnsourced}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-sem-capa ${classeEstadoFiltro(filtroSemCapa)}`}
+          onClick={() => setFiltroSemCapa(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroSemCapa)}
+        >
+          No cover
+          <span className="status-chip-contagem">{contagemSemCapa}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-sem-nu ${classeEstadoFiltro(filtroSemNu)}`}
+          onClick={() => setFiltroSemNu(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroSemNu)}
+        >
+          No NU link
+          <span className="status-chip-contagem">{contagemSemNu}</span>
         </button>
       </div>
 

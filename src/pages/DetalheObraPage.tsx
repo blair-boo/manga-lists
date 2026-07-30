@@ -38,12 +38,20 @@ import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
+import { BuscaObras } from '../components/BuscaObras';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { IconeDisquete, IconeGrip, IconeLivro, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
-import { lerFiltrosSalvos, lerOrdenacaoSalva, obrasFiltradasOrdenadas } from '../lib/filtrosLista';
+import {
+  lerFiltrosSalvos,
+  lerOrdenacaoSalva,
+  limparFiltrosSalvos,
+  obrasFiltradasOrdenadas,
+  salvarBusca,
+  temFiltroAtivo,
+} from '../lib/filtrosLista';
 import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
 import { renomearCapaSeNecessario } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
@@ -275,6 +283,25 @@ export function DetalheObraPage() {
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
   const generos = useListasPorCategoria('genero');
   const tags = useListasPorCategoria('tag');
+
+  // Campo de busca compartilhado com a lista (Bloco C3): estado próprio aqui
+  // (não há lista pra filtrar), sincronizado com o mesmo localStorage.
+  const [busca, setBusca] = useState(() => lerFiltrosSalvos().busca);
+
+  function alterarBusca(texto: string) {
+    setBusca(texto);
+    salvarBusca(texto);
+  }
+
+  // A busca é o único filtro que esta tela altera, então recalcular a partir
+  // do localStorage (em vez de manter os demais filtros em estado) já reflete
+  // qualquer alteração feita na lista antes de navegar pra cá.
+  const filtroAtivo = useMemo(() => temFiltroAtivo({ ...lerFiltrosSalvos(), busca }), [busca]);
+
+  function handleLimparFiltros() {
+    limparFiltrosSalvos();
+    setBusca('');
+  }
 
   const [obraIdCarregado, setObraIdCarregado] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -589,6 +616,18 @@ export function DetalheObraPage() {
           </button>
         )}
       </div>
+
+      <BuscaObras
+        value={busca}
+        onChange={alterarBusca}
+        acaoDireita={
+          filtroAtivo ? (
+            <button type="button" className="filtros-limpar" onClick={handleLimparFiltros}>
+              Clear filters
+            </button>
+          ) : null
+        }
+      />
 
       <div className="detalhe-obra-form">
         <label>

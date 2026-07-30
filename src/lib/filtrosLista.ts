@@ -24,6 +24,10 @@ function estadoFiltroValido(v: unknown): EstadoFiltro {
   return v === 'incluir' || v === 'excluir' ? v : 'off';
 }
 
+/** Status de leitura renomeado (Complete -> Finished). Remapeia filtros salvos
+ * antes da renomeação, senão o chip fica órfão e nunca casa com nada. */
+const STATUS_LEITURA_RENOMEADOS: Record<string, string> = { Complete: 'Finished' };
+
 export type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
 
 export const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
@@ -69,6 +73,8 @@ export interface FiltrosSalvos {
   filtroNovoCapitulo: EstadoFiltro;
   filtroNovel: EstadoFiltro;
   filtroUnsourced: EstadoFiltro;
+  filtroSemCapa: EstadoFiltro;
+  filtroSemNu: EstadoFiltro;
 }
 
 export const FILTROS_PADRAO: FiltrosSalvos = {
@@ -81,6 +87,8 @@ export const FILTROS_PADRAO: FiltrosSalvos = {
   filtroNovoCapitulo: 'off',
   filtroNovel: 'off',
   filtroUnsourced: 'off',
+  filtroSemCapa: 'off',
+  filtroSemNu: 'off',
 };
 
 export function lerFiltrosSalvos(): FiltrosSalvos {
@@ -90,7 +98,7 @@ export function lerFiltrosSalvos(): FiltrosSalvos {
     const dados = JSON.parse(bruto) as Partial<FiltrosSalvos>;
     const statusLeituraFiltros: Record<string, EstadoFiltro> = {};
     for (const [k, v] of Object.entries(dados.statusLeituraFiltros ?? {})) {
-      statusLeituraFiltros[k] = estadoFiltroValido(v);
+      statusLeituraFiltros[STATUS_LEITURA_RENOMEADOS[k] ?? k] = estadoFiltroValido(v);
     }
     return {
       busca: typeof dados.busca === 'string' ? dados.busca : FILTROS_PADRAO.busca,
@@ -102,10 +110,47 @@ export function lerFiltrosSalvos(): FiltrosSalvos {
       filtroNovoCapitulo: estadoFiltroValido(dados.filtroNovoCapitulo),
       filtroNovel: estadoFiltroValido(dados.filtroNovel),
       filtroUnsourced: estadoFiltroValido(dados.filtroUnsourced),
+      filtroSemCapa: estadoFiltroValido(dados.filtroSemCapa),
+      filtroSemNu: estadoFiltroValido(dados.filtroSemNu),
     };
   } catch {
     return FILTROS_PADRAO;
   }
+}
+
+export function temFiltroAtivo(f: FiltrosSalvos): boolean {
+  return (
+    !!f.busca ||
+    !!f.tipo ||
+    Object.values(f.statusLeituraFiltros).some((v) => v !== 'off') ||
+    !!f.statusPublicacao ||
+    f.generosSel.length > 0 ||
+    f.tagsSel.length > 0 ||
+    f.filtroNovoCapitulo !== 'off' ||
+    f.filtroNovel !== 'off' ||
+    f.filtroUnsourced !== 'off' ||
+    f.filtroSemCapa !== 'off' ||
+    f.filtroSemNu !== 'off'
+  );
+}
+
+export function salvarFiltros(f: FiltrosSalvos): void {
+  localStorage.setItem(FILTROS_KEY, JSON.stringify(f));
+}
+
+/** Grava só a busca, preservando o resto (usado pela tela da obra, que não
+ * mantém os demais filtros em estado). */
+export function salvarBusca(texto: string): void {
+  salvarFiltros({ ...lerFiltrosSalvos(), busca: texto });
+}
+
+export function limparFiltrosSalvos(): void {
+  salvarFiltros(FILTROS_PADRAO);
+}
+
+/** Capa ausente: cobre null e string vazia (obras importadas trazem ''). */
+export function semCapa(o: Obra): boolean {
+  return !o.capa_url || o.capa_url.trim() === '';
 }
 
 /** Mesmo pipeline de filtro + ordenação usado na lista principal — reaproveitado
@@ -139,5 +184,7 @@ export function obrasFiltradasOrdenadas(
     .filter((o) => passaFiltro(filtros.filtroNovoCapitulo, temNovoCapitulo(o)))
     .filter((o) => passaFiltro(filtros.filtroNovel, familiaDeTipo(o.tipo) === 'novel'))
     .filter((o) => passaFiltro(filtros.filtroUnsourced, semFonte(o)))
+    .filter((o) => passaFiltro(filtros.filtroSemCapa, semCapa(o)))
+    .filter((o) => passaFiltro(filtros.filtroSemNu, !o.novelupdates_url))
     .sort((a, b) => comparar(a, b, ordenacao));
 }
