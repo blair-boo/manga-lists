@@ -82,11 +82,29 @@ def _host_de(url: str) -> str:
     return host.removeprefix("www.")
 
 
+def _render_para(target: str) -> bool:
+    """
+    Se deve pedir execução de JS no provider pra ESTE alvo.
+
+    Endpoint JSON (`/api/...`, o catálogo/busca do comix) NÃO deve ser
+    renderizado: o navegador embrulharia o JSON num HTML (`<pre>…</pre>`) e
+    quebraria o `resp.json()`. O provider ainda resolve o Cloudflare sem
+    render. Já as páginas HTML (capítulos, com o `#initial-data`) precisam de
+    render pra passar do interstitial "Just a moment".
+    """
+    try:
+        if "/api/" in urlparse(target).path:
+            return False
+    except ValueError:
+        pass
+    return _env_flag("SCRAPING_API_RENDER", True)
+
+
 # Cada builder devolve (base_url, query_params, headers). `headers` é None pros
 # providers que autenticam por query param; o ScrapingBee usa header Bearer.
 def _construir_scraperapi(target: str) -> tuple[str, dict, dict | None]:
     params = {"api_key": os.environ["SCRAPERAPI_KEY"], "url": target}
-    if _env_flag("SCRAPING_API_RENDER", True):
+    if _render_para(target):
         params["render"] = "true"
     if _env_flag("SCRAPERAPI_ULTRA", False):
         params["ultra_premium"] = "true"
@@ -101,7 +119,7 @@ def _construir_scrapingbee(target: str) -> tuple[str, dict, dict | None]:
     # (embrulharia a resposta num envelope JSON e quebraria o parser) nem
     # `country_code` (o comix é global).
     params = {"url": target}
-    params["render_js"] = "true" if _env_flag("SCRAPING_API_RENDER", True) else "false"
+    params["render_js"] = "true" if _render_para(target) else "false"
     if _env_flag("SCRAPINGBEE_STEALTH", False):
         params["stealth_proxy"] = "true"
     headers = {"Authorization": f"Bearer {os.environ['SCRAPINGBEE_KEY']}"}
@@ -110,7 +128,7 @@ def _construir_scrapingbee(target: str) -> tuple[str, dict, dict | None]:
 
 def _construir_scrapedo(target: str) -> tuple[str, dict, dict | None]:
     params = {"token": os.environ["SCRAPEDO_TOKEN"], "url": target}
-    if _env_flag("SCRAPING_API_RENDER", True):
+    if _render_para(target):
         params["render"] = "true"
     if _env_flag("SCRAPEDO_SUPER", False):
         params["super"] = "true"

@@ -96,7 +96,10 @@ ajuda a decidir.
   ordem, só chamado quando o ScraperAPI falha, ~3/18); a 1ª vez que cair nele
   confirma. Não passamos `json_response` (embrulharia a resposta e quebraria o
   parser) nem `country_code`.
-- **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre,
-  mas o endpoint é JSON. Puxar JSON com `render` ligado pode voltar embrulhado
-  em HTML e quebrar o `resp.json()` — a validar (testando 1 página, de
-  preferência com `render=false`) antes de confiar no catálogo.
+- **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre. O
+  endpoint é JSON (`/api/v1/manga`), então o roteador **desliga o render pra
+  qualquer alvo `/api/...`** (`_render_para` em `scraping_api.py`) — senão o
+  navegador embrulharia o JSON em HTML e quebraria o `resp.json()`. O provider
+  ainda resolve o Cloudflare sem render (e sai mais barato). O catálogo casa
+  por título principal **e** alternativos (`altTitles`). A confirmar ao vivo
+  na 1ª run de "Update works".

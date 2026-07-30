@@ -707,6 +707,51 @@ def _order(criterio: dict) -> dict:
     # return {"order": json.dumps(criterio, separators=(",", ":"))}
 
 
+def _titulos_do_item(it: dict) -> list[str]:
+    """
+    Todos os títulos casáveis de um item do catálogo: o `title` principal MAIS
+    os `altTitles`. A dona pediu explicitamente pra casar também pelos títulos
+    alternativos (revertendo a decisão inicial do handout, que usava só
+    `title`). Cada título vira um candidato separado no match — assim uma obra
+    cujo título principal difere, mas cujo alternativo bate, ainda casa.
+    Aceita altTitles como lista de strings ou de objetos {title|name}.
+    """
+    titulos: list[str] = []
+
+    def add(valor) -> None:
+        if isinstance(valor, str):
+            s = valor.strip()
+            if s and s not in titulos:
+                titulos.append(s)
+
+    add(it.get("title"))
+    alt = it.get("altTitles")
+    if isinstance(alt, list):
+        for el in alt:
+            if isinstance(el, str):
+                add(el)
+            elif isinstance(el, dict):
+                add(el.get("title") or el.get("name"))
+    return titulos
+
+
+def _pares_titulo_url(itens: list[dict]) -> list[tuple[str, str]]:
+    """
+    Expande os itens do catálogo em pares (título, url canônica) — um par por
+    título casável (principal + alternativos). Vários pares apontando pra mesma
+    url são inofensivos: o `update_obras`/`discover_fontes` já escolhe o melhor
+    score por slug, então isso só dá mais chances de casar.
+    """
+    pares: list[tuple[str, str]] = []
+    for it in itens:
+        url = it.get("url")
+        if not url:
+            continue
+        for titulo in _titulos_do_item(it):
+            pares.append((titulo, str(url)))
+    return pares
+
+
 class ComixAdapter(SourceAdapter):
     """
     Comix (comix.to / comix.ws): SPA que embute o cache do React Query no HTML
@@ -893,7 +938,9 @@ class ComixAdapter(SourceAdapter):
         return (itens if isinstance(itens, list) else []), (meta if isinstance(meta, dict) else {})
 
     def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
-        """(título, url relativa) de todo o catálogo, paginando por meta.lastPage."""
+        """(título, url relativa) de todo o catálogo, paginando por meta.hasNext.
+        Emite um par por título casável (principal + alternativos) de cada
+        item — ver _pares_titulo_url / _titulos_do_item."""
         resultado: list[tuple[str, str]] = []
         pagina = 1
         while pagina <= _COMIX_MAX_PAGINAS:
@@ -907,11 +954,7 @@ class ComixAdapter(SourceAdapter):
             )
             if not itens:
                 break
-            for it in itens:
-                titulo = it.get("title")
-                caminho = it.get("url")
-                if titulo and caminho:
-                    resultado.append((str(titulo), str(caminho)))
+            resultado.extend(_pares_titulo_url(itens))
             if not meta.get("hasNext"):
                 break
             pagina += 1
@@ -923,12 +966,9 @@ class ComixAdapter(SourceAdapter):
         # que o diálogo de busca do próprio app faz (N.list({keyword,limit:12})
         # em main-tiv3b5-D41wynCQ.js) — sem parâmetro de ordenação, o servidor
         # decide (presumivelmente já por relevância pra busca por keyword).
+        # Casa por título principal E alternativos (ver _pares_titulo_url).
         itens, _ = self._consultar(url, {"keyword": titulo, "limit": 12})
-        return [
-            (str(it["title"]), str(it["url"]))
-            for it in itens
-            if it.get("title") and it.get("url")
-        ]
+        return _pares_titulo_url(itens)
 
     def url_da_fonte(self, url: str, slug: str) -> str:
         # `slug` aqui é a URL canônica relativa que a API já devolve pronta.
