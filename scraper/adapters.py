@@ -319,6 +319,7 @@ class AdapterRegistry:
 # MgreadAdapter) e os demais adaptadores desse handout (NovelsHubAdapter,
 # ReadhiveAdapter, VymangaAdapter, MangaFoxAdapter, SakurazeAdapter).
 from adapters_novos import (  # noqa: E402
+    ComixAdapter,
     MadaraAdapter,
     MagustoonAdapter,
     MangaFoxAdapter,
@@ -339,6 +340,12 @@ REGISTRY = AdapterRegistry(
         MagustoonAdapter(),
         CmsGenericoAdapter(),
         EzmangaAdapter(),
+        # Comix logo em seguida (HANDOUT_SCRAPER_COMIX): seu matches() é
+        # específico (exige a chave ["manga","detail" no blob initial-data),
+        # então não rouba detecção de ninguém, mas entrar cedo evita que
+        # adaptadores genéricos de HTML tentem parsear a casca vazia da SPA
+        # antes dele.
+        ComixAdapter(),
         NovelsHubAdapter(),
         ReadhiveAdapter(),
         TsThemeAdapter(),

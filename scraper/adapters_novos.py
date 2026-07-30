@@ -13,7 +13,8 @@ classe documenta a correção quando houve uma.
 
 import json
 import re
-from urllib.parse import urlparse
+import time
+from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree
 
 import requests
@@ -31,6 +32,7 @@ from adapter_base import (
     STATUS_VAZIA,
     fetch_http,
 )
+from common import host_de_url, http_get
 from tipo_titulo import detectar_tipo, extrair_titulo_pagina
 
 # --- A1a. novelshub (Next.js, multi-tenant SaaS) ----------------------------
@@ -632,3 +634,291 @@ class MagustoonAdapter(SourceAdapter):
             link_capitulo=f"{p.scheme}://{p.netloc}{href}",
             tipo_detectado=detectar_tipo(raw.url, raw.text),
         )
+
+
+# --- A7. comix (React Query initial-data) -----------------------------------
+
+_COMIX_INITIAL_DATA_RE = re.compile(
+    r'<script[^>]+id=["\']initial-data["\'][^>]*>(.*?)</script>',
+    re.IGNORECASE | re.DOTALL,
+)
+_COMIX_HID_RE = re.compile(r"/title/([0-9A-Za-z]+)-")
+
+# Path do endpoint de listagem, usado por catálogo/busca. CONFIRMADO em
+# 2026-07-30, não contra o site ao vivo (Cloudflare continua bloqueando com
+# um challenge JS real, "Just a moment...", todo GET direto deste ambiente —
+# curl incluso, então não é fingerprint de cliente), mas lendo o bundle real
+# do app (`env-tiv3b5-C62t0jdR.js`, arquivo servido por comix.to e capturado
+# fora deste ambiente): a constante de rota é `W.manga.list = "/manga"`, e o
+# client de busca do próprio app chama exatamente essa rota
+# (`N.list({keyword:o,limit:12})`, em `main-tiv3b5-D41wynCQ.js`) — confirma
+# ao mesmo tempo o path e que busca/catálogo são a mesma função, como o
+# handout já indicava. `fetch_http`/`_parece_cloudflare` tratam o bloqueio
+# como STATUS_BLOQUEADO (não derruba o run), então o pior caso enquanto o
+# challenge não for contornado (browser real / FlareSolverr) é o catálogo
+# ficar vazio.
+_COMIX_PATH_LISTA = "/api/v1/manga"
+
+# Nunca visto acima de 31 no bundle real (browse=28, home=31, busca=12); 100
+# é a aposta do handout pra reduzir o nº de páginas, não um teto confirmado.
+# Sem risco funcional se a API cortar silenciosamente: a paginação só confia
+# em meta.hasNext, não na contagem pedida.
+_COMIX_LIMITE_PAGINA = 100
+_COMIX_MAX_PAGINAS = 400  # trava de segurança contra loop infinito
+_COMIX_DELAY = 0.5  # segundos entre páginas do catálogo
+
+
+def _sem_espacos(s: str) -> str:
+    return "".join(s.split())
+
+
+def _order(criterio: dict) -> dict:
+    """
+    Serialização dos parâmetros de ordenação. CONFIRMADO em 2026-07-30 pela
+    combinação de duas evidências (não por request ao vivo, ver
+    `_COMIX_PATH_LISTA`):
+
+    1. O bundle real (`env-tiv3b5-C62t0jdR.js`) cria o client Axios sem
+       `paramsSerializer` custom (`_.create({baseURL:"/api/v1",
+       withCredentials:!0,timeout:15e3,headers:{...}})`), e `main-*.js` passa
+       `order` como objeto JS puro (`order:{chapter_updated_at:"desc"}`,
+       várias ocorrências) — nunca `JSON.stringify(order)`. Ou seja, o que
+       vai pra URL é o que o serializador PADRÃO do Axios produz.
+    2. Lendo o fonte do Axios instalado neste ambiente
+       (`axios/lib/helpers/toFormData.js`, `renderKey()`): sem `dots:true`
+       explícito (que o app não passa), objeto aninhado vira notação de
+       colchetes — `renderKey` monta `parent[child]`, não JSON.stringify.
+       Esse comportamento é o do Axios pós-reescrita (>=0.27, a lib de
+       `AxiosURLSearchParams` usa `toFormData` por baixo); a suposição
+       antiga (JSON.stringify) valia só no serializer legado pré-0.27.
+
+    Variante B (colchetes) é portanto a aposta correta, invertendo a
+    suposição inicial (Variante A, JSON.stringify) que este código tinha
+    antes de ler o bundle real.
+    """
+    return {f"order[{k}]": v for k, v in criterio.items()}
+    # Variante A (JSON.stringify) — comportamento do serializer LEGADO do
+    # Axios (pré-0.27), descartada: o bundle real não usa dots/serializer
+    # custom, e a lib instalada (>=0.27) não faz JSON.stringify por padrão
+    # pra objeto aninhado em `params`. Mantida comentada só como próxima
+    # tentativa se a B, por algum motivo (versão de Axios mais antiga no
+    # bundle real do site), não ordenar nada.
+    # return {"order": json.dumps(criterio, separators=(",", ":"))}
+
+
+class ComixAdapter(SourceAdapter):
+    """
+    Comix (comix.to / comix.ws): SPA que embute o cache do React Query no HTML
+    inicial, em `<script id="initial-data">`. O registro da obra fica na chave
+    `["manga","detail","<hid>"]` e já traz `latestChapter` / `latestChapterUrl`,
+    então o estágio de capítulos NÃO chama API: lê o HTML e pronto.
+
+    O `<meta name="cfg">` da página é o sitekey do Turnstile (captcha dos
+    formulários de conta), não um token de acesso. Leitura é anônima.
+
+    Catálogo e busca usam o mesmo endpoint de listagem da API (`/api/v1/manga`),
+    variando só os parâmetros — confirmado lendo o bundle real do app (ver
+    comentário em `_COMIX_PATH_LISTA`): a busca client-side chama
+    `N.list({keyword,limit:12})`, a mesma função usada pelo catálogo. Path e
+    serialização de `order` (notação de colchetes) também confirmados assim,
+    não por request ao vivo — o site segue atrás de um challenge JS do
+    Cloudflare pra qualquer acesso direto deste ambiente. O estágio de
+    capítulos (`parse()`) não depende de nenhum dos dois.
+
+    Ressalvas registradas (HANDOUT_SCRAPER_COMIX seção 8, sem prova negativa):
+
+    1. Escopo do `latestChapter`. Não há parâmetro de idioma em nenhum filtro
+       do site, o que sugere catálogo monolíngue, mas isso não é prova. Se o
+       número reportado divergir do que é legível na prática, investigar
+       aqui primeiro.
+    2. Capítulos bloqueados. Nenhum campo de lock/moeda/paywall aparece nos
+       itens de capítulo renderizados pelo app. Mesma observação: divergência
+       sistemática de contagem aponta pra cá.
+
+    Ambas se resolvem comparando o `latestChapter` do HTML com uma chamada de
+    capítulos ordenada por `{"number": "desc"}` numa obra qualquer, depois que
+    o endpoint da seção 5 estiver confirmado.
+    """
+
+    id = "comix"
+    display_name = "Comix (initial-data / React Query)"
+    access_strategy_padrao = ACCESS_HTTP
+
+    # --- leitura do blob ---------------------------------------------------
+
+    def _initial_data(self, texto: str) -> dict | None:
+        m = _COMIX_INITIAL_DATA_RE.search(texto or "")
+        if not m:
+            return None
+        try:
+            dados = json.loads(m.group(1))
+        except ValueError:
+            return None
+        return dados if isinstance(dados, dict) else None
+
+    def _hid_da_url(self, url: str) -> str | None:
+        m = _COMIX_HID_RE.search(url or "")
+        return m.group(1) if m else None
+
+    def _detalhe(self, dados: dict, url: str) -> dict | None:
+        """
+        Registro da obra. Tenta a chave exata montada a partir do hid da URL e,
+        se não bater (hid ausente ou chave com espaçamento diferente), cai numa
+        varredura estrutural por qualquer chave `["manga","detail",...]`.
+        """
+        queries = dados.get("queries")
+        if not isinstance(queries, dict):
+            return None
+
+        hid = self._hid_da_url(url)
+        if hid:
+            chave = json.dumps(["manga", "detail", hid], separators=(",", ":"))
+            alvo = queries.get(chave)
+            if isinstance(alvo, dict):
+                return alvo
+
+        for k, v in queries.items():
+            if isinstance(v, dict) and _sem_espacos(k).startswith('["manga","detail"'):
+                return v
+        return None
+
+    def _tipo(self, detalhe: dict, raw: RawContent) -> str | None:
+        # Site é só de quadrinhos: manga/manhwa/manhua/other caem todos na
+        # família 'manga' do projeto (familia_de_tipo); não há novels no catálogo.
+        tipo = str(detalhe.get("type") or "").lower()
+        if tipo in ("manga", "manhwa", "manhua", "other"):
+            return "manga"
+        if tipo == "novel":
+            return "novel"
+        # Tipo desconhecido (campo novo no site): cai na heurística compartilhada.
+        return detectar_tipo(raw.url, raw.text or "")
+
+    def _absoluta(self, url_pagina: str, caminho: str | None) -> str | None:
+        if not caminho:
+            return None
+        return urljoin(url_pagina, caminho)
+
+    # --- interface do adaptador -------------------------------------------
+
+    def matches(self, url: str) -> bool:
+        # Reconhecimento pelo conteúdo, não pelo hostname: cobre comix.to,
+        # comix.ws e qualquer outro espelho sem tocar no código.
+        raw = fetch_http(url)
+        if raw.status != "ok" or not raw.text:
+            return False
+        dados = self._initial_data(raw.text)
+        if not dados:
+            return False
+        queries = dados.get("queries")
+        return isinstance(queries, dict) and any(
+            _sem_espacos(k).startswith('["manga","detail"') for k in queries
+        )
+
+    def parse(self, raw: RawContent) -> ParseResult:
+        if raw.status == "acesso_bloqueado":
+            return ParseResult(STATUS_BLOQUEADO, diagnostico=raw.diagnostico)
+        if raw.status != "ok" or not raw.text:
+            return ParseResult(STATUS_ERRO, diagnostico=raw.diagnostico or "sem conteúdo")
+
+        dados = self._initial_data(raw.text)
+        if dados is None:
+            return ParseResult(STATUS_INVALIDA, diagnostico="não achei o bloco #initial-data")
+
+        detalhe = self._detalhe(dados, raw.url)
+        if detalhe is None:
+            return ParseResult(
+                STATUS_INVALIDA, diagnostico='initial-data sem chave ["manga","detail",...]'
+            )
+
+        titulo_site = detalhe.get("title") or None
+        tipo_detectado = self._tipo(detalhe, raw)
+
+        if not detalhe.get("hasChapters"):
+            return ParseResult(
+                STATUS_VAZIA,
+                titulo_site=titulo_site,
+                tipo_detectado=tipo_detectado,
+                diagnostico="obra reconhecida, ainda sem capítulos (hasChapters=false)",
+            )
+
+        numero = detalhe.get("latestChapter")
+        if not isinstance(numero, (int, float)) or numero <= 0:
+            return ParseResult(
+                STATUS_VAZIA,
+                titulo_site=titulo_site,
+                tipo_detectado=tipo_detectado,
+                diagnostico=f"latestChapter ausente ou inválido: {numero!r}",
+            )
+        numero = int(numero) if float(numero).is_integer() else float(numero)
+
+        return ParseResult(
+            STATUS_OK,
+            titulo_site=titulo_site,
+            tipo_detectado=tipo_detectado,
+            ultimo_capitulo=numero,
+            link_capitulo=self._absoluta(raw.url, detalhe.get("latestChapterUrl")),
+        )
+
+    # --- catálogo / busca ---------------------------------------------------
+
+    def _base(self, url: str) -> str:
+        return f"https://{host_de_url(url)}"
+
+    def _endpoint_lista(self, url: str) -> str:
+        return f"{self._base(url)}{_COMIX_PATH_LISTA}"
+
+    def _consultar(self, url: str, params: dict) -> tuple[list[dict], dict]:
+        """Uma página do endpoint de listagem: (items, meta). Erros viram ([], {})."""
+        try:
+            resp = http_get(self._endpoint_lista(url), params=params)
+            resp.raise_for_status()
+            dados = resp.json()
+        except (requests.RequestException, ValueError):
+            return [], {}
+        if not isinstance(dados, dict):
+            return [], {}
+        itens = dados.get("items")
+        meta = dados.get("meta")
+        return (itens if isinstance(itens, list) else []), (meta if isinstance(meta, dict) else {})
+
+    def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
+        """(título, url relativa) de todo o catálogo, paginando por meta.lastPage."""
+        resultado: list[tuple[str, str]] = []
+        pagina = 1
+        while pagina <= _COMIX_MAX_PAGINAS:
+            itens, meta = self._consultar(
+                url,
+                {
+                    "page": pagina,
+                    "limit": _COMIX_LIMITE_PAGINA,
+                    **_order({"chapter_updated_at": "desc"}),
+                },
+            )
+            if not itens:
+                break
+            for it in itens:
+                titulo = it.get("title")
+                caminho = it.get("url")
+                if titulo and caminho:
+                    resultado.append((str(titulo), str(caminho)))
+            if not meta.get("hasNext"):
+                break
+            pagina += 1
+            time.sleep(_COMIX_DELAY)
+        return resultado
+
+    def buscar(self, url: str, titulo: str) -> list[tuple[str, str]]:
+        # {"keyword": ..., "limit": 12}, sem `order`: é exatamente a chamada
+        # que o diálogo de busca do próprio app faz (N.list({keyword,limit:12})
+        # em main-tiv3b5-D41wynCQ.js) — sem parâmetro de ordenação, o servidor
+        # decide (presumivelmente já por relevância pra busca por keyword).
+        itens, _ = self._consultar(url, {"keyword": titulo, "limit": 12})
+        return [
+            (str(it["title"]), str(it["url"]))
+            for it in itens
+            if it.get("title") and it.get("url")
+        ]
+
+    def url_da_fonte(self, url: str, slug: str) -> str:
+        # `slug` aqui é a URL canônica relativa que a API já devolve pronta.
+        return urljoin(self._base(url) + "/", slug.lstrip("/"))
