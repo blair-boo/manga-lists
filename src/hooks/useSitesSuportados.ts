@@ -79,5 +79,29 @@ export function useSitesSuportados() {
   const statusObras = useMemo(() => agregarStatus(sites.map((s) => s.ultimaRunObras)), [sites]);
   const statusCapitulos = useMemo(() => agregarStatus(sites.map((s) => s.ultimaRunCapitulos)), [sites]);
 
-  return { sites, statusObras, statusCapitulos, carregando, erro, recarregar };
+  const finalizadoObras = useMemo(() => maisRecenteFinalizacao(sites.map((s) => s.ultimaRunObras)), [sites]);
+  const finalizadoCapitulos = useMemo(
+    () => maisRecenteFinalizacao(sites.map((s) => s.ultimaRunCapitulos)),
+    [sites]
+  );
+
+  return {
+    sites,
+    statusObras,
+    statusCapitulos,
+    finalizadoObras,
+    finalizadoCapitulos,
+    carregando,
+    erro,
+    recarregar,
+  };
+}
+
+/** Maior `finalizado_em` (mais recente) entre as últimas runs de um tipo. */
+function maisRecenteFinalizacao(runs: (ScraperRun | null)[]): string | null {
+  let max: string | null = null;
+  for (const r of runs) {
+    if (r?.finalizado_em && (max === null || r.finalizado_em > max)) max = r.finalizado_em;
+  }
+  return max;
 }

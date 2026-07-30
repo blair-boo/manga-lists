@@ -290,8 +290,12 @@
   margin-bottom: 16px;
 }
 
+/* flex-basis 0 (não 220px) pra os dois itens (Works/Chapters) dividirem a
+   linha e ficarem lado a lado mesmo no celular estreito, em vez de quebrar
+   um embaixo do outro. */
 .latest-run-item {
-  flex: 1 1 220px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .latest-run-rotulo {
@@ -300,6 +304,15 @@
   font-weight: 600;
   color: var(--text-h);
   margin-bottom: 4px;
+}
+
+/* Data/hora de conclusão da última run, abaixo do status. */
+.latest-run-data {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.8;
 }
 
 .site-detalhe {
