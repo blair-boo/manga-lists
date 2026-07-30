@@ -13,6 +13,7 @@ classe documenta a correção quando houve uma.
 
 import json
 import re
+import sys
 import time
 from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree
@@ -868,12 +869,22 @@ class ComixAdapter(SourceAdapter):
         return f"{self._base(url)}{_COMIX_PATH_LISTA}"
 
     def _consultar(self, url: str, params: dict) -> tuple[list[dict], dict]:
-        """Uma página do endpoint de listagem: (items, meta). Erros viram ([], {})."""
+        """
+        Uma página do endpoint de listagem: (items, meta). Erros viram ([], {})
+        — não é exceção (listar_catalogo/buscar vazios não devem derrubar a run
+        — ver update_obras.py), mas imprime o motivo, senão "0 títulos no
+        catálogo" fica indistinguível de "site bloqueou o acesso" (ex.:
+        challenge do Cloudflare, ver _COMIX_PATH_LISTA).
+        """
         try:
             resp = http_get(self._endpoint_lista(url), params=params)
             resp.raise_for_status()
             dados = resp.json()
-        except (requests.RequestException, ValueError):
+        except requests.RequestException as exc:
+            print(f"  comix: falha ao consultar {self._endpoint_lista(url)}: {exc}", file=sys.stderr)
+            return [], {}
+        except ValueError as exc:
+            print(f"  comix: resposta não é JSON válido de {self._endpoint_lista(url)}: {exc}", file=sys.stderr)
             return [], {}
         if not isinstance(dados, dict):
             return [], {}

@@ -28,16 +28,19 @@ from common import (
 from tipo_titulo import detectar_tipo
 
 
-def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | None]:
+def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | None, str | None]:
     """
-    (último capítulo, tipo detectado 'manga'/'novel'/None) de uma fonte (URL já
-    absoluta). Se o domínio tem adaptador designado, usa-o com a estratégia de
-    acesso resolvida; senão cai na heurística genérica de HTML, via `fetch_http`
-    (mesmo cliente Cloudflare-aware + fallback curl dos adaptadores) — a
-    detecção de tipo (Bloco B1) roda nos dois casos, por URL/HTML, não depende
-    do adaptador. Retornos que não são capítulo (vazio/bloqueado/erro de acesso)
-    não são exceção — apenas devolvem None (não contam como falha do batch; um
-    domínio sem adaptador bloqueado não deve derrubar a run inteira pra "erro").
+    (último capítulo, tipo detectado 'manga'/'novel'/None, diagnóstico quando
+    não achou capítulo) de uma fonte (URL já absoluta). Se o domínio tem
+    adaptador designado, usa-o com a estratégia de acesso resolvida; senão cai
+    na heurística genérica de HTML, via `fetch_http` (mesmo cliente
+    Cloudflare-aware + fallback curl dos adaptadores) — a detecção de tipo
+    (Bloco B1) roda nos dois casos, por URL/HTML, não depende do adaptador.
+    Retornos que não são capítulo (vazio/bloqueado/erro de acesso) não são
+    exceção — apenas devolvem None (não contam como falha do batch; um
+    domínio sem adaptador bloqueado não deve derrubar a run inteira pra
+    "erro"), mas o diagnóstico vai pro log, pra "não achei capítulo" não ficar
+    indistinguível de "site bloqueou o acesso" (ex.: challenge do Cloudflare).
     """
     desig = designacoes.get(host_de_url(url)) or {}
     adaptador_id = desig.get("adaptador")
@@ -47,12 +50,13 @@ def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | Non
             estrategia = resolver_access_strategy(desig.get("access_strategy"), adapter)
             resultado = adapter.parse(adapter.fetch(url, estrategia))
             capitulo = resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
-            return capitulo, resultado.tipo_detectado
+            diagnostico = None if resultado.status == STATUS_OK else f"{resultado.status}: {resultado.diagnostico}"
+            return capitulo, resultado.tipo_detectado, diagnostico
 
     raw = fetch_http(url)
     if raw.status != "ok" or not raw.text:
-        return None, None
-    return extrair_maior_capitulo(raw.text), detectar_tipo(url, raw.text)
+        return None, None, f"{raw.status}: {raw.diagnostico}"
+    return extrair_maior_capitulo(raw.text), detectar_tipo(url, raw.text), None
 
 
 def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:
@@ -85,7 +89,7 @@ def processar_grupo(
     for fonte in fontes:
         try:
             url = resolver_url(fonte["url"], base_por_site.get(fonte.get("site")))
-            capitulo, tipo_detectado = obter_capitulo(url, designacoes)
+            capitulo, tipo_detectado, diagnostico = obter_capitulo(url, designacoes)
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:
@@ -104,7 +108,7 @@ def processar_grupo(
                 supabase.table("fontes").update(
                     {"ultima_verificacao": agora, **_payload_tipo(fonte, tipo_detectado)}
                 ).eq("id", fonte["id"]).execute()
-                print(f"  aviso: não achei número de capítulo em {url}")
+                print(f"  aviso: não achei número de capítulo em {url} ({diagnostico})")
                 if fonte["ultimo_capitulo_detectado"] is not None:
                     capitulos_por_obra.setdefault(fonte["obra_id"], []).append(
                         (fonte["ultimo_capitulo_detectado"], fonte["atualizado_por_scraper"])
