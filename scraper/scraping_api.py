@@ -86,25 +86,54 @@ def _render_para(target: str) -> bool:
     """
     Se deve pedir execução de JS no provider pra ESTE alvo.
 
-    Precisa de render pra TUDO no comix — inclusive o endpoint JSON
-    (`/api/v1/manga`). Descoberto na run de validação (2026-07-30): sem render,
-    os três providers deram 5xx no endpoint JSON, porque o Cloudflare do comix
-    exige execução de JS pra liberar (o mesmo challenge das páginas HTML). Com
-    render, o JSON volta embrulhado em HTML — quem desembrulha é
-    `ComixAdapter._consultar` (via `_extrair_json`), não dá pra evitar o render.
+    Render pra tudo no comix (o Cloudflare exige JS). O endpoint JSON também
+    renderiza — o JSON volta embrulhado em HTML e `ComixAdapter._extrair_json`
+    desembrulha.
     """
     return _env_flag("SCRAPING_API_RENDER", True)
 
 
-# Cada builder devolve (base_url, query_params, headers). `headers` é None pros
-# providers que autenticam por query param; o ScrapingBee usa header Bearer.
+def _headers_xhr(target: str) -> dict | None:
+    """
+    Headers a encaminhar pro alvo quando é o endpoint JSON (`/api/...`). O comix
+    roda Laravel: a rota só devolve JSON pra request com cara de XHR
+    (`X-Requested-With: XMLHttpRequest` + `Accept: application/json`).
+    Confirmado pelo cURL real do navegador do usuário (2026-07-31). Sem esses
+    headers, o provider renderiza uma NAVEGAÇÃO de página (sem eles) e a API
+    responde 5xx — o motivo real do catálogo falhar (não era o Cloudflare, que
+    o render já resolve). Páginas HTML (capítulos) não precisam disso -> None.
+    """
+    try:
+        parsed = urlparse(target)
+    except ValueError:
+        return None
+    if "/api/" not in (parsed.path or ""):
+        return None
+    host = parsed.hostname or "comix.to"
+    return {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": f"https://{host}/browse",
+    }
+
+
+# Cada builder devolve (base_url, query_params, headers). `headers` carrega a
+# auth do provider (ScrapingBee usa Bearer) e/ou os headers XHR encaminhados
+# pro alvo (endpoint JSON). Cada provider tem seu jeito de encaminhar headers.
 def _construir_scraperapi(target: str) -> tuple[str, dict, dict | None]:
     params = {"api_key": os.environ["SCRAPERAPI_KEY"], "url": target}
     if _render_para(target):
         params["render"] = "true"
     if _env_flag("SCRAPERAPI_ULTRA", False):
         params["ultra_premium"] = "true"
-    return "https://api.scraperapi.com/", params, None
+    headers = None
+    xhr = _headers_xhr(target)
+    if xhr:
+        # keep_headers=true faz o ScraperAPI repassar os headers que a gente
+        # manda, em vez de usar só os dele.
+        params["keep_headers"] = "true"
+        headers = xhr
+    return "https://api.scraperapi.com/", params, headers
 
 
 def _construir_scrapingbee(target: str) -> tuple[str, dict, dict | None]:
@@ -119,6 +148,13 @@ def _construir_scrapingbee(target: str) -> tuple[str, dict, dict | None]:
     if _env_flag("SCRAPINGBEE_STEALTH", False):
         params["stealth_proxy"] = "true"
     headers = {"Authorization": f"Bearer {os.environ['SCRAPINGBEE_KEY']}"}
+    xhr = _headers_xhr(target)
+    if xhr:
+        # ScrapingBee encaminha headers prefixados com `Spb-` quando
+        # forward_headers=true.
+        params["forward_headers"] = "true"
+        for k, v in xhr.items():
+            headers[f"Spb-{k}"] = v
     return "https://app.scrapingbee.com/api/v1", params, headers
 
 
@@ -128,7 +164,13 @@ def _construir_scrapedo(target: str) -> tuple[str, dict, dict | None]:
         params["render"] = "true"
     if _env_flag("SCRAPEDO_SUPER", False):
         params["super"] = "true"
-    return "https://api.scrape.do/", params, None
+    headers = None
+    xhr = _headers_xhr(target)
+    if xhr:
+        # scrape.do repassa os headers enviados quando customHeaders=true.
+        params["customHeaders"] = "true"
+        headers = xhr
+    return "https://api.scrape.do/", params, headers
 
 
 # nome -> (env da credencial, builder). A ordem real vem de SCRAPING_API_ORDER.
