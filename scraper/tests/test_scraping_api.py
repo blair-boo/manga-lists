@@ -125,19 +125,19 @@ def test_scrapingbee_bearer_header_e_render(monkeypatch):
     assert "api_key" not in params
 
 
-def test_render_off_pra_endpoint_json_api(monkeypatch):
-    # Alvo /api/... (catálogo JSON) não deve renderizar, mesmo com render ligado
-    # por default — senão o JSON volta embrulhado em HTML e quebra o parse.
+def test_render_on_tambem_pro_endpoint_json_api(monkeypatch):
+    # O endpoint JSON /api/... TAMBÉM renderiza: o Cloudflare do comix exige JS
+    # (sem render deu 5xx nos três providers). O JSON embrulhado é desembrulhado
+    # depois em ComixAdapter._consultar.
     monkeypatch.setenv("SCRAPERAPI_KEY", "K")
     monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
     _, params_api, _ = scraping_api._construir_scraperapi("https://comix.to/api/v1/manga?page=1")
-    assert "render" not in params_api
+    assert params_api["render"] == "true"
     _, bee_api, _ = scraping_api._construir_scrapingbee("https://comix.to/api/v1/manga?page=1")
-    assert bee_api["render_js"] == "false"
+    assert bee_api["render_js"] == "true"
 
 
 def test_render_on_pra_pagina_html(monkeypatch):
-    # Alvo HTML (página de obra) renderiza normalmente.
     monkeypatch.setenv("SCRAPERAPI_KEY", "K")
     _, params_html, _ = scraping_api._construir_scraperapi("https://comix.to/title/l78rz-x")
     assert params_html["render"] == "true"

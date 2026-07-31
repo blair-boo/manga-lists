@@ -12,6 +12,7 @@ classe documenta a correção quando houve uma.
 """
 
 import json
+import os
 import re
 import sys
 import time
@@ -668,6 +669,22 @@ _COMIX_LIMITE_PAGINA = 100
 _COMIX_MAX_PAGINAS = 400  # trava de segurança contra loop infinito
 _COMIX_DELAY = 0.5  # segundos entre páginas do catálogo
 
+# Teto de páginas do catálogo POR CUSTO (não segurança): cada página agora é um
+# request renderizado na API de scraping (o endpoint JSON exige render pra
+# passar o Cloudflare), então varrer o acervo inteiro queima muito crédito. O
+# catálogo vem ordenado por `chapter_updated_at desc`, então as primeiras
+# páginas já são as obras mais ativas — as que mais interessam pro match.
+# Configurável por COMIX_MAX_PAGINAS_CATALOGO (0 = sem teto, varre tudo até
+# _COMIX_MAX_PAGINAS). Default 20 páginas = ~2000 títulos mais recentes.
+def _max_paginas_catalogo() -> int:
+    try:
+        v = int(os.environ.get("COMIX_MAX_PAGINAS_CATALOGO", "20"))
+    except ValueError:
+        v = 20
+    if v <= 0:
+        return _COMIX_MAX_PAGINAS
+    return min(v, _COMIX_MAX_PAGINAS)
+
 
 def _sem_espacos(s: str) -> str:
     return "".join(s.split())
@@ -705,6 +722,55 @@ def _order(criterio: dict) -> dict:
     # tentativa se a B, por algum motivo (versão de Axios mais antiga no
     # bundle real do site), não ordenar nada.
     # return {"order": json.dumps(criterio, separators=(",", ":"))}
+
+
+def _extrair_json(texto: str):
+    """
+    Parseia o corpo da resposta do endpoint de listagem, tolerante ao formato:
+
+    - JSON cru (caso ideal), ou
+    - JSON embrulhado em HTML — que é o que o provider de scraping devolve ao
+      renderizar (render=true) um endpoint JSON: o navegador embrulha o JSON
+      num `<pre>` (e a página tem `<style>`/`<script>` com chaves em volta).
+      Render é obrigatório no comix (o Cloudflare exige JS), então esse
+      desembrulho não é evitável. Remove script/style, pega o texto e parseia o
+      maior bloco `{...}` balanceado.
+
+    Devolve o objeto (dict/list) ou None.
+    """
+    texto = (texto or "").strip()
+    try:
+        return json.loads(texto)
+    except ValueError:
+        pass
+    try:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(texto, "html.parser")
+        for tag in soup(["script", "style"]):
+            tag.decompose()
+        conteudo = soup.get_text()
+    except Exception:  # noqa: BLE001 - sem bs4 ou HTML inválido: tenta o texto cru
+        conteudo = texto
+    inicio = conteudo.find("{")
+    fim = conteudo.rfind("}")
+    if inicio != -1 and fim > inicio:
+        try:
+            return json.loads(conteudo[inicio : fim + 1])
+        except ValueError:
+            pass
+    return None
+
+
+def _desembrulhar_resultado(dados):
+    """
+    A API do comix responde `{"status":"ok","result":{...}}` — o interceptor
+    Axios do app desembrulha pra `.result` (confirmado no bundle). O cliente
+    HTTP daqui não desembrulha, então fazemos na mão.
+    """
+    if isinstance(dados, dict) and dados.get("status") == "ok" and isinstance(dados.get("result"), dict):
+        return dados["result"]
+    return dados
 
 
 def _titulos_do_item(it: dict) -> list[str]:
@@ -924,14 +990,15 @@ class ComixAdapter(SourceAdapter):
         try:
             resp = http_get(self._endpoint_lista(url), params=params)
             resp.raise_for_status()
-            dados = resp.json()
         except requests.RequestException as exc:
             print(f"  comix: falha ao consultar {self._endpoint_lista(url)}: {exc}", file=sys.stderr)
             return [], {}
-        except ValueError as exc:
-            print(f"  comix: resposta não é JSON válido de {self._endpoint_lista(url)}: {exc}", file=sys.stderr)
-            return [], {}
+        dados = _desembrulhar_resultado(_extrair_json(resp.text))
         if not isinstance(dados, dict):
+            print(
+                f"  comix: resposta não parseou como JSON de {self._endpoint_lista(url)}: {resp.text[:200]!r}",
+                file=sys.stderr,
+            )
             return [], {}
         itens = dados.get("items")
         meta = dados.get("meta")
@@ -942,8 +1009,9 @@ class ComixAdapter(SourceAdapter):
         Emite um par por título casável (principal + alternativos) de cada
         item — ver _pares_titulo_url / _titulos_do_item."""
         resultado: list[tuple[str, str]] = []
+        max_paginas = _max_paginas_catalogo()
         pagina = 1
-        while pagina <= _COMIX_MAX_PAGINAS:
+        while pagina <= max_paginas:
             itens, meta = self._consultar(
                 url,
                 {

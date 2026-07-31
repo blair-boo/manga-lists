@@ -86,17 +86,13 @@ def _render_para(target: str) -> bool:
     """
     Se deve pedir execução de JS no provider pra ESTE alvo.
 
-    Endpoint JSON (`/api/...`, o catálogo/busca do comix) NÃO deve ser
-    renderizado: o navegador embrulharia o JSON num HTML (`<pre>…</pre>`) e
-    quebraria o `resp.json()`. O provider ainda resolve o Cloudflare sem
-    render. Já as páginas HTML (capítulos, com o `#initial-data`) precisam de
-    render pra passar do interstitial "Just a moment".
+    Precisa de render pra TUDO no comix — inclusive o endpoint JSON
+    (`/api/v1/manga`). Descoberto na run de validação (2026-07-30): sem render,
+    os três providers deram 5xx no endpoint JSON, porque o Cloudflare do comix
+    exige execução de JS pra liberar (o mesmo challenge das páginas HTML). Com
+    render, o JSON volta embrulhado em HTML — quem desembrulha é
+    `ComixAdapter._consultar` (via `_extrair_json`), não dá pra evitar o render.
     """
-    try:
-        if "/api/" in urlparse(target).path:
-            return False
-    except ValueError:
-        pass
     return _env_flag("SCRAPING_API_RENDER", True)
 
 
