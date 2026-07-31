@@ -13,6 +13,8 @@ from adapters_novos import (
     ComixAdapter,
     MadaraAdapter,
     MagustoonAdapter,
+    _desembrulhar_resultado as comix_desembrulhar,
+    _extrair_json as comix_extrair_json,
     _order as comix_order,
     _pares_titulo_url as comix_pares,
     _titulos_do_item as comix_titulos,
@@ -259,6 +261,36 @@ def test_comix_hid_da_url():
 def test_comix_url_da_fonte(slug, esperado):
     adapter = ComixAdapter()
     assert adapter.url_da_fonte("https://comix.to/", slug) == esperado
+
+
+def test_comix_extrair_json_cru():
+    assert comix_extrair_json('{"items": [1, 2], "meta": {}}') == {"items": [1, 2], "meta": {}}
+
+
+def test_comix_extrair_json_embrulhado_em_html():
+    # Como o provider devolve ao renderizar (render=true) um endpoint JSON: o
+    # navegador embrulha num <pre>, com <style>/<script> (que têm chaves) em volta.
+    html = (
+        "<html><head><style>body{margin:0}</style>"
+        '<script>var x={a:1}</script></head><body>'
+        '<pre>{"items":[{"title":"X","url":"/title/x"}],"meta":{"hasNext":false}}</pre>'
+        "</body></html>"
+    )
+    dados = comix_extrair_json(html)
+    assert dados == {"items": [{"title": "X", "url": "/title/x"}], "meta": {"hasNext": False}}
+
+
+def test_comix_extrair_json_lixo_vira_none():
+    assert comix_extrair_json("<html><body>Just a moment…</body></html>") is None
+    assert comix_extrair_json("") is None
+
+
+def test_comix_desembrulha_status_result():
+    # A API responde {"status":"ok","result":{...}}; desembrulha pra .result.
+    envelope = {"status": "ok", "result": {"items": [1], "meta": {"hasNext": True}}}
+    assert comix_desembrulhar(envelope) == {"items": [1], "meta": {"hasNext": True}}
+    # Sem envelope, passa direto.
+    assert comix_desembrulhar({"items": [2]}) == {"items": [2]}
 
 
 def test_comix_titulos_inclui_alternativos():

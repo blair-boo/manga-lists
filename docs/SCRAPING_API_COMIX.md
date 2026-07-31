@@ -97,9 +97,17 @@ ajuda a decidir.
   confirma. Não passamos `json_response` (embrulharia a resposta e quebraria o
   parser) nem `country_code`.
 - **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre. O
-  endpoint é JSON (`/api/v1/manga`), então o roteador **desliga o render pra
-  qualquer alvo `/api/...`** (`_render_para` em `scraping_api.py`) — senão o
-  navegador embrulharia o JSON em HTML e quebraria o `resp.json()`. O provider
-  ainda resolve o Cloudflare sem render (e sai mais barato). O catálogo casa
-  por título principal **e** alternativos (`altTitles`). A confirmar ao vivo
-  na 1ª run de "Update works".
+  endpoint é JSON (`/api/v1/manga`). **Descoberto na 1ª run de validação
+  (30/07):** ao contrário do que eu supus, o endpoint JSON **também precisa de
+  render** — sem render os três providers deram 5xx, porque o Cloudflare do
+  comix exige JS até pra API. Então o catálogo renderiza (igual às páginas de
+  capítulo) e o JSON volta embrulhado em HTML; `ComixAdapter._extrair_json`
+  desembrulha (remove script/style, pega o maior bloco `{...}`). Além disso, a
+  API responde `{"status":"ok","result":{...}}` — `_desembrulhar_resultado`
+  tira o `.result` (o app faz isso via interceptor Axios). Casa por título
+  principal **e** alternativos (`altTitles`).
+  - **Custo:** com render obrigatório, cada página do catálogo é um request
+    renderizado. `COMIX_MAX_PAGINAS_CATALOGO` (default **20** ≈ 2000 títulos
+    mais recentes; `0` = varre tudo) limita a profundidade pra não torrar
+    crédito — as primeiras páginas já são as obras mais ativas
+    (`order=chapter_updated_at desc`).
