@@ -686,6 +686,29 @@ def _max_paginas_catalogo() -> int:
     return min(v, _COMIX_MAX_PAGINAS)
 
 
+def _catalogo_ativo() -> bool:
+    """
+    O catálogo/descoberta de obras do comix está DESLIGADO por padrão — o comix
+    entra só no estágio de CAPÍTULOS.
+
+    Motivo: a rota de listagem (`/api/v1/manga`) é um endpoint Laravel atrás do
+    Cloudflare que só devolve JSON pra request com cara de XHR. Através das APIs
+    de scraping com render, o provider faz uma NAVEGAÇÃO de página (sem
+    `X-Requested-With`), então a API responde 5xx — confirmado em três runs de
+    validação (30–31/07), inclusive com os headers XHR encaminhados. As obras do
+    comix passaram a ser cadastradas por outro caminho, então não vale queimar
+    crédito de scraping tentando varrer esse catálogo. O estágio de capítulos
+    não usa nada disto: lê o `#initial-data` da página da obra e funciona ao
+    vivo.
+
+    Pra religar (se um dia a rota abrir, ex.: API key/allow-list do comix),
+    basta setar `COMIX_CATALOGO_ATIVO=true` no ambiente do workflow — todo o
+    código de catálogo/busca abaixo continua aqui, só dorme.
+    """
+    valor = os.environ.get("COMIX_CATALOGO_ATIVO")
+    return bool(valor) and valor.strip().lower() in ("1", "true", "yes", "on")
+
+
 def _sem_espacos(s: str) -> str:
     return "".join(s.split())
 
@@ -1007,7 +1030,11 @@ class ComixAdapter(SourceAdapter):
     def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
         """(título, url relativa) de todo o catálogo, paginando por meta.hasNext.
         Emite um par por título casável (principal + alternativos) de cada
-        item — ver _pares_titulo_url / _titulos_do_item."""
+        item — ver _pares_titulo_url / _titulos_do_item.
+
+        Desligado por padrão (comix é chapters-only): ver `_catalogo_ativo`."""
+        if not _catalogo_ativo():
+            return []
         resultado: list[tuple[str, str]] = []
         max_paginas = _max_paginas_catalogo()
         pagina = 1
@@ -1035,6 +1062,9 @@ class ComixAdapter(SourceAdapter):
         # em main-tiv3b5-D41wynCQ.js) — sem parâmetro de ordenação, o servidor
         # decide (presumivelmente já por relevância pra busca por keyword).
         # Casa por título principal E alternativos (ver _pares_titulo_url).
+        # Desligado por padrão (comix é chapters-only): ver `_catalogo_ativo`.
+        if not _catalogo_ativo():
+            return []
         itens, _ = self._consultar(url, {"keyword": titulo, "limit": 12})
         return _pares_titulo_url(itens)
 

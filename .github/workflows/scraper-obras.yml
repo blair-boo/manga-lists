@@ -37,8 +37,11 @@ jobs:
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
           SCRAPINGBEE_KEY: ${{ secrets.SCRAPINGBEE_KEY }}
           SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }}
-          # Teto baixo de páginas do catálogo comix enquanto valida/economiza
-          # crédito (cada página é um request renderizado). Subir depois que
-          # confirmar que casa bem. 0 = varre tudo. Ver _max_paginas_catalogo.
-          COMIX_MAX_PAGINAS_CATALOGO: "3"
+          # Catálogo do comix DESLIGADO de propósito: a API /api/v1/manga fica
+          # atrás do Cloudflare e responde 5xx quando chega renderizada como
+          # navegação (não XHR) pelas APIs de scraping — validado sem sucesso em
+          # 3 runs (30-31/07). As obras do comix são cadastradas por outro
+          # caminho; ele entra só no estágio de capítulos (que lê o #initial-data
+          # e funciona ao vivo). Pra religar: COMIX_CATALOGO_ATIVO=true. Ver
+          # _catalogo_ativo em adapters_novos.py.
         run: python update_obras.py
