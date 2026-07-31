@@ -143,6 +143,51 @@ def test_render_on_pra_pagina_html(monkeypatch):
     assert params_html["render"] == "true"
 
 
+def test_headers_xhr_so_pro_endpoint_api():
+    h = scraping_api._headers_xhr("https://comix.to/api/v1/manga?page=1")
+    assert h == {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://comix.to/browse",
+    }
+    # comix.ws usa o próprio host no referer
+    assert scraping_api._headers_xhr("https://comix.ws/api/v1/manga")["Referer"] == "https://comix.ws/browse"
+    # página HTML não recebe headers XHR
+    assert scraping_api._headers_xhr("https://comix.to/title/l78rz-x") is None
+
+
+def test_scraperapi_encaminha_headers_xhr_no_api(monkeypatch):
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    _, params, headers = scraping_api._construir_scraperapi("https://comix.to/api/v1/manga?page=1")
+    assert params["keep_headers"] == "true"
+    assert headers["Accept"] == "application/json"
+    assert headers["X-Requested-With"] == "XMLHttpRequest"
+
+
+def test_scrapingbee_encaminha_headers_xhr_com_prefixo_spb(monkeypatch):
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    _, params, headers = scraping_api._construir_scrapingbee("https://comix.to/api/v1/manga?page=1")
+    assert params["forward_headers"] == "true"
+    assert headers["Authorization"] == "Bearer B"
+    assert headers["Spb-Accept"] == "application/json"
+    assert headers["Spb-X-Requested-With"] == "XMLHttpRequest"
+
+
+def test_scrapedo_encaminha_headers_xhr_no_api(monkeypatch):
+    monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
+    _, params, headers = scraping_api._construir_scrapedo("https://comix.to/api/v1/manga?page=1")
+    assert params["customHeaders"] == "true"
+    assert headers["X-Requested-With"] == "XMLHttpRequest"
+
+
+def test_pagina_html_nao_ganha_headers_xhr(monkeypatch):
+    # Capítulos (HTML) seguem sem keep_headers/forward_headers.
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    _, params, headers = scraping_api._construir_scraperapi("https://comix.to/title/l78rz-x")
+    assert "keep_headers" not in params
+    assert headers is None
+
+
 def test_scrapingbee_render_off_e_stealth(monkeypatch):
     monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
     monkeypatch.setenv("SCRAPING_API_RENDER", "false")

@@ -37,4 +37,8 @@ jobs:
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
           SCRAPINGBEE_KEY: ${{ secrets.SCRAPINGBEE_KEY }}
           SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }}
+          # Teto baixo de páginas do catálogo comix enquanto valida/economiza
+          # crédito (cada página é um request renderizado). Subir depois que
+          # confirmar que casa bem. 0 = varre tudo. Ver _max_paginas_catalogo.
+          COMIX_MAX_PAGINAS_CATALOGO: "3"
         run: python update_obras.py
