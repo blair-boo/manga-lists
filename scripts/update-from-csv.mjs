@@ -26,7 +26,7 @@ loadScriptsEnv();
 const supabase = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_SERVICE_ROLE_KEY'));
 
 const CAMPOS_TEXTO = ['tipo', 'autor', 'capa_url', 'status_leitura', 'status_publicacao', 'observacoes'];
-const CAMPOS_NUMERO = ['capitulo_atual', 'nota'];
+const CAMPOS_NUMERO = ['capitulo_atual', 'score'];
 const CAMPOS_ARRAY = ['generos', 'tags', 'titulos_alternativos'];
 
 function parseArrayCampo(valor) {

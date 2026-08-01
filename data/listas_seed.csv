@@ -8,6 +8,7 @@ status_leitura,Reading
 status_leitura,Finished
 status_leitura,Paused
 status_leitura,Dropped
+status_leitura,Re-read
 status_publicacao,Ongoing
 status_publicacao,Completed
 status_publicacao,One shot

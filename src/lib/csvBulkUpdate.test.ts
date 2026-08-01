@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildUpdatePayload, obrasParaCsv, parseCsvFile } from './csvBulkUpdate';
-import type { Obra } from '../types';
+import type { Fonte, Obra } from '../types';
 
 describe('parseCsvFile', () => {
   it('lê o cabeçalho e as linhas, pulando linhas vazias', () => {
@@ -35,13 +35,24 @@ describe('buildUpdatePayload', () => {
   });
 
   it('coluna presente porém vazia limpa o campo (null)', () => {
-    const payload = buildUpdatePayload({ id: '1', titulo: 'X', autor: '', nota: '', tags: '' });
-    expect(payload).toEqual({ autor: null, nota: null, tags: null });
+    const payload = buildUpdatePayload({ id: '1', titulo: 'X', autor: '', score: '', tags: '' });
+    expect(payload).toEqual({ autor: null, score: null, tags: null });
   });
 
   it('preenche texto e número quando presentes', () => {
-    const payload = buildUpdatePayload({ id: '1', autor: 'Chugong', nota: '5', capitulo_atual: '12.5' });
-    expect(payload).toEqual({ autor: 'Chugong', nota: 5, capitulo_atual: 12.5 });
+    const payload = buildUpdatePayload({ id: '1', autor: 'Chugong', score: '5', capitulo_atual: '12.5' });
+    expect(payload).toEqual({ autor: 'Chugong', score: 5, capitulo_atual: 12.5 });
+  });
+
+  it('lê a coluna "notes" pro campo observacoes', () => {
+    expect(buildUpdatePayload({ notes: 'Reler quando sair o volume 3' })).toEqual({
+      observacoes: 'Reler quando sair o volume 3',
+    });
+    expect(buildUpdatePayload({ notes: '' })).toEqual({ observacoes: null });
+  });
+
+  it('coluna "observacoes" (nome antigo) não é reconhecida — só "notes"', () => {
+    expect(buildUpdatePayload({ observacoes: 'texto' })).toEqual({});
   });
 
   it('atualiza novelupdates_url e classificacao', () => {
@@ -68,7 +79,7 @@ describe('buildUpdatePayload', () => {
   });
 
   it('número inválido é ignorado (não limpa)', () => {
-    expect(buildUpdatePayload({ nota: 'abc' })).toEqual({});
+    expect(buildUpdatePayload({ score: 'abc' })).toEqual({});
   });
 
   it('arrays separados por ;', () => {
@@ -101,10 +112,10 @@ describe('obrasParaCsv', () => {
     fim_de_temporada: false,
     ultimo_capitulo_lancado: 179,
     ultimo_capitulo_via_scraper: true,
-    nota: 5,
+    score: 5,
     generos: ['Action', 'Fantasy'],
     tags: null,
-    observacoes: null,
+    observacoes: 'Reler depois do anime',
     obra_vinculada_id: null,
     classificacao: 'R-18',
     novelupdates_url: 'https://www.novelupdates.com/series/solo-leveling/',
@@ -119,10 +130,13 @@ describe('obrasParaCsv', () => {
     const [linha] = linhas;
     expect(linha.id).toBe('abc-123');
     expect(linha.titulo).toBe('Solo Leveling');
+    expect(linha.notes).toBe('Reler depois do anime');
+    expect(linha.observacoes).toBeUndefined();
 
     const payload = buildUpdatePayload(linha);
     expect(payload.autor).toBe('Chugong');
-    expect(payload.nota).toBe(5);
+    expect(payload.score).toBe(5);
+    expect(payload.observacoes).toBe('Reler depois do anime');
     expect(payload.generos).toEqual(['Action', 'Fantasy']);
     expect(payload.titulos_alternativos).toEqual(['Na Honjaman Level Up']);
     expect(payload.classificacao).toBe('R-18');
@@ -132,5 +146,26 @@ describe('obrasParaCsv', () => {
     expect(payload.ultimo_capitulo_lancado).toBe(179);
     // tags null no banco → coluna presente e vazia no CSV → volta como null (limpa)
     expect(payload.tags).toBeNull();
+  });
+
+  it('coluna sources lista as URLs das fontes da obra, separadas por ;', () => {
+    const fontesPorObra = new Map<string, Fonte[]>([
+      [
+        'abc-123',
+        [
+          { url: 'https://ezmanga.org/solo-leveling' } as Fonte,
+          { url: 'https://nyxscans.com/solo-leveling' } as Fonte,
+        ],
+      ],
+    ]);
+    const csv = obrasParaCsv([obra], fontesPorObra);
+    const { linhas } = parseCsvFile(csv);
+    expect(linhas[0].sources).toBe('https://ezmanga.org/solo-leveling; https://nyxscans.com/solo-leveling');
+  });
+
+  it('sem fontesPorObra, a coluna sources sai vazia', () => {
+    const csv = obrasParaCsv([obra]);
+    const { linhas } = parseCsvFile(csv);
+    expect(linhas[0].sources).toBe('');
   });
 });

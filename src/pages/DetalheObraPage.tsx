@@ -214,7 +214,7 @@ type Draft = Pick<
   | 'status_publicacao'
   | 'fim_de_temporada'
   | 'capitulo_atual'
-  | 'nota'
+  | 'score'
   | 'classificacao'
   | 'pdf'
   | 'novelupdates_url'
@@ -233,7 +233,7 @@ function toDraft(obra: Obra): Draft {
     status_publicacao: obra.status_publicacao,
     fim_de_temporada: obra.fim_de_temporada,
     capitulo_atual: obra.capitulo_atual,
-    nota: obra.nota,
+    score: obra.score,
     classificacao: obra.classificacao,
     // ?? normaliza registros locais antigos (cacheados antes destas colunas
     // existirem): sem isso, draft.pdf viria undefined e o checkbox ficaria
@@ -315,9 +315,9 @@ export function DetalheObraPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const snapshotRef = useRef<Draft | null>(null); // último estado persistido (autosave)
 
-  // Notas: estado próprio com Save/Cancel (Bloco E2), fora do autosave.
-  const [notaDraft, setNotaDraft] = useState<string | null>(null);
-  const [notaSalva, setNotaSalva] = useState<string | null>(null);
+  // Notes (observacoes): estado próprio com Save/Cancel (Bloco E2), fora do autosave.
+  const [observacoesDraft, setObservacoesDraft] = useState<string | null>(null);
+  const [observacoesSalvas, setObservacoesSalvas] = useState<string | null>(null);
 
   const [novaFonteUrl, setNovaFonteUrl] = useState('');
   const [mostrarCaixaVinculo, setMostrarCaixaVinculo] = useState(false);
@@ -339,8 +339,8 @@ export function DetalheObraPage() {
       setDraft(d);
       snapshotRef.current = d;
       setObraIdCarregado(obra.id);
-      setNotaDraft(obra.observacoes);
-      setNotaSalva(obra.observacoes);
+      setObservacoesDraft(obra.observacoes);
+      setObservacoesSalvas(obra.observacoes);
     }
   }, [obra, obraIdCarregado]);
 
@@ -378,22 +378,22 @@ export function DetalheObraPage() {
     return () => clearTimeout(timer);
   }, [draft, id, obra, mostrarToast]);
 
-  const notasDirty = notaDraft !== notaSalva;
+  const observacoesDirty = observacoesDraft !== observacoesSalvas;
 
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => notasDirty && currentLocation.pathname !== nextLocation.pathname
+    ({ currentLocation, nextLocation }) => observacoesDirty && currentLocation.pathname !== nextLocation.pathname
   );
 
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
-      if (notasDirty) {
+      if (observacoesDirty) {
         e.preventDefault();
         e.returnValue = '';
       }
     }
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [notasDirty]);
+  }, [observacoesDirty]);
 
   if (!id) return null;
   if (obra === undefined || draft === null) return <p>Loading…</p>;
@@ -402,15 +402,15 @@ export function DetalheObraPage() {
     setDraft((atual) => (atual ? { ...atual, [campo]: valor } : atual));
   }
 
-  async function handleSalvarNota() {
+  async function handleSalvarObservacoes() {
     if (!id) return;
-    await updateObra(id, { observacoes: notaDraft || null });
-    setNotaSalva(notaDraft);
+    await updateObra(id, { observacoes: observacoesDraft || null });
+    setObservacoesSalvas(observacoesDraft);
     mostrarToast('Notes saved ✓');
   }
 
-  function handleCancelarNota() {
-    setNotaDraft(notaSalva);
+  function handleCancelarObservacoes() {
+    setObservacoesDraft(observacoesSalvas);
   }
 
   async function handleAdicionarFonte(e: FormEvent) {
@@ -506,7 +506,7 @@ export function DetalheObraPage() {
       fim_de_temporada: false,
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,
-      nota: null,
+      score: null,
       generos: obra.generos,
       tags: obra.tags,
       observacoes: null,
@@ -868,8 +868,8 @@ export function DetalheObraPage() {
           <label>
             Rating
             <select
-              value={draft.nota ?? ''}
-              onChange={(e) => setCampo('nota', e.target.value === '' ? null : Number(e.target.value))}
+              value={draft.score ?? ''}
+              onChange={(e) => setCampo('score', e.target.value === '' ? null : Number(e.target.value))}
             >
               <option value="">—</option>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -907,20 +907,26 @@ export function DetalheObraPage() {
         <label>
           Notes
           <textarea
-            value={notaDraft ?? ''}
-            onChange={(e) => setNotaDraft(e.target.value || null)}
+            value={observacoesDraft ?? ''}
+            onChange={(e) => setObservacoesDraft(e.target.value || null)}
             rows={4}
           />
         </label>
-        {notasDirty && (
-          <div className="notas-acoes">
-            <button type="button" className="btn-icone" onClick={handleSalvarNota} aria-label="Save notes" title="Save notes">
+        {observacoesDirty && (
+          <div className="observacoes-acoes">
+            <button
+              type="button"
+              className="btn-icone"
+              onClick={handleSalvarObservacoes}
+              aria-label="Save notes"
+              title="Save notes"
+            >
               <IconeDisquete />
             </button>
             <button
               type="button"
               className="btn-icone btn-icone-perigo"
-              onClick={handleCancelarNota}
+              onClick={handleCancelarObservacoes}
               aria-label="Discard notes"
               title="Discard notes"
             >
@@ -1012,7 +1018,7 @@ export function DetalheObraPage() {
               <button
                 type="button"
                 onClick={async () => {
-                  await handleSalvarNota();
+                  await handleSalvarObservacoes();
                   blocker.proceed();
                 }}
               >
@@ -1021,7 +1027,7 @@ export function DetalheObraPage() {
               <button
                 type="button"
                 onClick={() => {
-                  handleCancelarNota();
+                  handleCancelarObservacoes();
                   blocker.proceed();
                 }}
               >

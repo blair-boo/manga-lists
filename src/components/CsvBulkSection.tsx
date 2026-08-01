@@ -5,7 +5,7 @@ import { syncNow } from '../sync/sync';
 import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
 import { baixarCsv, buildUpdatePayload, obrasParaCsv, parseCsvFile } from '../lib/csvBulkUpdate';
-import type { Obra } from '../types';
+import type { Fonte, Obra } from '../types';
 
 interface Resultado {
   atualizadas: number;
@@ -90,9 +90,19 @@ export function CsvBulkSection() {
     setBaixando(true);
     setErroDownload(null);
     try {
-      const { data, error } = await supabase.from('obras').select('*');
-      if (error) throw error;
-      baixarCsv(obrasParaCsv((data ?? []) as Obra[]), 'obras.csv');
+      const [{ data: obras, error: erroObras }, { data: fontes, error: erroFontes }] = await Promise.all([
+        supabase.from('obras').select('*'),
+        supabase.from('fontes').select('*'),
+      ]);
+      if (erroObras) throw erroObras;
+      if (erroFontes) throw erroFontes;
+      const fontesPorObra = new Map<string, Fonte[]>();
+      for (const f of (fontes ?? []) as Fonte[]) {
+        const lista = fontesPorObra.get(f.obra_id) ?? [];
+        lista.push(f);
+        fontesPorObra.set(f.obra_id, lista);
+      }
+      baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), 'obras.csv');
     } catch (err) {
       setErroDownload(mensagemDeErro(err));
     } finally {

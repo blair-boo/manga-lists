@@ -28,18 +28,23 @@ function estadoFiltroValido(v: unknown): EstadoFiltro {
  * antes da renomeação, senão o chip fica órfão e nunca casa com nada. */
 const STATUS_LEITURA_RENOMEADOS: Record<string, string> = { Complete: 'Finished' };
 
-export type Ordenacao = 'titulo' | 'atualizado' | 'nota' | 'atrasados' | 'criado';
+export type Ordenacao = 'titulo' | 'atualizado' | 'score' | 'atrasados' | 'criado';
+
+/** Ordenação renomeada (nota -> score). Remapeia o valor salvo antes da
+ * renomeação, senão cai no default silenciosamente (ver lerOrdenacaoSalva). */
+const ORDENACAO_RENOMEADAS: Record<string, string> = { nota: 'score' };
 
 export const ORDENACOES: { valor: Ordenacao; rotulo: string }[] = [
   { valor: 'titulo', rotulo: 'Title (A–Z)' },
   { valor: 'atualizado', rotulo: 'Recently updated' },
   { valor: 'atrasados', rotulo: 'Most chapters behind' },
-  { valor: 'nota', rotulo: 'Highest rating' },
+  { valor: 'score', rotulo: 'Highest rating' },
   { valor: 'criado', rotulo: 'Recently added' },
 ];
 
 export function lerOrdenacaoSalva(): Ordenacao {
-  const v = localStorage.getItem('ordenacao');
+  const bruto = localStorage.getItem('ordenacao');
+  const v = bruto ? (ORDENACAO_RENOMEADAS[bruto] ?? bruto) : bruto;
   return ORDENACOES.some((o) => o.valor === v) ? (v as Ordenacao) : 'titulo';
 }
 
@@ -49,8 +54,8 @@ export function comparar(a: Obra, b: Obra, ordem: Ordenacao): number {
       return (b.atualizado_em ?? '').localeCompare(a.atualizado_em ?? '');
     case 'criado':
       return (b.criado_em ?? '').localeCompare(a.criado_em ?? '');
-    case 'nota':
-      return (b.nota ?? -1) - (a.nota ?? -1) || a.titulo.localeCompare(b.titulo);
+    case 'score':
+      return (b.score ?? -1) - (a.score ?? -1) || a.titulo.localeCompare(b.titulo);
     case 'atrasados':
       return capitulosAtrasados(b) - capitulosAtrasados(a) || a.titulo.localeCompare(b.titulo);
     default:

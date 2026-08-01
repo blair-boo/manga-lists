@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import type { NovaObra } from '../db/repo';
-import type { Obra } from '../types';
+import type { Fonte, Obra } from '../types';
 
 /**
  * Campos que a atualização em massa via CSV sabe ler/escrever, agrupados por
@@ -27,19 +27,31 @@ const CAMPOS_TEXTO = [
   'classificacao',
   'novelupdates_url',
 ] as const;
-const CAMPOS_NUMERO = ['capitulo_atual', 'nota', 'ultimo_capitulo_lancado'] as const;
+const CAMPOS_NUMERO = ['capitulo_atual', 'score', 'ultimo_capitulo_lancado'] as const;
 const CAMPOS_ARRAY = ['generos', 'tags', 'titulos_alternativos'] as const;
 const CAMPOS_BOOL = ['fim_de_temporada', 'ultimo_capitulo_via_scraper', 'pdf'] as const;
 
-/** Ordem/colunas exatas do CSV baixado (id/titulo + os quatro grupos acima). */
+/** `observacoes` é exportado/lido sob o nome "notes" no CSV (nome do campo no
+ * banco continua `observacoes`) — mais claro pra quem edita a planilha, e não
+ * confunde com `score` (ex-`nota`). */
+const ROTULOS_CSV: Partial<Record<(typeof CAMPOS_TEXTO)[number], string>> = { observacoes: 'notes' };
+function rotuloCsv(campo: (typeof CAMPOS_TEXTO)[number]): string {
+  return ROTULOS_CSV[campo] ?? campo;
+}
+
+/** Ordem/colunas exatas do CSV baixado (id/titulo + os quatro grupos acima +
+ * `sources`, que é só de exportação — as URLs das fontes da obra, separadas
+ * por `;`. Coluna extra ignorada no upload, igual qualquer outra fora dos
+ * grupos conhecidos (ver buildUpdatePayload). */
 const COLUNAS_CSV = [
   'id',
   'titulo',
-  ...CAMPOS_TEXTO,
+  ...CAMPOS_TEXTO.map(rotuloCsv),
   ...CAMPOS_NUMERO,
   ...CAMPOS_ARRAY,
   ...CAMPOS_BOOL,
-] as const;
+  'sources',
+];
 
 const VALORES_BOOL_VERDADEIRO = new Set(['true', 't', '1', 'yes', 'y', 'sim', 's', 'x', 'verdadeiro']);
 
@@ -82,8 +94,9 @@ export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
   const payload: Partial<NovaObra> = {};
 
   for (const campo of CAMPOS_TEXTO) {
-    if (!(campo in row)) continue;
-    const v = (row[campo] ?? '').trim();
+    const rotulo = rotuloCsv(campo);
+    if (!(rotulo in row)) continue;
+    const v = (row[rotulo] ?? '').trim();
     payload[campo] = (v || null) as never;
   }
 
@@ -134,14 +147,18 @@ export function parseCsvFile(texto: string): ResultadoParseCsv {
  * Gera o CSV da tabela `obras` no mesmo formato que a atualização em massa
  * espera de volta (mesmas colunas/ordem; arrays com `;`, booleanos como
  * true/false) — download → editar → re-upload sem conversão manual.
+ * `fontesPorObra` (opcional) preenche a coluna `sources` com as URLs de cada
+ * obra, separadas por `;`; sem ela a coluna sai vazia. É export-only: como
+ * não está em nenhum dos quatro grupos, um re-upload a ignora (ver acima).
  */
-export function obrasParaCsv(obras: Obra[]): string {
+export function obrasParaCsv(obras: Obra[], fontesPorObra?: Map<string, Fonte[]>): string {
   const linhas = obras.map((o) => {
     const linha: Record<string, string> = { id: o.id, titulo: o.titulo };
-    for (const campo of CAMPOS_TEXTO) linha[campo] = (o[campo] as string | null) ?? '';
+    for (const campo of CAMPOS_TEXTO) linha[rotuloCsv(campo)] = (o[campo] as string | null) ?? '';
     for (const campo of CAMPOS_NUMERO) linha[campo] = o[campo] != null ? String(o[campo]) : '';
     for (const campo of CAMPOS_ARRAY) linha[campo] = (o[campo] ?? []).join('; ');
     for (const campo of CAMPOS_BOOL) linha[campo] = o[campo] ? 'true' : 'false';
+    linha.sources = (fontesPorObra?.get(o.id) ?? []).map((f) => f.url).join('; ');
     return linha;
   });
   return Papa.unparse({ fields: [...COLUNAS_CSV], data: linhas });

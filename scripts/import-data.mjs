@@ -100,7 +100,7 @@ async function importObras() {
       capitulo_atual: orNullNumber(r.capitulo_atual),
       status_leitura: orNull(r.status_leitura),
       status_publicacao: orNull(r.status_publicacao),
-      nota: orNullNumber(r.nota),
+      score: orNullNumber(r.nota),
       generos: orNullArray(r.generos),
       tags: orNullArray(r.tags),
       observacoes: orNull(r.observacoes),

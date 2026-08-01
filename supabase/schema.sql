@@ -11,12 +11,12 @@ create table obras (
     autor text,
     capa_url text,
     capitulo_atual numeric,
-    status_leitura text, -- 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped'
+    status_leitura text, -- 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped' | 'Re-read'
     status_publicacao text, -- 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' | 'Canceled'
     fim_de_temporada boolean not null default false, -- só relevante quando status_publicacao = 'Hiatus'
     ultimo_capitulo_lancado numeric,
     ultimo_capitulo_via_scraper boolean not null default false,
-    nota int check (nota between 1 and 5),
+    score int check (score between 1 and 5),
     generos text[],
     tags text[],
     observacoes text,

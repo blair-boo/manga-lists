@@ -76,14 +76,14 @@ const fontesValues = fontes
 const obrasFontesSql = `
 CREATE TEMP TABLE obras_staging (
   ref text, tipo text, titulo text, autor text, capa_url text, capitulo_atual numeric,
-  status_leitura text, status_publicacao text, nota int, generos text[], tags text[], observacoes text
+  status_leitura text, status_publicacao text, score int, generos text[], tags text[], observacoes text
 ) ON COMMIT DROP;
 
-INSERT INTO obras_staging (ref, tipo, titulo, autor, capa_url, capitulo_atual, status_leitura, status_publicacao, nota, generos, tags, observacoes) VALUES
+INSERT INTO obras_staging (ref, tipo, titulo, autor, capa_url, capitulo_atual, status_leitura, status_publicacao, score, generos, tags, observacoes) VALUES
   ${obrasValues};
 
-INSERT INTO obras (tipo, titulo, autor, capa_url, capitulo_atual, status_leitura, status_publicacao, nota, generos, tags, observacoes)
-SELECT s.tipo, s.titulo, s.autor, s.capa_url, s.capitulo_atual, s.status_leitura, s.status_publicacao, s.nota, s.generos, s.tags, s.observacoes
+INSERT INTO obras (tipo, titulo, autor, capa_url, capitulo_atual, status_leitura, status_publicacao, score, generos, tags, observacoes)
+SELECT s.tipo, s.titulo, s.autor, s.capa_url, s.capitulo_atual, s.status_leitura, s.status_publicacao, s.score, s.generos, s.tags, s.observacoes
 FROM obras_staging s
 WHERE NOT EXISTS (SELECT 1 FROM obras o WHERE lower(o.titulo) = lower(s.titulo));
 
