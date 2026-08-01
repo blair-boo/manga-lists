@@ -115,3 +115,36 @@ ajuda a decidir.
   dorme** — se um dia a rota abrir (API key/allow-list do comix, ou browser
   real via FlareSolverr), é só religar a env. O estágio de **capítulos** não
   depende de nada disto e continua funcionando ao vivo (lê o `#initial-data`).
+
+## Catálogo via export manual do navegador (o "outro jeito")
+
+Como o servidor não consegue ler o catálogo (seção acima), a alternativa é um
+script que roda **no seu navegador**, na aba do comix.to já logada — ali o
+Cloudflare já está resolvido (cookie da sua sessão) e o `fetch` é same-origin
+de verdade, então os dois obstáculos somem de graça. É o mesmo raciocínio de
+extensões tipo [comix-downloader](https://github.com/N3uralCreativity/comix-downloader),
+só que pra exportar a lista da biblioteca em vez de baixar capítulos.
+
+1. **Instalar um gerenciador de userscript** no navegador (ex.:
+   [Tampermonkey](https://www.tampermonkey.net/)), se ainda não tiver.
+2. **Instalar o script** `scraper/comix_library_export.user.js` deste repo
+   (Tampermonkey → Criar novo script → colar o conteúdo do arquivo → salvar).
+3. **Abrir qualquer página do comix.to** (logado ou não — o catálogo é
+   público) e clicar no botão roxo "Exportar biblioteca comix" que aparece no
+   canto superior direito. Ele pagina `/api/v1/manga` até o fim e baixa um
+   `comix_catalogo_<data>.json` com `title`/`altTitles`/`url` de cada obra.
+4. **Importar no Supabase** rodando, na pasta `scraper/` (com `.env`
+   configurado como qualquer outro script daqui):
+   ```
+   python import_comix_catalogo.py ~/Downloads/comix_catalogo_2026-08-01.json
+   ```
+   Casa cada obra sem fonte no comix.to contra o catálogo exportado — por
+   título principal **e** alternativos, reusando exatamente a mesma lógica de
+   score/limiares de `update_obras.py` — e insere as fontes casadas (aprovada
+   ou pendente, conforme o score). Registra uma run em `scraper_runs` (tipo
+   `obras`, site `comix.to`), então aparece na aba Updates normalmente.
+
+É um passo manual/sob demanda (não um cron automático), mas grátis, confiável
+e usa o único caminho que de fato funciona pra esse catálogo. Os
+**capítulos** das fontes já casadas continuam atualizando sozinhos todo dia,
+sem precisar repetir isso.
