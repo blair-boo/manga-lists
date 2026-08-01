@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Comix.to — Exportar biblioteca
 // @namespace    manga-lists
-// @version      1.1
+// @version      1.2
 // @description  Percorre o catálogo do comix.to (/api/v1/manga) e baixa um JSON com o item completo de cada obra — pra importar no manga-lists com import_comix_catalogo.py.
 // @match        https://comix.to/*
 // @match        https://comix.ws/*
@@ -20,23 +20,23 @@
 // v1.1: a v1.0 tomava 403 direto (confirmado: chamada real do site inclui
 // content_rating[]/types[] do filtro ativo E um parâmetro "_" opaco de ~130
 // caracteres que não é timestamp — tem cara de token anti-bot gerado pelo
-// bundle do site). Duas mudanças:
+// bundle do site). Estratégia: guardar a query completa da ÚLTIMA chamada
+// real que a própria página fez pro /api/v1/manga (capturada passivamente,
+// sem interferir) e reusar ela — com o token de verdade — só trocando o
+// "page". Não depende de entender como o token é gerado, só empresta um
+// válido.
 //
-// 1. Usa `unsafeWindow.fetch` em vez do `fetch` do userscript. Tampermonkey
-//    roda o script num mundo JS isolado por padrão, com seu próprio `fetch`
-//    limpo, separado do `fetch` da página real — que pode estar remendado
-//    (pelo Cloudflare ou pelo bundle do site) pra grudar esse token
-//    automaticamente. Chamando o fetch DA PÁGINA, herdamos esse remendo, se
-//    for isso mesmo.
-// 2. Se ainda assim vier 403: guarda a query completa da ÚLTIMA chamada real
-//    que a própria página fez pro /api/v1/manga (capturada passivamente,
-//    sem interferir) e reusa ela — com o token de verdade — só trocando o
-//    "page". Não depende de entender como o token é gerado, só empresta um
-//    válido. Se o token for de uso único (amarrado à query exata), essa
-//    segunda tentativa também falha; nesse caso, navegue manualmente por
-//    umas 2-3 páginas do /browse (sem filtro de tipo/rating, pra pegar o
-//    catálogo todo) logo antes de clicar em exportar, pra manter uma query
-//    recente "fresca" pro script pegar.
+// v1.2: confirmado ao vivo que só interceptar `fetch` não bastava — o
+// espião nunca capturava nada mesmo depois de navegar o /browse. Sinal de
+// que o axios do site usa o adapter XMLHttpRequest por baixo (o padrão dele
+// em navegador), não fetch. Espião agora cobre os dois (fetch E
+// XMLHttpRequest.prototype.open).
+//
+// Se o token for de uso único (amarrado à query exata da chamada
+// original), reusar pra outra página pode falhar mesmo assim; nesse caso,
+// navegue manualmente por umas 2-3 páginas do /browse (sem filtro de
+// tipo/rating, pra pegar o catálogo todo) logo antes de clicar em
+// exportar, pra manter uma query recente "fresca" pro script pegar.
 
 (function () {
   "use strict";
@@ -49,17 +49,31 @@
 
   // Espiona (sem bloquear) chamadas que a PRÓPRIA página faz pro endpoint de
   // listagem, guardando a query completa (com o token real) da mais recente.
+  // Cobre fetch E XMLHttpRequest: confirmado ao vivo que o fetch da própria
+  // página (tentativa 1) toma 403 igual, e o espião original (só fetch)
+  // nunca capturava nada mesmo depois de navegar — sinal de que o axios do
+  // site usa o adapter XHR por baixo (o padrão dele em navegador), não fetch.
   let ultimaQueryReal = null;
-  alvoWindow.fetch = function (...args) {
+
+  function registrarQuery(alvo) {
     try {
-      const alvo = typeof args[0] === "string" ? args[0] : args[0] && args[0].url;
-      if (alvo && alvo.includes("/api/v1/manga")) {
+      if (typeof alvo === "string" && alvo.includes("/api/v1/manga")) {
         ultimaQueryReal = alvo.split("?")[1] || null;
       }
     } catch (e) {
       // não deixa a espionagem quebrar a navegação normal da página
     }
+  }
+
+  alvoWindow.fetch = function (...args) {
+    registrarQuery(typeof args[0] === "string" ? args[0] : args[0] && args[0].url);
     return fetchReal(...args);
+  };
+
+  const XHROpenReal = alvoWindow.XMLHttpRequest.prototype.open;
+  alvoWindow.XMLHttpRequest.prototype.open = function (method, url, ...resto) {
+    registrarQuery(url);
+    return XHROpenReal.call(this, method, url, ...resto);
   };
 
   function delay(ms) {
