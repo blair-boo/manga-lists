@@ -52,6 +52,7 @@ async function abrirPagina(estado) {
   const tab = await chrome.tabs.create({ url, active: false });
   estado.tabId = tab.id;
   estado.aguardando = true;
+  estado.ultimoDiagnostico = null; // limpa o diagnóstico da página anterior
   await salvarEstado(estado);
 
   timeoutAtual = setTimeout(async () => {
@@ -66,13 +67,28 @@ async function abrirPagina(estado) {
     atual.aguardando = false;
     if (atual.falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
       atual.ativo = false;
-      atual.erro = `Timeout esperando a página ${atual.pagina} (${MAX_FALHAS_SEGUIDAS} tentativas) — dados coletados até aqui ficam disponíveis pra baixar.`;
+      atual.erro = `Timeout esperando a página ${atual.pagina} (${MAX_FALHAS_SEGUIDAS} tentativas). ${formatarDiagnostico(atual.ultimoDiagnostico)}`;
       await salvarEstado(atual);
       return;
     }
     await salvarEstado(atual);
     await abrirPagina(atual); // retenta a mesma página
   }, TIMEOUT_PAGINA_MS);
+}
+
+function formatarDiagnostico(info) {
+  if (!info) {
+    return "Nenhum diagnóstico recebido da aba (o content script pode não ter sido injetado, ou a aba não chegou a carregar) — dados coletados até aqui ficam disponíveis pra baixar.";
+  }
+  const desafio = info.pareceDesafio ? " — PARECE UM DESAFIO DO CLOUDFLARE (ex.: \"Just a moment\")." : "";
+  return `Diagnóstico da aba: título="${info.titulo}", url="${info.url}".${desafio} Dados coletados até aqui ficam disponíveis pra baixar.`;
+}
+
+async function registrarDiagnostico(info, tabId) {
+  const estado = await lerEstado();
+  if (!estado || estado.tabId !== tabId) return;
+  estado.ultimoDiagnostico = info;
+  await salvarEstado(estado);
 }
 
 async function processarResposta(texto, tabId) {
@@ -95,7 +111,7 @@ async function processarResposta(texto, tabId) {
     estado.aguardando = false;
     if (estado.falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
       estado.ativo = false;
-      estado.erro = `Resposta inesperada na página ${estado.pagina} — dados coletados até aqui ficam disponíveis pra baixar.`;
+      estado.erro = `Resposta inesperada na página ${estado.pagina}. ${formatarDiagnostico(estado.ultimoDiagnostico)}`;
       await salvarEstado(estado);
       return;
     }
@@ -198,6 +214,9 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   switch (msg.tipo) {
     case "comix-manga-response":
       processarResposta(msg.texto, sender.tab && sender.tab.id);
+      break;
+    case "comix-diagnostico":
+      registrarDiagnostico(msg.info, sender.tab && sender.tab.id);
       break;
     case "iniciar":
       iniciar(msg.urlBase, msg.limitePaginas);

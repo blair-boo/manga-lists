@@ -48,4 +48,32 @@
     }
     return sendOriginal.apply(this, args);
   };
+
+  // Diagnóstico: se o /api/v1/manga nunca responder (timeout no background),
+  // a usuária normalmente não vê a aba (abre em segundo plano) e não tem como
+  // saber o motivo. Manda um retrato da página alguns segundos depois de
+  // carregar — título, se parece desafio do Cloudflare, URL final — pra
+  // aparecer na mensagem de erro do popup em vez de um "timeout" genérico.
+  function diagnosticoPagina() {
+    const titulo = document.title || "";
+    const corpo = (document.body && document.body.innerText) || "";
+    const amostra = (titulo + " " + corpo).slice(0, 500);
+    const pareceDesafio = /just a moment|verifying you are human|attention required|checking your browser|cf-chl/i.test(
+      amostra
+    );
+    return { titulo, pareceDesafio, url: location.href };
+  }
+
+  function enviarDiagnostico() {
+    try {
+      chrome.runtime.sendMessage({ tipo: "comix-diagnostico", info: diagnosticoPagina() });
+    } catch (e) {
+      // idem: sem problema se ninguém estiver ouvindo
+    }
+  }
+
+  // Duas leituras: uma cedo (pega desafio do Cloudflare, que aparece rápido)
+  // e uma mais tarde (pega o estado já hidratado da SPA, se passou do desafio).
+  setTimeout(enviarDiagnostico, 1500);
+  setTimeout(enviarDiagnostico, 6000);
 })();

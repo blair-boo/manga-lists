@@ -4,11 +4,11 @@
   "version": "1.0",
   "description": "Percorre o catálogo do comix.to (com os filtros já aplicados por você no site) abrindo páginas reais em segundo plano, e exporta um JSON pro manga-lists.",
   "permissions": ["tabs", "storage"],
-  "host_permissions": ["https://comix.to/*", "https://comix.ws/*"],
+  "host_permissions": ["*://*.comix.to/*", "*://*.comix.ws/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
-      "matches": ["https://comix.to/*", "https://comix.ws/*"],
+      "matches": ["*://*.comix.to/*", "*://*.comix.ws/*"],
       "js": ["content.js"],
       "run_at": "document_start"
     }
