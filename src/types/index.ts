@@ -26,6 +26,8 @@ export interface Obra {
   capitulo_atual: number | null;
   status_leitura: StatusLeitura | null;
   status_publicacao: StatusPublicacao | null;
+  /** Quando true, status_publicacao foi definido manualmente — o scraper (status do comix) nunca sobrescreve. */
+  status_publicacao_manual: boolean;
   fim_de_temporada: boolean;
   ultimo_capitulo_lancado: number | null;
   ultimo_capitulo_via_scraper: boolean;

@@ -199,7 +199,12 @@ def executar(supabase) -> None:
     if status_por_obra:
         print(f"Atualizando status_publicacao de {len(status_por_obra)} obra(s)…")
         for obra_id, status_publicacao in status_por_obra.items():
-            supabase.table("obras").update({"status_publicacao": status_publicacao}).eq("id", obra_id).execute()
+            # .eq("status_publicacao_manual", False) faz o update ser no-op quando a
+            # usuária definiu o status manualmente — a decisão dela sempre vence,
+            # mesma garantia de fontes.tipo_manual (Bloco B4).
+            supabase.table("obras").update({"status_publicacao": status_publicacao}).eq("id", obra_id).eq(
+                "status_publicacao_manual", False
+            ).execute()
 
     print(f"Concluído. {total_falhas} falha(s) de {len(fontes)} fontes.")
 

@@ -355,6 +355,9 @@ export function DetalheObraPage() {
       if (snap === null) return;
       const changes = camposAlterados(draft, snap);
       if (Object.keys(changes).length === 0) return;
+      // Edição manual do status de publicação: trava contra sobrescrita do
+      // scraper (status do comix), mesmo critério de tipo_manual em fontes (B4).
+      if ('status_publicacao' in changes) changes.status_publicacao_manual = true;
       snapshotRef.current = draft;
       void (async () => {
         if (('titulo' in changes || 'tipo' in changes) && snap.capa_url) {
@@ -503,6 +506,7 @@ export function DetalheObraPage() {
       capitulo_atual: null,
       status_leitura: null,
       status_publicacao: null,
+      status_publicacao_manual: false,
       fim_de_temporada: false,
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,

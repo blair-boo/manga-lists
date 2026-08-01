@@ -103,6 +103,21 @@ describe('buildUpdatePayload', () => {
     expect(buildUpdatePayload({ score: 'abc' })).toEqual({});
   });
 
+  it('coluna status_publicacao presente trava status_publicacao_manual (mesma célula vazia ou preenchida)', () => {
+    expect(buildUpdatePayload({ status_publicacao: 'Hiatus' })).toEqual({
+      status_publicacao: 'Hiatus',
+      status_publicacao_manual: true,
+    });
+    expect(buildUpdatePayload({ status_publicacao: '' })).toEqual({
+      status_publicacao: null,
+      status_publicacao_manual: true,
+    });
+  });
+
+  it('status_publicacao ausente do CSV não mexe na trava manual', () => {
+    expect(buildUpdatePayload({ autor: 'Chugong' })).toEqual({ autor: 'Chugong' });
+  });
+
   it('arrays separados por ;', () => {
     const payload = buildUpdatePayload({ generos: 'Action; Fantasy;Drama' });
     expect(payload.generos).toEqual(['Action', 'Fantasy', 'Drama']);
@@ -130,6 +145,7 @@ describe('obrasParaCsv', () => {
     capitulo_atual: 110,
     status_leitura: 'Reading',
     status_publicacao: 'Ongoing',
+    status_publicacao_manual: true,
     fim_de_temporada: false,
     ultimo_capitulo_lancado: 179,
     ultimo_capitulo_via_scraper: true,

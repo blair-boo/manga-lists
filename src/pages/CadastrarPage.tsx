@@ -124,6 +124,9 @@ export function CadastrarPage() {
       capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
       status_leitura: (statusLeitura || null) as StatusLeitura | null,
       status_publicacao: (statusPublicacao || null) as StatusPublicacao | null,
+      // Escolha explícita da usuária no cadastro conta como manual (mesmo critério
+      // do autosave em DetalheObraPage) — o scraper não sobrescreve depois.
+      status_publicacao_manual: Boolean(statusPublicacao),
       fim_de_temporada: statusPublicacao === 'Hiatus' ? fimDeTemporada : false,
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,

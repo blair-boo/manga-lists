@@ -99,6 +99,10 @@ export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
     const v = (row[rotulo] ?? '').trim();
     payload[campo] = (v || null) as never;
   }
+  // Coluna status_publicacao presente no CSV (mesmo vazia) é uma edição
+  // deliberada — trava contra sobrescrita do scraper, igual ao autosave da
+  // tela de detalhe (B4).
+  if ('status_publicacao' in payload) payload.status_publicacao_manual = true;
 
   for (const campo of CAMPOS_NUMERO) {
     if (!(campo in row)) continue;
