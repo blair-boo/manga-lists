@@ -28,19 +28,24 @@ from common import (
 from tipo_titulo import detectar_tipo
 
 
-def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | None, str | None]:
+def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | None, str | None, str | None]:
     """
-    (último capítulo, tipo detectado 'manga'/'novel'/None, diagnóstico quando
-    não achou capítulo) de uma fonte (URL já absoluta). Se o domínio tem
+    (último capítulo, tipo detectado 'manga'/'novel'/None, status de
+    publicação já traduzido pro enum do app ou None, diagnóstico quando não
+    achou capítulo) de uma fonte (URL já absoluta). Se o domínio tem
     adaptador designado, usa-o com a estratégia de acesso resolvida; senão cai
     na heurística genérica de HTML, via `fetch_http` (mesmo cliente
     Cloudflare-aware + fallback curl dos adaptadores) — a detecção de tipo
-    (Bloco B1) roda nos dois casos, por URL/HTML, não depende do adaptador.
+    (Bloco B1) roda nos dois casos, por URL/HTML, não depende do adaptador; já
+    o status de publicação só vem de adaptadores que o relatam (hoje só o
+    comix — a heurística genérica não tem de onde tirar isso).
     Retornos que não são capítulo (vazio/bloqueado/erro de acesso) não são
     exceção — apenas devolvem None (não contam como falha do batch; um
     domínio sem adaptador bloqueado não deve derrubar a run inteira pra
     "erro"), mas o diagnóstico vai pro log, pra "não achei capítulo" não ficar
     indistinguível de "site bloqueou o acesso" (ex.: challenge do Cloudflare).
+    Note que status_publicacao pode vir preenchido mesmo quando o capítulo é
+    None (ex.: obra reconhecida mas ainda sem capítulos publicados).
     """
     desig = designacoes.get(host_de_url(url)) or {}
     adaptador_id = desig.get("adaptador")
@@ -51,12 +56,12 @@ def obter_capitulo(url: str, designacoes: dict) -> tuple[float | None, str | Non
             resultado = adapter.parse(adapter.fetch(url, estrategia))
             capitulo = resultado.ultimo_capitulo if resultado.status == STATUS_OK else None
             diagnostico = None if resultado.status == STATUS_OK else f"{resultado.status}: {resultado.diagnostico}"
-            return capitulo, resultado.tipo_detectado, diagnostico
+            return capitulo, resultado.tipo_detectado, resultado.status_publicacao_detectado, diagnostico
 
     raw = fetch_http(url)
     if raw.status != "ok" or not raw.text:
-        return None, None, f"{raw.status}: {raw.diagnostico}"
-    return extrair_maior_capitulo(raw.text), detectar_tipo(url, raw.text), None
+        return None, None, None, f"{raw.status}: {raw.diagnostico}"
+    return extrair_maior_capitulo(raw.text), detectar_tipo(url, raw.text), None, None
 
 
 def _payload_tipo(fonte: dict, tipo_detectado: str | None) -> dict:
@@ -76,12 +81,15 @@ def processar_grupo(
     designacoes: dict,
     base_por_site: dict,
     capitulos_por_obra: dict[str, list[tuple[float, bool]]],
+    status_por_obra: dict[str, str],
 ) -> tuple[int, int]:
     """
     Verifica as fontes de um grupo (um domínio, ou o residual sem site) e
     acumula os capítulos encontrados em capitulos_por_obra — o recálculo de
     `ultimo_capitulo_lancado` roda uma vez só no final, sobre todos os grupos.
-    Retorna (atualizadas, falhas).
+    Status de publicação relatado por algum adaptador (hoje só comix) acumula
+    em status_por_obra do mesmo jeito, pro update em obras.status_publicacao
+    no final — não depende de ter achado capítulo. Retorna (atualizadas, falhas).
     """
     falhas = 0
     atualizadas = 0
@@ -89,7 +97,9 @@ def processar_grupo(
     for fonte in fontes:
         try:
             url = resolver_url(fonte["url"], base_por_site.get(fonte.get("site")))
-            capitulo, tipo_detectado, diagnostico = obter_capitulo(url, designacoes)
+            capitulo, tipo_detectado, status_publicacao, diagnostico = obter_capitulo(url, designacoes)
+            if status_publicacao:
+                status_por_obra[fonte["obra_id"]] = status_publicacao
             agora = datetime.now(timezone.utc).isoformat()
 
             if capitulo is not None:
@@ -157,6 +167,10 @@ def executar(supabase) -> None:
     # valor de cada obra foi atualizado pelo scraper ou é um valor manual antigo.
     # Acumula de TODOS os grupos; o recálculo roda uma vez só, no final.
     capitulos_por_obra: dict[str, list[tuple[float, bool]]] = {}
+    # obra_id -> StatusPublicacao já traduzido, de qualquer fonte que o relate
+    # (hoje só comix). Independente de capitulos_por_obra: uma obra pode ter
+    # status sem ter capítulo achado nessa run (ou vice-versa).
+    status_por_obra: dict[str, str] = {}
     total_falhas = 0
 
     for dominio, grupo in sorted(grupos.items(), key=lambda kv: (kv[0] is None, kv[0] or "")):
@@ -164,7 +178,7 @@ def executar(supabase) -> None:
         print(f"\n{rotulo}: {len(grupo)} fonte(s).")
         run_id = iniciar_run(supabase, "capitulos", site_dominio=dominio)
         try:
-            _, falhas = processar_grupo(supabase, grupo, designacoes, base_por_site, capitulos_por_obra)
+            _, falhas = processar_grupo(supabase, grupo, designacoes, base_por_site, capitulos_por_obra, status_por_obra)
             total_falhas += falhas
             status = "concluido" if falhas == 0 else "erro"
             mensagem = None if falhas == 0 else f"{falhas} fonte(s) falharam ao verificar"
@@ -181,6 +195,11 @@ def executar(supabase) -> None:
         supabase.table("obras").update(
             {"ultimo_capitulo_lancado": maior, "ultimo_capitulo_via_scraper": via_scraper}
         ).eq("id", obra_id).execute()
+
+    if status_por_obra:
+        print(f"Atualizando status_publicacao de {len(status_por_obra)} obra(s)…")
+        for obra_id, status_publicacao in status_por_obra.items():
+            supabase.table("obras").update({"status_publicacao": status_publicacao}).eq("id", obra_id).execute()
 
     print(f"Concluído. {total_falhas} falha(s) de {len(fontes)} fontes.")
 

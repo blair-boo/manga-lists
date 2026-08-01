@@ -159,9 +159,51 @@ def test_comix_parse_ok():
     assert isinstance(r.ultimo_capitulo, int)
     assert r.titulo_site == "Marchioness Maron"
     assert r.tipo_detectado == "manga"
+    assert r.status_publicacao_detectado == "Ongoing"
     assert r.link_capitulo == (
         "https://comix.to/title/l78rz-marchioness-maron/11128392-chapter-48"
     )
+
+
+@pytest.mark.parametrize(
+    "status_comix,esperado",
+    [
+        ("releasing", "Ongoing"),
+        ("finished", "Completed"),
+        ("on_hiatus", "Hiatus"),
+        ("discontinued", "Canceled"),
+        ("not_yet_released", None),  # sem correspondente no enum do app, ver _COMIX_STATUS_MAP
+        ("algum_status_novo_desconhecido", None),
+    ],
+)
+def test_comix_status_publicacao_mapeado(status_comix, esperado):
+    detalhe = {
+        "title": "Status Teste",
+        "type": "manga",
+        "status": status_comix,
+        "hasChapters": True,
+        "latestChapter": 1,
+        "latestChapterUrl": "/title/l78rz-status-teste/1-chapter-1",
+    }
+    raw = RawContent("ok", "https://comix.to/title/l78rz-status-teste", text=_comix_html(detalhe))
+    r = ComixAdapter().parse(raw)
+    assert r.status_publicacao_detectado == esperado
+
+
+def test_comix_status_publicacao_tambem_em_obra_sem_capitulos():
+    # hasChapters=False cai em STATUS_VAZIA, mas o status de publicação (aqui,
+    # ainda não lançado) não depende de ter capítulo achado.
+    detalhe = {"title": "Ainda Sem Capítulos", "type": "manga", "status": "not_yet_released", "hasChapters": False}
+    raw = RawContent("ok", "https://comix.to/title/l78rz-sem-capitulos", text=_comix_html(detalhe))
+    r = ComixAdapter().parse(raw)
+    assert r.status == STATUS_VAZIA
+    assert r.status_publicacao_detectado is None
+
+    detalhe2 = {"title": "Hiato Sem Capítulos", "type": "manga", "status": "on_hiatus", "hasChapters": False}
+    raw2 = RawContent("ok", "https://comix.to/title/l78rz-hiato", text=_comix_html(detalhe2))
+    r2 = ComixAdapter().parse(raw2)
+    assert r2.status == STATUS_VAZIA
+    assert r2.status_publicacao_detectado == "Hiatus"
 
 
 def test_comix_capitulo_decimal_vira_float():

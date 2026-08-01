@@ -157,6 +157,12 @@ class ParseResult:
     link_capitulo: str | None = None
     diagnostico: str | None = None
     tipo_detectado: str | None = None  # 'manga' | 'novel' | None (indefinido; ver tipo_titulo.py)
+    # Valor já mapeado pro enum StatusPublicacao do app ('Ongoing'/'Completed'/
+    # 'Hiatus'/'Canceled'/'One shot'), ou None quando o adaptador não relata
+    # status de publicação (a maioria não relata). Cada adaptador é responsável
+    # por traduzir o vocabulário do site pro enum do app — update_fontes.py só
+    # propaga o valor já traduzido, sem saber de onde veio.
+    status_publicacao_detectado: str | None = None
 
 
 # --- Interface do adaptador -------------------------------------------------

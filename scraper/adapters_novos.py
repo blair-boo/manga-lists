@@ -646,6 +646,24 @@ _COMIX_INITIAL_DATA_RE = re.compile(
 )
 _COMIX_HID_RE = re.compile(r"/title/([0-9A-Za-z]+)-")
 
+# Mapa do vocabulário de status do comix (campo "status" do detalhe da obra,
+# ex.: {"status":"releasing"}) pro enum StatusPublicacao do app. CONFIRMADO
+# em 2026-08-01 lendo o bloco #initial-data real da página /browse (que
+# expõe a lista completa de opções de filtro do site, "options.statuses"):
+#   [{"id":"releasing","label":"Releasing"},{"id":"finished","label":"Finished"},
+#    {"id":"on_hiatus","label":"On hiatus"},{"id":"discontinued","label":"Discontinued"},
+#    {"id":"not_yet_released","label":"Not yet released"}]
+# "not_yet_released" fica de fora de propósito: não tem correspondente no
+# enum do app (Ongoing/Completed/One shot/Hiatus/Canceled), e na prática uma
+# obra nesse estado também não deve ter hasChapters=true — parse() já cai em
+# STATUS_VAZIA antes de chegar a importar.
+_COMIX_STATUS_MAP = {
+    "releasing": "Ongoing",
+    "finished": "Completed",
+    "on_hiatus": "Hiatus",
+    "discontinued": "Canceled",
+}
+
 # Path do endpoint de listagem, usado por catálogo/busca. CONFIRMADO em
 # 2026-07-30, não contra o site ao vivo (Cloudflare continua bloqueando com
 # um challenge JS real, "Just a moment...", todo GET direto deste ambiente —
@@ -933,6 +951,12 @@ class ComixAdapter(SourceAdapter):
             return None
         return urljoin(url_pagina, caminho)
 
+    def _status_publicacao(self, detalhe: dict) -> str | None:
+        """StatusPublicacao do app a partir do campo "status" do comix, ou None
+        quando ausente/sem correspondente (ver _COMIX_STATUS_MAP)."""
+        status = str(detalhe.get("status") or "").lower()
+        return _COMIX_STATUS_MAP.get(status)
+
     # --- interface do adaptador -------------------------------------------
 
     def matches(self, url: str) -> bool:
@@ -967,12 +991,14 @@ class ComixAdapter(SourceAdapter):
 
         titulo_site = detalhe.get("title") or None
         tipo_detectado = self._tipo(detalhe, raw)
+        status_publicacao = self._status_publicacao(detalhe)
 
         if not detalhe.get("hasChapters"):
             return ParseResult(
                 STATUS_VAZIA,
                 titulo_site=titulo_site,
                 tipo_detectado=tipo_detectado,
+                status_publicacao_detectado=status_publicacao,
                 diagnostico="obra reconhecida, ainda sem capítulos (hasChapters=false)",
             )
 
@@ -982,6 +1008,7 @@ class ComixAdapter(SourceAdapter):
                 STATUS_VAZIA,
                 titulo_site=titulo_site,
                 tipo_detectado=tipo_detectado,
+                status_publicacao_detectado=status_publicacao,
                 diagnostico=f"latestChapter ausente ou inválido: {numero!r}",
             )
         numero = int(numero) if float(numero).is_integer() else float(numero)
@@ -990,6 +1017,7 @@ class ComixAdapter(SourceAdapter):
             STATUS_OK,
             titulo_site=titulo_site,
             tipo_detectado=tipo_detectado,
+            status_publicacao_detectado=status_publicacao,
             ultimo_capitulo=numero,
             link_capitulo=self._absoluta(raw.url, detalhe.get("latestChapterUrl")),
         )
