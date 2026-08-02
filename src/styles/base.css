@@ -318,10 +318,14 @@ label {
   mask-size: contain;
 }
 
-/* Ícone do Storage com cores próprias (não segue o tema). */
+/* Ícone do Storage com cores próprias (não segue o tema). O object-fit é o que
+   segura a proporção: a caixa é fixa (pra a linha das abas não mudar de altura
+   entre um ícone e outro), mas o desenho não estica se o arquivo trocar de
+   proporção — os ratos, por exemplo, são quadrados numa caixa 20x30. */
 .icone-colorido {
   display: block;
   flex-shrink: 0;
+  object-fit: contain;
 }
 
 /* Botão de ícone em estado "só a sombra": visível, mas inerte. Mesma opacidade

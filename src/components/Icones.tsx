@@ -119,11 +119,9 @@ function IconeColorido({ arquivo, largura, altura }: { arquivo: string; largura:
   );
 }
 
-// Nomes dos arquivos no bucket "icons". São PNG (não SVG como os demais
-// ícones): é o formato em que a dona subiu os dois ratos. Como IconeColorido
-// usa <img>, o formato não faz diferença aqui.
-const ARQUIVO_MODO_EDICAO = 'mini-mouse-inverted.png';
-const ARQUIVO_SAIR_MODO_EDICAO = 'mini-mouse-no-inverted.png';
+// Nomes dos arquivos no bucket "icons".
+const ARQUIVO_MODO_EDICAO = 'mini-mouse-inverted.svg';
+const ARQUIVO_SAIR_MODO_EDICAO = 'mini-mouse-no-inverted.svg';
 
 const RATO_LARGURA = 20;
 const RATO_ALTURA = 30;
