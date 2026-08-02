@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Exportar catálogo comix</title>
+<style>
+  body { font-family: system-ui, sans-serif; width: 340px; padding: 12px; font-size: 13px; }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  label { display: block; margin-top: 8px; font-weight: 600; }
+  textarea, input[type="number"] { width: 100%; box-sizing: border-box; margin-top: 4px; font-family: monospace; font-size: 12px; }
+  textarea { height: 54px; resize: vertical; }
+  .linha-botoes { display: flex; gap: 6px; margin-top: 10px; }
+  button { flex: 1; padding: 6px 8px; cursor: pointer; }
+  #status { margin-top: 10px; padding: 8px; background: #f3f0fb; border-radius: 6px; white-space: pre-wrap; }
+  .erro { color: #b91c1c; background: #fee2e2; }
+  small { color: #666; display: block; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <h1>Exportar catálogo comix (filtrado)</h1>
+
+  <label for="urlBase">URL do /browse já com os filtros aplicados</label>
+  <textarea id="urlBase" placeholder="https://comix.to/browse?types=manhwa,manhua&amp;status=releasing&amp;sort=chapter_updated_at:desc"></textarea>
+  <small>Aplica os filtros que quiser direto no site (comix.to/browse), copia a URL da barra de endereço e cola aqui.</small>
+
+  <label for="limite">Limite de páginas (opcional, 0 = até acabar)</label>
+  <input id="limite" type="number" min="0" value="0" />
+
+  <div class="linha-botoes">
+    <button id="btnIniciar">Iniciar</button>
+    <button id="btnContinuar">Continuar</button>
+    <button id="btnParar">Parar</button>
+  </div>
+  <div class="linha-botoes">
+    <button id="btnBaixar">Baixar JSON coletado</button>
+    <button id="btnLimpar">Limpar</button>
+  </div>
+
+  <div id="status">Nenhum export em andamento.</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

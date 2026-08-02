@@ -96,18 +96,55 @@ ajuda a decidir.
   ordem, só chamado quando o ScraperAPI falha, ~3/18); a 1ª vez que cair nele
   confirma. Não passamos `json_response` (embrulharia a resposta e quebraria o
   parser) nem `country_code`.
-- **Catálogo/busca** (`update_obras`/`discover_fontes`): a mesma rota cobre. O
-  endpoint é JSON (`/api/v1/manga`). **Descoberto na 1ª run de validação
-  (30/07):** ao contrário do que eu supus, o endpoint JSON **também precisa de
-  render** — sem render os três providers deram 5xx, porque o Cloudflare do
-  comix exige JS até pra API. Então o catálogo renderiza (igual às páginas de
-  capítulo) e o JSON volta embrulhado em HTML; `ComixAdapter._extrair_json`
-  desembrulha (remove script/style, pega o maior bloco `{...}`). Além disso, a
-  API responde `{"status":"ok","result":{...}}` — `_desembrulhar_resultado`
-  tira o `.result` (o app faz isso via interceptor Axios). Casa por título
-  principal **e** alternativos (`altTitles`).
-  - **Custo:** com render obrigatório, cada página do catálogo é um request
-    renderizado. `COMIX_MAX_PAGINAS_CATALOGO` (default **20** ≈ 2000 títulos
-    mais recentes; `0` = varre tudo) limita a profundidade pra não torrar
-    crédito — as primeiras páginas já são as obras mais ativas
-    (`order=chapter_updated_at desc`).
+- **Catálogo/busca** (`update_obras`/`discover_fontes`): **DESLIGADO de
+  propósito — o comix é chapters-only.** A rota de listagem (`/api/v1/manga`) é
+  um endpoint **Laravel** que só devolve JSON pra request com cara de XHR
+  (`X-Requested-With: XMLHttpRequest`). Através das APIs de scraping com render,
+  o provider faz uma **navegação de página** (sem esse header), então a API
+  responde 5xx. Testado sem sucesso em **três** runs de validação (30–31/07):
+  - render **off** → 5xx (o Cloudflare exige JS até pra API);
+  - render **on**, sem headers → 5xx (Laravel rejeita navegação);
+  - render **on** + headers XHR encaminhados (`keep_headers`/`forward_headers`/
+    `customHeaders`) → **ainda 5xx** (com render, o provider navega em vez de
+    fazer um XHR de verdade — `sec-fetch-mode: navigate`, não `cors`).
+
+  Como as obras do comix passaram a ser cadastradas por outro caminho, não vale
+  queimar crédito varrendo esse catálogo. `ComixAdapter.listar_catalogo`/
+  `.buscar` retornam vazio enquanto `COMIX_CATALOGO_ATIVO` não for `true` (ver
+  `_catalogo_ativo`). **Todo o código de catálogo/busca segue no adaptador, só
+  dorme** — se um dia a rota abrir (API key/allow-list do comix, ou browser
+  real via FlareSolverr), é só religar a env. O estágio de **capítulos** não
+  depende de nada disto e continua funcionando ao vivo (lê o `#initial-data`).
+
+## Catálogo via export manual do navegador (o "outro jeito")
+
+Como o servidor não consegue ler o catálogo (seção acima), a alternativa é um
+script que roda **no seu navegador**, na aba do comix.to já logada — ali o
+Cloudflare já está resolvido (cookie da sua sessão) e o `fetch` é same-origin
+de verdade, então os dois obstáculos somem de graça. É o mesmo raciocínio de
+extensões tipo [comix-downloader](https://github.com/N3uralCreativity/comix-downloader),
+só que pra exportar a lista da biblioteca em vez de baixar capítulos.
+
+1. **Instalar um gerenciador de userscript** no navegador (ex.:
+   [Tampermonkey](https://www.tampermonkey.net/)), se ainda não tiver.
+2. **Instalar o script** `scraper/comix_library_export.user.js` deste repo
+   (Tampermonkey → Criar novo script → colar o conteúdo do arquivo → salvar).
+3. **Abrir qualquer página do comix.to** (logado ou não — o catálogo é
+   público) e clicar no botão roxo "Exportar biblioteca comix" que aparece no
+   canto superior direito. Ele pagina `/api/v1/manga` até o fim e baixa um
+   `comix_catalogo_<data>.json` com `title`/`altTitles`/`url` de cada obra.
+4. **Importar no Supabase** rodando, na pasta `scraper/` (com `.env`
+   configurado como qualquer outro script daqui):
+   ```
+   python import_comix_catalogo.py ~/Downloads/comix_catalogo_2026-08-01.json
+   ```
+   Casa cada obra sem fonte no comix.to contra o catálogo exportado — por
+   título principal **e** alternativos, reusando exatamente a mesma lógica de
+   score/limiares de `update_obras.py` — e insere as fontes casadas (aprovada
+   ou pendente, conforme o score). Registra uma run em `scraper_runs` (tipo
+   `obras`, site `comix.to`), então aparece na aba Updates normalmente.
+
+É um passo manual/sob demanda (não um cron automático), mas grátis, confiável
+e usa o único caminho que de fato funciona pra esse catálogo. Os
+**capítulos** das fontes já casadas continuam atualizando sozinhos todo dia,
+sem precisar repetir isso.

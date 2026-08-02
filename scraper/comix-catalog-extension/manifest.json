@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Comix.to — Exportar catálogo (filtrado)",
+  "version": "1.0",
+  "description": "Percorre o catálogo do comix.to (com os filtros já aplicados por você no site) abrindo páginas reais em segundo plano, e exporta um JSON pro manga-lists.",
+  "permissions": ["tabs", "storage"],
+  "host_permissions": ["*://*.comix.to/*", "*://*.comix.ws/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["*://*.comix.to/*", "*://*.comix.ws/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Exportar catálogo comix"
+  }
+}

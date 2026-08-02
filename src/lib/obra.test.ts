@@ -13,6 +13,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     capitulo_atual: null,
     status_leitura: null,
     status_publicacao: null,
+    status_publicacao_manual: false,
     fim_de_temporada: false,
     ultimo_capitulo_lancado: null,
     ultimo_capitulo_via_scraper: false,

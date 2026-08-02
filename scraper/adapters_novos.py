@@ -646,6 +646,24 @@ _COMIX_INITIAL_DATA_RE = re.compile(
 )
 _COMIX_HID_RE = re.compile(r"/title/([0-9A-Za-z]+)-")
 
+# Mapa do vocabulário de status do comix (campo "status" do detalhe da obra,
+# ex.: {"status":"releasing"}) pro enum StatusPublicacao do app. CONFIRMADO
+# em 2026-08-01 lendo o bloco #initial-data real da página /browse (que
+# expõe a lista completa de opções de filtro do site, "options.statuses"):
+#   [{"id":"releasing","label":"Releasing"},{"id":"finished","label":"Finished"},
+#    {"id":"on_hiatus","label":"On hiatus"},{"id":"discontinued","label":"Discontinued"},
+#    {"id":"not_yet_released","label":"Not yet released"}]
+# "not_yet_released" fica de fora de propósito: não tem correspondente no
+# enum do app (Ongoing/Completed/One shot/Hiatus/Canceled), e na prática uma
+# obra nesse estado também não deve ter hasChapters=true — parse() já cai em
+# STATUS_VAZIA antes de chegar a importar.
+_COMIX_STATUS_MAP = {
+    "releasing": "Ongoing",
+    "finished": "Completed",
+    "on_hiatus": "Hiatus",
+    "discontinued": "Canceled",
+}
+
 # Path do endpoint de listagem, usado por catálogo/busca. CONFIRMADO em
 # 2026-07-30, não contra o site ao vivo (Cloudflare continua bloqueando com
 # um challenge JS real, "Just a moment...", todo GET direto deste ambiente —
@@ -684,6 +702,29 @@ def _max_paginas_catalogo() -> int:
     if v <= 0:
         return _COMIX_MAX_PAGINAS
     return min(v, _COMIX_MAX_PAGINAS)
+
+
+def _catalogo_ativo() -> bool:
+    """
+    O catálogo/descoberta de obras do comix está DESLIGADO por padrão — o comix
+    entra só no estágio de CAPÍTULOS.
+
+    Motivo: a rota de listagem (`/api/v1/manga`) é um endpoint Laravel atrás do
+    Cloudflare que só devolve JSON pra request com cara de XHR. Através das APIs
+    de scraping com render, o provider faz uma NAVEGAÇÃO de página (sem
+    `X-Requested-With`), então a API responde 5xx — confirmado em três runs de
+    validação (30–31/07), inclusive com os headers XHR encaminhados. As obras do
+    comix passaram a ser cadastradas por outro caminho, então não vale queimar
+    crédito de scraping tentando varrer esse catálogo. O estágio de capítulos
+    não usa nada disto: lê o `#initial-data` da página da obra e funciona ao
+    vivo.
+
+    Pra religar (se um dia a rota abrir, ex.: API key/allow-list do comix),
+    basta setar `COMIX_CATALOGO_ATIVO=true` no ambiente do workflow — todo o
+    código de catálogo/busca abaixo continua aqui, só dorme.
+    """
+    valor = os.environ.get("COMIX_CATALOGO_ATIVO")
+    return bool(valor) and valor.strip().lower() in ("1", "true", "yes", "on")
 
 
 def _sem_espacos(s: str) -> str:
@@ -910,6 +951,12 @@ class ComixAdapter(SourceAdapter):
             return None
         return urljoin(url_pagina, caminho)
 
+    def _status_publicacao(self, detalhe: dict) -> str | None:
+        """StatusPublicacao do app a partir do campo "status" do comix, ou None
+        quando ausente/sem correspondente (ver _COMIX_STATUS_MAP)."""
+        status = str(detalhe.get("status") or "").lower()
+        return _COMIX_STATUS_MAP.get(status)
+
     # --- interface do adaptador -------------------------------------------
 
     def matches(self, url: str) -> bool:
@@ -944,12 +991,14 @@ class ComixAdapter(SourceAdapter):
 
         titulo_site = detalhe.get("title") or None
         tipo_detectado = self._tipo(detalhe, raw)
+        status_publicacao = self._status_publicacao(detalhe)
 
         if not detalhe.get("hasChapters"):
             return ParseResult(
                 STATUS_VAZIA,
                 titulo_site=titulo_site,
                 tipo_detectado=tipo_detectado,
+                status_publicacao_detectado=status_publicacao,
                 diagnostico="obra reconhecida, ainda sem capítulos (hasChapters=false)",
             )
 
@@ -959,6 +1008,7 @@ class ComixAdapter(SourceAdapter):
                 STATUS_VAZIA,
                 titulo_site=titulo_site,
                 tipo_detectado=tipo_detectado,
+                status_publicacao_detectado=status_publicacao,
                 diagnostico=f"latestChapter ausente ou inválido: {numero!r}",
             )
         numero = int(numero) if float(numero).is_integer() else float(numero)
@@ -967,6 +1017,7 @@ class ComixAdapter(SourceAdapter):
             STATUS_OK,
             titulo_site=titulo_site,
             tipo_detectado=tipo_detectado,
+            status_publicacao_detectado=status_publicacao,
             ultimo_capitulo=numero,
             link_capitulo=self._absoluta(raw.url, detalhe.get("latestChapterUrl")),
         )
@@ -1007,7 +1058,11 @@ class ComixAdapter(SourceAdapter):
     def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
         """(título, url relativa) de todo o catálogo, paginando por meta.hasNext.
         Emite um par por título casável (principal + alternativos) de cada
-        item — ver _pares_titulo_url / _titulos_do_item."""
+        item — ver _pares_titulo_url / _titulos_do_item.
+
+        Desligado por padrão (comix é chapters-only): ver `_catalogo_ativo`."""
+        if not _catalogo_ativo():
+            return []
         resultado: list[tuple[str, str]] = []
         max_paginas = _max_paginas_catalogo()
         pagina = 1
@@ -1035,6 +1090,9 @@ class ComixAdapter(SourceAdapter):
         # em main-tiv3b5-D41wynCQ.js) — sem parâmetro de ordenação, o servidor
         # decide (presumivelmente já por relevância pra busca por keyword).
         # Casa por título principal E alternativos (ver _pares_titulo_url).
+        # Desligado por padrão (comix é chapters-only): ver `_catalogo_ativo`.
+        if not _catalogo_ativo():
+            return []
         itens, _ = self._consultar(url, {"keyword": titulo, "limit": 12})
         return _pares_titulo_url(itens)
 
