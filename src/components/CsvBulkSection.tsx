@@ -1,10 +1,12 @@
 import { useState, type ChangeEvent } from 'react';
 import { db } from '../db/localDb';
-import { updateObra } from '../db/repo';
+import { createFonte, deleteFonte, updateObra } from '../db/repo';
 import { syncNow } from '../sync/sync';
 import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
-import { baixarCsv, buildUpdatePayload, obrasParaCsv, parseCsvFile } from '../lib/csvBulkUpdate';
+import { deriveSite } from '../lib/site';
+import { familiaDeTipo } from '../lib/obra';
+import { baixarCsv, buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha } from '../lib/csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
 
 interface Resultado {
@@ -13,7 +15,46 @@ interface Resultado {
   naoEncontradas: string[];
   semId: number;
   linhasComProblema: number;
+  fontesAdicionadas: number;
+  fontesRemovidas: number;
   erroSync: string | null;
+}
+
+/**
+ * Reconcilia as fontes da obra contra a lista de URLs desejada (coluna
+ * `sources`): cria as que faltam, apaga as que sobram, preserva sem tocar as
+ * que já batem (mantém capítulo detectado, tipo, ordem etc. — só a URL casa).
+ */
+async function reconciliarFontes(obra: Obra, urlsDesejadas: string[]): Promise<{ criadas: number; removidas: number }> {
+  const atuais = await db.fontes.where('obra_id').equals(obra.id).toArray();
+  const desejadasSet = new Set(urlsDesejadas);
+  const atuaisPorUrl = new Map(atuais.map((f) => [f.url, f]));
+
+  const paraRemover = atuais.filter((f) => !desejadasSet.has(f.url));
+  const paraCriar = urlsDesejadas.filter((url) => !atuaisPorUrl.has(url));
+
+  for (const f of paraRemover) await deleteFonte(f.id);
+
+  let maiorOrdem = atuais.reduce((max, f) => (f.ordem != null && f.ordem > max ? f.ordem : max), -1);
+  for (const url of paraCriar) {
+    maiorOrdem++;
+    await createFonte({
+      obra_id: obra.id,
+      site: deriveSite(url),
+      url,
+      ultimo_capitulo_detectado: null,
+      atualizado_por_scraper: false,
+      confiavel: true,
+      status_aprovacao: 'aprovado',
+      descoberta_automaticamente: false,
+      ultima_verificacao: null,
+      tipo_detectado: familiaDeTipo(obra.tipo),
+      tipo_manual: false,
+      ordem: maiorOrdem,
+    });
+  }
+
+  return { criadas: paraCriar.length, removidas: paraRemover.length };
 }
 
 /** Seção "Bulk fill via CSV" da página de Updates: upload, download e resultado. */
@@ -37,6 +78,8 @@ export function CsvBulkSection() {
     let atualizadas = 0;
     let semMudanca = 0;
     let semId = 0;
+    let fontesAdicionadas = 0;
+    let fontesRemovidas = 0;
     const naoEncontradas: string[] = [];
 
     for (const linha of linhas) {
@@ -52,14 +95,24 @@ export function CsvBulkSection() {
         continue;
       }
 
+      let mudou = false;
+
       const payload = buildUpdatePayload(linha);
-      if (Object.keys(payload).length === 0) {
-        semMudanca++;
-        continue;
+      if (Object.keys(payload).length > 0) {
+        await updateObra(id, payload);
+        mudou = true;
       }
 
-      await updateObra(id, payload);
-      atualizadas++;
+      const urlsDesejadas = sourcesDaLinha(linha);
+      if (urlsDesejadas !== undefined) {
+        const { criadas, removidas } = await reconciliarFontes(existente, urlsDesejadas);
+        fontesAdicionadas += criadas;
+        fontesRemovidas += removidas;
+        if (criadas > 0 || removidas > 0) mudou = true;
+      }
+
+      if (mudou) atualizadas++;
+      else semMudanca++;
     }
 
     // Espera o envio pro Supabase terminar (em vez de só confiar no disparo em
@@ -81,6 +134,8 @@ export function CsvBulkSection() {
       naoEncontradas,
       semId,
       linhasComProblema,
+      fontesAdicionadas,
+      fontesRemovidas,
       erroSync: resultadoSync.ok ? null : mensagemDeErro(resultadoSync.error),
     });
     setProcessando(false);
@@ -124,6 +179,12 @@ export function CsvBulkSection() {
         deleting those two date columns before editing/saving is a good idea anyway: spreadsheet apps sometimes
         reformat them with an unquoted comma, which shifts the rest of that row's columns and gets flagged below.
       </p>
+      <p>
+        <code>sources</code> works the same way but edits the <code>fontes</code> table instead: list the work's
+        source URLs separated by <code>;</code> — URLs you remove from the cell get deleted, new ones get added,
+        and URLs you leave in place keep their detected chapter/type/order untouched. An <strong>empty</strong>{' '}
+        cell deletes <strong>all</strong> sources for that work, same "empty clears" rule as every other column.
+      </p>
 
       <div className="csv-acoes">
         <label className="upload-csv">
@@ -147,6 +208,11 @@ export function CsvBulkSection() {
           )}
           <p>{resultado.semMudanca} row(s) with no updatable column (ignored).</p>
           {resultado.semId > 0 && <p>{resultado.semId} row(s) without an id column (ignored).</p>}
+          {(resultado.fontesAdicionadas > 0 || resultado.fontesRemovidas > 0) && (
+            <p>
+              Sources: {resultado.fontesAdicionadas} added, {resultado.fontesRemovidas} removed.
+            </p>
+          )}
           {resultado.linhasComProblema > 0 && (
             <p className="execucao-status execucao-erro">
               {resultado.linhasComProblema} row(s) had misaligned CSV columns (likely an unquoted comma from a

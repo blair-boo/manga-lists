@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { buildUpdatePayload, obrasParaCsv, parseCsvFile } from './csvBulkUpdate';
+import { buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha } from './csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
+
+describe('sourcesDaLinha', () => {
+  it('coluna ausente retorna undefined (não mexe nas fontes)', () => {
+    expect(sourcesDaLinha({ id: '1' })).toBeUndefined();
+  });
+
+  it('coluna presente e vazia retorna array vazio (limpa todas as fontes)', () => {
+    expect(sourcesDaLinha({ id: '1', sources: '' })).toEqual([]);
+  });
+
+  it('separa por ; e ignora espaços', () => {
+    expect(sourcesDaLinha({ sources: 'https://a.com/x; https://b.com/y' })).toEqual([
+      'https://a.com/x',
+      'https://b.com/y',
+    ]);
+  });
+
+  it('colapsa URLs duplicadas', () => {
+    expect(sourcesDaLinha({ sources: 'https://a.com/x; https://a.com/x' })).toEqual(['https://a.com/x']);
+  });
+});
 
 describe('parseCsvFile', () => {
   it('lê o cabeçalho e as linhas, pulando linhas vazias', () => {

@@ -40,9 +40,9 @@ function rotuloCsv(campo: (typeof CAMPOS_TEXTO)[number]): string {
 }
 
 /** Ordem/colunas exatas do CSV baixado (id/titulo + os quatro grupos acima +
- * `sources`, que é só de exportação — as URLs das fontes da obra, separadas
- * por `;`. Coluna extra ignorada no upload, igual qualquer outra fora dos
- * grupos conhecidos (ver buildUpdatePayload). */
+ * `sources`). `sources` não é um campo de `obras` — mora na tabela `fontes` —
+ * então não passa por buildUpdatePayload; CsvBulkSection lê essa coluna à
+ * parte com `sourcesDaLinha` e reconcilia direto contra as fontes da obra. */
 const COLUNAS_CSV = [
   'id',
   'titulo',
@@ -126,6 +126,29 @@ export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
   return payload;
 }
 
+/**
+ * Lê a coluna `sources` de uma linha do CSV: lista de URLs desejada pra obra,
+ * na mesma regra de presença das demais colunas — `undefined` se a coluna
+ * nem está no cabeçalho (não mexe nas fontes), array (possivelmente vazio)
+ * se está presente. Vazio limpa TODAS as fontes da obra — mesma convenção de
+ * "célula vazia limpa o campo" usada em `buildUpdatePayload`. URLs duplicadas
+ * na célula colapsam numa só. Quem reconcilia contra as fontes existentes
+ * (criar as que faltam, apagar as que sobram, preservar as que batem) é
+ * CsvBulkSection — aqui só faz o parse.
+ */
+export function sourcesDaLinha(row: LinhaCsv): string[] | undefined {
+  if (!('sources' in row)) return undefined;
+  const vistas = new Set<string>();
+  const urls: string[] = [];
+  for (const url of parseArrayCampo(row.sources)) {
+    if (!vistas.has(url)) {
+      vistas.add(url);
+      urls.push(url);
+    }
+  }
+  return urls;
+}
+
 export interface ResultadoParseCsv {
   linhas: LinhaCsv[];
   /** Número de linhas do arquivo com campos a mais/a menos que o cabeçalho —
@@ -148,8 +171,7 @@ export function parseCsvFile(texto: string): ResultadoParseCsv {
  * espera de volta (mesmas colunas/ordem; arrays com `;`, booleanos como
  * true/false) — download → editar → re-upload sem conversão manual.
  * `fontesPorObra` (opcional) preenche a coluna `sources` com as URLs de cada
- * obra, separadas por `;`; sem ela a coluna sai vazia. É export-only: como
- * não está em nenhum dos quatro grupos, um re-upload a ignora (ver acima).
+ * obra, separadas por `;`; sem ela a coluna sai vazia.
  */
 export function obrasParaCsv(obras: Obra[], fontesPorObra?: Map<string, Fonte[]>): string {
   const linhas = obras.map((o) => {
