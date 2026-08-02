@@ -318,14 +318,20 @@ label {
   mask-size: contain;
 }
 
-/* Ícone do Storage com cores próprias (não segue o tema). O object-fit é o que
-   segura a proporção: a caixa é fixa (pra a linha das abas não mudar de altura
-   entre um ícone e outro), mas o desenho não estica se o arquivo trocar de
-   proporção — os ratos, por exemplo, são quadrados numa caixa 20x30. */
-.icone-colorido {
-  display: block;
+/* Ícone do Storage injetado inline (ver IconeSvgInline): a caixa é fixa (pra a
+   linha das abas não mudar de altura entre um ícone e outro) e o <svg> some
+   com a caixa dele mantendo a proporção do viewBox — sem esticar se o arquivo
+   trocar de proporção (os ratos, por exemplo, são quadrados numa caixa 20x30).
+   O preserveAspectRatio default do SVG ("xMidYMid meet") já faz o "contain". */
+.icone-svg-inline {
+  display: inline-flex;
   flex-shrink: 0;
-  object-fit: contain;
+}
+
+.icone-svg-inline svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* Botão de ícone em estado "só a sombra": visível, mas inerte. Mesma opacidade
