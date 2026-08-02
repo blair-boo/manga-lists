@@ -371,12 +371,12 @@
 }
 
 /* Especificidade (tipo + classe) pra vencer ".obra-card-fontes a" (mesmo peso,
-   mas essa regra vem antes): sem isso, o botão herdava o roxo do link quando
-   caía dentro da lista de fontes (obra com pelo menos uma fonte cadastrada),
-   ficando branco só nas obras sem fontes — inconsistente entre os cards. */
+   mas essa regra vem antes) e garantir o MESMO roxo em todo card, com ou sem
+   fonte cadastrada — sem isso, esse seletor perdia pra ".obra-card-fontes a"
+   só quando a obra tinha fonte, ficando inconsistente entre os cards. */
 a.obra-card-nu-botao {
   flex-shrink: 0;
-  color: var(--text-h);
+  color: var(--accent);
 }
 
 .obra-card-nu-botao-vazio {
