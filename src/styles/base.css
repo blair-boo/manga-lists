@@ -262,8 +262,12 @@ label {
   opacity: 0.7;
 }
 
-.modal-fonte-nova {
-  display: flex;
+/* Este form também casa com ".modal-edicao form" (que empilha em coluna) e
+   perderia por especificidade — daí o seletor composto: aqui o + fica AO LADO
+   do campo, não embaixo. */
+.modal-edicao .modal-fonte-nova {
+  flex-direction: row;
+  align-items: stretch;
   gap: 8px;
 }
 
