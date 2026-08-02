@@ -69,6 +69,8 @@ export function ListaPrincipalPage() {
   const [filtroUnsourced, setFiltroUnsourced] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroUnsourced);
   const [filtroSemCapa, setFiltroSemCapa] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemCapa);
   const [filtroSemNu, setFiltroSemNu] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemNu);
+  const [filtroSemNota, setFiltroSemNota] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemNota);
+  const [filtroSemTipo, setFiltroSemTipo] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemTipo);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -88,6 +90,8 @@ export function ListaPrincipalPage() {
       filtroUnsourced,
       filtroSemCapa,
       filtroSemNu,
+      filtroSemNota,
+      filtroSemTipo,
     };
     salvarFiltros(dados);
   }, [
@@ -102,6 +106,8 @@ export function ListaPrincipalPage() {
     filtroUnsourced,
     filtroSemCapa,
     filtroSemNu,
+    filtroSemNota,
+    filtroSemTipo,
   ]);
 
   function alternarViewMode(modo: ViewMode) {
@@ -179,6 +185,8 @@ export function ListaPrincipalPage() {
     () => (obras ?? []).filter((o) => !o.novelupdates_url).length,
     [obras]
   );
+  const contagemSemNota = useMemo(() => (obras ?? []).filter((o) => o.score == null).length, [obras]);
+  const contagemSemTipo = useMemo(() => (obras ?? []).filter((o) => !o.tipo).length, [obras]);
 
   const filtradas = useMemo(() => {
     if (!obras) return [];
@@ -194,6 +202,8 @@ export function ListaPrincipalPage() {
       filtroUnsourced,
       filtroSemCapa,
       filtroSemNu,
+      filtroSemNota,
+      filtroSemTipo,
     };
     return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao);
   }, [
@@ -209,6 +219,8 @@ export function ListaPrincipalPage() {
     filtroUnsourced,
     filtroSemCapa,
     filtroSemNu,
+    filtroSemNota,
+    filtroSemTipo,
     fontesPorObra,
     ordenacao,
   ]);
@@ -225,6 +237,8 @@ export function ListaPrincipalPage() {
     filtroUnsourced,
     filtroSemCapa,
     filtroSemNu,
+    filtroSemNota,
+    filtroSemTipo,
   });
 
   function limparFiltros() {
@@ -239,6 +253,8 @@ export function ListaPrincipalPage() {
     setFiltroUnsourced('off');
     setFiltroSemCapa('off');
     setFiltroSemNu('off');
+    setFiltroSemNota('off');
+    setFiltroSemTipo('off');
     limparFiltrosSalvos();
   }
 
@@ -328,6 +344,24 @@ export function ListaPrincipalPage() {
         >
           No NU link
           <span className="status-chip-contagem">{contagemSemNu}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-sem-nota ${classeEstadoFiltro(filtroSemNota)}`}
+          onClick={() => setFiltroSemNota(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroSemNota)}
+        >
+          No rating
+          <span className="status-chip-contagem">{contagemSemNota}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-sem-tipo ${classeEstadoFiltro(filtroSemTipo)}`}
+          onClick={() => setFiltroSemTipo(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroSemTipo)}
+        >
+          No type
+          <span className="status-chip-contagem">{contagemSemTipo}</span>
         </button>
       </div>
 

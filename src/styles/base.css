@@ -131,6 +131,31 @@ label {
   padding: 20px;
 }
 
+.modal-wrap {
+  position: relative;
+}
+
+/* X fora da caixa, no canto superior direito (padrão de todos os modais). */
+.modal-fechar {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+}
+
 .modal {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -197,6 +222,20 @@ label {
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+}
+
+/* Ícone do Storage com cores próprias (não segue o tema). */
+.icone-colorido {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Botão de ícone em estado "só a sombra": visível, mas inerte. Mesma opacidade
+   do .obra-card-nu-botao-vazio, pra o app ter um vocabulário visual só. */
+.btn-icone-sombra {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* Dropdown de sugestões compartilhado (BuscaObras, VinculoObraSelect,

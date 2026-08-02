@@ -142,4 +142,32 @@ describe('obrasFiltradasOrdenadas', () => {
     const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
     expect(resultado.map((o) => o.id)).toEqual(['2']);
   });
+
+  it('filtroSemNota em "incluir" só mostra obras sem nota', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A', score: 4 }), obraFake({ id: '2', titulo: 'B', score: null })];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemNota: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
+
+  it('filtroSemNota em "excluir" some com quem não tem nota', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A', score: 4 }), obraFake({ id: '2', titulo: 'B', score: null })];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemNota: 'excluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['1']);
+  });
+
+  it('nota 0 não conta como ausente', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A', score: 0 }), obraFake({ id: '2', titulo: 'B', score: null })];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemNota: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
+
+  it('filtroSemTipo em "incluir" só mostra obras sem tipo', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A', tipo: 'Manga' }), obraFake({ id: '2', titulo: 'B', tipo: null })];
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroSemTipo: 'incluir' };
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
+    expect(resultado.map((o) => o.id)).toEqual(['2']);
+  });
 });

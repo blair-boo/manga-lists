@@ -1,14 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ModalBase } from './ModalBase';
 
 /**
  * Diálogos próprios do app (E2): substituem confirm()/prompt() nativos, que no
@@ -39,40 +30,6 @@ interface PromptDialogProps {
   onCancelar: () => void;
 }
 
-/** Foco inicial + trap de Tab dentro do diálogo enquanto aberto. */
-function useFocoPreso(aberto: boolean, ref: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    if (!aberto) return;
-    const el = ref.current;
-    if (!el) return;
-
-    const focaveis = () =>
-      Array.from(el.querySelectorAll<HTMLElement>('button, input, textarea, select, [tabindex]')).filter(
-        (f) => !f.hasAttribute('disabled')
-      );
-
-    (el.querySelector<HTMLElement>('[data-autofocus]') ?? focaveis()[0])?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Tab') return;
-      const lista = focaveis();
-      if (lista.length === 0) return;
-      const primeiro = lista[0];
-      const ultimo = lista[lista.length - 1];
-      if (e.shiftKey && document.activeElement === primeiro) {
-        e.preventDefault();
-        ultimo.focus();
-      } else if (!e.shiftKey && document.activeElement === ultimo) {
-        e.preventDefault();
-        primeiro.focus();
-      }
-    }
-
-    el.addEventListener('keydown', onKeyDown);
-    return () => el.removeEventListener('keydown', onKeyDown);
-  }, [aberto, ref]);
-}
-
 export function ConfirmDialog({
   aberto,
   titulo,
@@ -82,25 +39,19 @@ export function ConfirmDialog({
   onConfirmar,
   onCancelar,
 }: ConfirmDialogProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  useFocoPreso(aberto, ref);
-  if (!aberto) return null;
-
   return (
-    <div className="modal-backdrop" onKeyDown={(e) => e.key === 'Escape' && onCancelar()}>
-      <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-label={titulo ?? mensagem}>
-        {titulo && <h3 className="modal-titulo">{titulo}</h3>}
-        <p>{mensagem}</p>
-        <div className="modal-acoes">
-          <button type="button" className={perigoso ? 'botao-perigoso' : ''} onClick={onConfirmar} data-autofocus>
-            {confirmarRotulo}
-          </button>
-          <button type="button" onClick={onCancelar}>
-            Cancel
-          </button>
-        </div>
+    <ModalBase aberto={aberto} rotulo={titulo ?? mensagem} onFechar={onCancelar}>
+      {titulo && <h3 className="modal-titulo">{titulo}</h3>}
+      <p>{mensagem}</p>
+      <div className="modal-acoes">
+        <button type="button" className={perigoso ? 'botao-perigoso' : ''} onClick={onConfirmar} data-autofocus>
+          {confirmarRotulo}
+        </button>
+        <button type="button" onClick={onCancelar}>
+          Cancel
+        </button>
       </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -113,39 +64,33 @@ export function PromptDialog({
   onConfirmar,
   onCancelar,
 }: PromptDialogProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const [valor, setValor] = useState(valorInicial);
 
   useEffect(() => {
     if (aberto) setValor(valorInicial);
   }, [aberto, valorInicial]);
 
-  useFocoPreso(aberto, ref);
-  if (!aberto) return null;
-
   return (
-    <div className="modal-backdrop" onKeyDown={(e) => e.key === 'Escape' && onCancelar()}>
-      <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-label={titulo ?? mensagem}>
-        {titulo && <h3 className="modal-titulo">{titulo}</h3>}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onConfirmar(valor);
-          }}
-        >
-          <label>
-            {mensagem}
-            <input type="text" value={valor} onChange={(e) => setValor(e.target.value)} data-autofocus />
-          </label>
-          <div className="modal-acoes">
-            <button type="submit">{confirmarRotulo}</button>
-            <button type="button" onClick={onCancelar}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <ModalBase aberto={aberto} rotulo={titulo ?? mensagem} onFechar={onCancelar}>
+      {titulo && <h3 className="modal-titulo">{titulo}</h3>}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onConfirmar(valor);
+        }}
+      >
+        <label>
+          {mensagem}
+          <input type="text" value={valor} onChange={(e) => setValor(e.target.value)} data-autofocus />
+        </label>
+        <div className="modal-acoes">
+          <button type="submit">{confirmarRotulo}</button>
+          <button type="button" onClick={onCancelar}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </ModalBase>
   );
 }
 

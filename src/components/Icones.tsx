@@ -99,6 +99,43 @@ export function IconeLimparFiltros() {
   return <IconeMascarado arquivo="clear_filter.svg" />;
 }
 
+/**
+ * Ícone do Supabase Storage renderizado como <img>, preservando as cores do
+ * arquivo. Usar quando o SVG tem cor própria que NÃO deve seguir o tema
+ * (caso do rato do Edit mode, que mantém o vermelho). Para ícones que devem
+ * acompanhar o tema, usar IconeMascarado.
+ */
+function IconeColorido({ arquivo, largura, altura }: { arquivo: string; largura: number; altura: number }) {
+  return (
+    <img
+      className="icone-colorido"
+      src={urlIconeSupabase(arquivo)}
+      width={largura}
+      height={altura}
+      alt=""
+      aria-hidden
+      draggable={false}
+    />
+  );
+}
+
+// Nomes dos arquivos no bucket "icons".
+const ARQUIVO_MODO_EDICAO = 'mini-mouse-inverted.svg';
+const ARQUIVO_SAIR_MODO_EDICAO = 'mini-mouse-no-inverted.svg';
+
+const RATO_LARGURA = 20;
+const RATO_ALTURA = 30;
+
+/** Rato: entrar no Edit mode da aba List. */
+export function IconeModoEdicao() {
+  return <IconeColorido arquivo={ARQUIVO_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
+}
+
+/** Rato riscado: sair do Edit mode (usado no header e no botão flutuante). */
+export function IconeSairModoEdicao() {
+  return <IconeColorido arquivo={ARQUIVO_SAIR_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
+}
+
 /** Moldura de imagem — placeholder da capa vazia. */
 export function IconeImagem() {
   return (

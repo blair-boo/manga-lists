@@ -54,6 +54,17 @@ export default defineConfig(({ command }) => ({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            // Ícones do app (bucket "icons" do Supabase Storage), incluindo o
+            // rato do Edit mode: precisam sobreviver offline no PWA.
+            urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object/public/icons/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'icones-supabase',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

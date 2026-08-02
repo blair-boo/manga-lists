@@ -7,6 +7,7 @@ import { CapaUploader } from '../components/CapaUploader';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { useToast } from '../components/Toast';
 import { IconeMais } from '../components/Icones';
+import { ModalBase } from '../components/ModalBase';
 import { registrarDominioManual } from '../lib/scraperConfig';
 import { renomearCapaSeNecessario } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
@@ -378,38 +379,23 @@ export function CadastrarPage() {
       </form>
 
       {resultado && (
-        <div
-          className="modal-backdrop"
-          onKeyDown={(e) => e.key === 'Escape' && setResultado(null)}
+        <ModalBase
+          aberto
+          rotulo={resultado.jaExistia ? 'Work already exists' : 'Work added'}
+          onFechar={() => setResultado(null)}
+          classe="cadastro-rapido-resultado"
         >
-          <div className="cadastro-rapido-resultado-wrap">
-            <button
-              type="button"
-              className="cadastro-rapido-resultado-fechar"
-              onClick={() => setResultado(null)}
-              aria-label="Close"
-            >
-              ×
+          <p>
+            {resultado.jaExistia
+              ? `A work titled "${resultado.obra.titulo}" already exists.`
+              : `"${resultado.obra.titulo}" added.`}
+          </p>
+          <div className="modal-acoes">
+            <button type="button" onClick={() => navigate(`/obra/${resultado.obra.id}`)} data-autofocus>
+              Go to work
             </button>
-            <div
-              className="modal cadastro-rapido-resultado"
-              role="dialog"
-              aria-modal="true"
-              aria-label={resultado.jaExistia ? 'Work already exists' : 'Work added'}
-            >
-              <p>
-                {resultado.jaExistia
-                  ? `A work titled "${resultado.obra.titulo}" already exists.`
-                  : `"${resultado.obra.titulo}" added.`}
-              </p>
-              <div className="modal-acoes">
-                <button type="button" onClick={() => navigate(`/obra/${resultado.obra.id}`)} data-autofocus>
-                  Go to work
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </ModalBase>
       )}
     </div>
   );
