@@ -27,7 +27,7 @@ function BotaoModoEdicao() {
   return (
     <button
       type="button"
-      className={`btn-icone modo-edicao-toggle${disponivel ? '' : ' btn-icone-sombra'}`}
+      className={`btn-icone rato-botao modo-edicao-toggle${disponivel ? '' : ' btn-icone-sombra'}`}
       onClick={alternarModo}
       aria-pressed={modoEdicao}
       disabled={!disponivel}

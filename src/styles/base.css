@@ -304,6 +304,17 @@ label {
   color: var(--danger);
 }
 
+/* Botões do rato (Edit mode: header e flutuante): sem padding e sem contorno
+   em NENHUM estado — inclusive hover, que cancela o border-color que
+   .btn-icone:hover normalmente revela. */
+.rato-botao {
+  padding: 0;
+}
+
+.rato-botao:hover {
+  border-color: transparent;
+}
+
 /* Ícone "pintado" via mask (SVG do Supabase Storage) — acompanha a cor do
    botão (currentColor) em vez da cor fixa do arquivo original. */
 .icone-mascarado {

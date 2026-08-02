@@ -158,17 +158,17 @@ function IconeSvgInline({ arquivo, largura, altura }: { arquivo: string; largura
 const ARQUIVO_MODO_EDICAO = 'mini-mouse-inverted.svg';
 const ARQUIVO_SAIR_MODO_EDICAO = 'mini-mouse-no-inverted.svg';
 
-const RATO_LARGURA = 20;
-const RATO_ALTURA = 30;
+const RATO_ENTRAR_TAMANHO = 30;
+const RATO_SAIR_TAMANHO = 40;
 
 /** Rato: entrar no Edit mode da aba List. */
 export function IconeModoEdicao() {
-  return <IconeSvgInline arquivo={ARQUIVO_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
+  return <IconeSvgInline arquivo={ARQUIVO_MODO_EDICAO} largura={RATO_ENTRAR_TAMANHO} altura={RATO_ENTRAR_TAMANHO} />;
 }
 
 /** Rato riscado: sair do Edit mode (usado no header e no botão flutuante). */
 export function IconeSairModoEdicao() {
-  return <IconeSvgInline arquivo={ARQUIVO_SAIR_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
+  return <IconeSvgInline arquivo={ARQUIVO_SAIR_MODO_EDICAO} largura={RATO_SAIR_TAMANHO} altura={RATO_SAIR_TAMANHO} />;
 }
 
 /** Moldura de imagem — placeholder da capa vazia. */

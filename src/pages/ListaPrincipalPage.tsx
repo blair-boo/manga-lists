@@ -524,7 +524,7 @@ export function ListaPrincipalPage() {
       {modoEdicao && (
         <button
           type="button"
-          className="btn-icone modo-edicao-flutuante"
+          className="btn-icone rato-botao modo-edicao-flutuante"
           onClick={sairDoModo}
           title="Exit edit mode"
           aria-label="Exit edit mode"

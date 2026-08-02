@@ -575,19 +575,16 @@ button.obra-card-nu-botao {
   margin-top: 4px;
 }
 
-/* Saída do modo sempre à mão. z-index 90 fica ABAIXO do .modal-backdrop (100)
-   e dos toasts (200): com um modal aberto o flutuante fica atrás do véu, que é
-   o certo — não dá pra sair do modo no meio de uma edição. */
+/* Saída do modo sempre à mão, no topo da página. z-index 90 fica ABAIXO do
+   .modal-backdrop (100) e dos toasts (200): com um modal aberto o flutuante
+   fica atrás do véu, que é o certo — não dá pra sair do modo no meio de uma
+   edição. Sem fundo/borda/sombra própria: o .rato-botao (via .btn-icone) já
+   cuida da aparência, igual ao rato do header. */
 .modo-edicao-flutuante {
   position: fixed;
   right: 16px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  top: calc(16px + env(safe-area-inset-top));
   z-index: 90;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px;
-  box-shadow: var(--shadow-hover);
 }
 
 
