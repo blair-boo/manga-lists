@@ -1,6 +1,7 @@
 import { db, enqueueMutation } from './localDb';
 import { newId } from '../lib/id';
 import { deriveSite } from '../lib/site';
+import { escolherDuplicata, type ObraDuplicada } from '../lib/duplicatas';
 import { syncNow } from '../sync/sync';
 import type { Fonte, Obra, StatusAprovacao } from '../types';
 
@@ -168,6 +169,16 @@ async function recalcUltimoCapituloLancado(obraId: string): Promise<void> {
     ultimo_capitulo_lancado: maior,
     ultimo_capitulo_via_scraper: viaScraper,
   } as Partial<NovaObra>);
+}
+
+/**
+ * Procura uma obra já cadastrada com o mesmo título. A regra em si vive em
+ * ../lib/duplicatas (módulo puro, testável); aqui só entra a leitura do Dexie.
+ * `excluirId` tira a própria obra da busca — sem ele, editar o título de uma
+ * obra existente acusaria duplicata contra ela mesma.
+ */
+export async function encontrarObraDuplicada(titulo: string, excluirId?: string): Promise<ObraDuplicada | null> {
+  return escolherDuplicata(await db.obras.toArray(), titulo, excluirId);
 }
 
 /**

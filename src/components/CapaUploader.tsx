@@ -3,18 +3,16 @@ import { uploadCapa } from '../lib/uploadCapa';
 import type { Tipo } from '../types';
 
 /**
- * Capa clicável (Handout 3, Bloco B): a própria miniatura (ou o placeholder "+"
- * quando não há capa) dispara o seletor de arquivo do sistema — sem botão
- * "Upload image" nem input de URL. Toda a lógica de upload (validação implícita
- * pelo accept, chamada ao Storage, estado de carregando/erro) fica aqui.
+ * Lógica de upload de capa isolada do markup: quem chama espalha `inputProps`
+ * num `<input type="file">` próprio e usa `abrirSeletor` pra disparar o
+ * seletor de arquivo do sistema a partir de qualquer elemento clicável (a
+ * miniatura da tela da obra, o card do Edit mode da lista, etc.).
  */
-export function CapaUploader({
-  capaUrl,
+export function useUploadCapa({
   titulo,
   tipo,
   onUploaded,
 }: {
-  capaUrl: string | null;
   titulo: string;
   tipo: Tipo | null;
   onUploaded: (url: string) => void;
@@ -50,6 +48,32 @@ export function CapaUploader({
     }
   }
 
+  return {
+    enviando,
+    erro,
+    abrirSeletor,
+    inputProps: { ref: inputRef, type: 'file' as const, accept: 'image/*', hidden: true, onChange: handleChange },
+  };
+}
+
+/**
+ * Capa clicável (Handout 3, Bloco B): a própria miniatura (ou o placeholder "+"
+ * quando não há capa) dispara o seletor de arquivo do sistema — sem botão
+ * "Upload image" nem input de URL.
+ */
+export function CapaUploader({
+  capaUrl,
+  titulo,
+  tipo,
+  onUploaded,
+}: {
+  capaUrl: string | null;
+  titulo: string;
+  tipo: Tipo | null;
+  onUploaded: (url: string) => void;
+}) {
+  const { enviando, erro, abrirSeletor, inputProps } = useUploadCapa({ titulo, tipo, onUploaded });
+
   return (
     <div className="capa-uploader">
       {capaUrl ? (
@@ -71,7 +95,7 @@ export function CapaUploader({
           +
         </div>
       )}
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={handleChange} />
+      <input {...inputProps} />
       {erro && <span className="upload-erro">{erro}</span>}
     </div>
   );

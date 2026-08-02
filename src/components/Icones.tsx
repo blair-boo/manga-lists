@@ -2,6 +2,7 @@
 // grip/tracinhos (handle de arraste e botão de editar ordem). Sem biblioteca
 // de ícones só pra isso. currentColor herda a cor do botão.
 
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 const ICONS_BUCKET = 'icons';
@@ -97,6 +98,77 @@ export function IconeTrocar() {
  * icons/clear_filter.svg), 20px fixo, colorido via mask. */
 export function IconeLimparFiltros() {
   return <IconeMascarado arquivo="clear_filter.svg" />;
+}
+
+// Cache module-level do texto dos SVGs buscados do Storage — os dois ratos
+// aparecem em vários lugares ao mesmo tempo (header, botão flutuante) e não
+// precisam refazer o fetch a cada montagem.
+const cacheSvgTexto = new Map<string, Promise<string>>();
+
+function buscarSvgTexto(arquivo: string): Promise<string> {
+  let pendente = cacheSvgTexto.get(arquivo);
+  if (!pendente) {
+    pendente = fetch(urlIconeSupabase(arquivo)).then((r) => r.text());
+    cacheSvgTexto.set(arquivo, pendente);
+  }
+  return pendente;
+}
+
+/**
+ * Ícone do Supabase Storage injetado INLINE no DOM (não via <img>), pra cores
+ * `currentColor`/`fill="currentcolor"` dentro do arquivo herdarem a cor do
+ * elemento ao redor — um <img src="..."> isola o SVG num documento próprio,
+ * sem acesso ao `color` CSS de fora, então currentColor nunca funcionaria ali.
+ * Usar quando o SVG precisa acompanhar o tema em PARTE do desenho e manter
+ * outra parte com cor fixa (o rato riscado do Edit mode: corpo no tema,
+ * "proibido" sempre vermelho). Pra um ícone de cor fixa POR INTEIRO sem
+ * nenhuma parte no tema, IconeMascarado é mais simples.
+ *
+ * dangerouslySetInnerHTML é seguro aqui: o conteúdo vem do bucket "icons" da
+ * própria dona (não é upload de usuário nem dado de terceiro).
+ */
+function IconeSvgInline({ arquivo, largura, altura }: { arquivo: string; largura: number; altura: number }) {
+  const [svg, setSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    void buscarSvgTexto(arquivo).then((texto) => {
+      if (cancelado) return;
+      // Defensivo: "current color" (com espaço) não é uma cor CSS válida —
+      // normaliza pra currentColor. "currentcolor" (minúsculo, sem espaço) já
+      // é válido (palavras-chave CSS não diferenciam maiúscula/minúscula).
+      setSvg(texto.replace(/current\s*color/gi, 'currentColor'));
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [arquivo]);
+
+  return (
+    <span
+      className="icone-svg-inline"
+      aria-hidden
+      style={{ width: largura, height: altura }}
+      dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
+    />
+  );
+}
+
+// Nomes dos arquivos no bucket "icons".
+const ARQUIVO_MODO_EDICAO = 'mini-mouse-inverted.svg';
+const ARQUIVO_SAIR_MODO_EDICAO = 'mini-mouse-no-inverted.svg';
+
+const RATO_LARGURA = 20;
+const RATO_ALTURA = 30;
+
+/** Rato: entrar no Edit mode da aba List. */
+export function IconeModoEdicao() {
+  return <IconeSvgInline arquivo={ARQUIVO_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
+}
+
+/** Rato riscado: sair do Edit mode (usado no header e no botão flutuante). */
+export function IconeSairModoEdicao() {
+  return <IconeSvgInline arquivo={ARQUIVO_SAIR_MODO_EDICAO} largura={RATO_LARGURA} altura={RATO_ALTURA} />;
 }
 
 /** Moldura de imagem — placeholder da capa vazia. */

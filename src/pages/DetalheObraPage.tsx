@@ -20,7 +20,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '../db/localDb';
 import {
-  createFonte,
   criarObraVinculada,
   deleteFonte,
   deleteObra,
@@ -41,6 +40,7 @@ import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { BuscaObras } from '../components/BuscaObras';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
+import { ModalBase } from '../components/ModalBase';
 import {
   IconeDisquete,
   IconeGrip,
@@ -50,7 +50,6 @@ import {
   IconeTrocar,
   IconeX,
 } from '../components/Icones';
-import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import {
   lerFiltrosSalvos,
@@ -60,9 +59,9 @@ import {
   salvarBusca,
   temFiltroAtivo,
 } from '../lib/filtrosLista';
-import { dominioDeUrl, registrarDominioManual } from '../lib/scraperConfig';
-import { renomearCapaSeNecessario } from '../lib/capaStorage';
-import { mensagemDeErro } from '../lib/erros';
+import { dominioDeUrl } from '../lib/scraperConfig';
+import { salvarCamposObra } from '../lib/salvarObra';
+import { adicionarFonteNaObra } from '../lib/adicionarFonte';
 import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
@@ -359,24 +358,11 @@ export function DetalheObraPage() {
       // scraper (status do comix), mesmo critério de tipo_manual em fontes (B4).
       if ('status_publicacao' in changes) changes.status_publicacao_manual = true;
       snapshotRef.current = draft;
-      void (async () => {
-        if (('titulo' in changes || 'tipo' in changes) && snap.capa_url) {
-          try {
-            const novaCapaUrl = await renomearCapaSeNecessario(
-              snap.capa_url,
-              snap.titulo,
-              snap.tipo,
-              draft.titulo,
-              draft.tipo
-            );
-            if (novaCapaUrl) changes.capa_url = novaCapaUrl;
-          } catch (err) {
-            mostrarToast(`Could not rename cover: ${mensagemDeErro(err)}`, 'erro');
-            // segue o autosave dos outros campos mesmo se o rename da capa falhar
-          }
-        }
-        await updateObra(id, changes);
-      })();
+      void salvarCamposObra(
+        { id, titulo: snap.titulo, tipo: snap.tipo, capa_url: snap.capa_url },
+        changes,
+        (mensagem) => mostrarToast(`Could not rename cover: ${mensagem}`, 'erro')
+      );
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
   }, [draft, id, obra, mostrarToast]);
@@ -419,26 +405,7 @@ export function DetalheObraPage() {
   async function handleAdicionarFonte(e: FormEvent) {
     e.preventDefault();
     if (!novaFonteUrl.trim() || !id) return;
-    const url = novaFonteUrl.trim();
-    // Nova fonte entra no fim da lista: maior ordem atual + 1 (Bloco F).
-    const maiorOrdem = (fontes ?? []).reduce((max, f) => (f.ordem != null && f.ordem > max ? f.ordem : max), -1);
-    await createFonte({
-      obra_id: id,
-      site: deriveSite(url),
-      url,
-      ultimo_capitulo_detectado: null,
-      atualizado_por_scraper: false,
-      confiavel: true,
-      status_aprovacao: 'aprovado',
-      descoberta_automaticamente: false,
-      ultima_verificacao: null,
-      // Fonte cadastrada à mão direto na obra já nasce com o tipo da obra
-      // (Manga/Manwha/Manhua contam todos como 'manga' — familiaDeTipo).
-      tipo_detectado: familiaDeTipo(draft?.tipo ?? null),
-      tipo_manual: false,
-      ordem: maiorOrdem + 1,
-    });
-    void registrarDominioManual(url); // domínio novo inserido à mão vira site suportado
+    await adicionarFonteNaObra(id, novaFonteUrl.trim(), draft?.tipo ?? null, fontes ?? []);
     setNovaFonteUrl('');
   }
 
@@ -1015,34 +982,35 @@ export function DetalheObraPage() {
       </div>
 
       {blocker.state === 'blocked' && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <p>You have unsaved notes on this work.</p>
-            <div className="modal-acoes">
-              <button
-                type="button"
-                onClick={async () => {
-                  await handleSalvarObservacoes();
-                  blocker.proceed();
-                }}
-              >
-                Save and leave
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleCancelarObservacoes();
-                  blocker.proceed();
-                }}
-              >
-                Discard and leave
-              </button>
-              <button type="button" onClick={() => blocker.reset()}>
-                Keep editing
-              </button>
-            </div>
+        // O X deste modal equivale a "Keep editing": nunca descarta a nota. Se
+        // um modal futuro tiver um caminho destrutivo, o X é sempre o caminho
+        // seguro (cancelar), nunca o destrutivo.
+        <ModalBase aberto rotulo="Unsaved notes" onFechar={() => blocker.reset()}>
+          <p>You have unsaved notes on this work.</p>
+          <div className="modal-acoes">
+            <button
+              type="button"
+              onClick={async () => {
+                await handleSalvarObservacoes();
+                blocker.proceed();
+              }}
+            >
+              Save and leave
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleCancelarObservacoes();
+                blocker.proceed();
+              }}
+            >
+              Discard and leave
+            </button>
+            <button type="button" onClick={() => blocker.reset()}>
+              Keep editing
+            </button>
           </div>
-        </div>
+        </ModalBase>
       )}
     </div>
   );

@@ -80,6 +80,8 @@ export interface FiltrosSalvos {
   filtroUnsourced: EstadoFiltro;
   filtroSemCapa: EstadoFiltro;
   filtroSemNu: EstadoFiltro;
+  filtroSemNota: EstadoFiltro;
+  filtroSemTipo: EstadoFiltro;
 }
 
 export const FILTROS_PADRAO: FiltrosSalvos = {
@@ -94,6 +96,8 @@ export const FILTROS_PADRAO: FiltrosSalvos = {
   filtroUnsourced: 'off',
   filtroSemCapa: 'off',
   filtroSemNu: 'off',
+  filtroSemNota: 'off',
+  filtroSemTipo: 'off',
 };
 
 export function lerFiltrosSalvos(): FiltrosSalvos {
@@ -117,6 +121,8 @@ export function lerFiltrosSalvos(): FiltrosSalvos {
       filtroUnsourced: estadoFiltroValido(dados.filtroUnsourced),
       filtroSemCapa: estadoFiltroValido(dados.filtroSemCapa),
       filtroSemNu: estadoFiltroValido(dados.filtroSemNu),
+      filtroSemNota: estadoFiltroValido(dados.filtroSemNota),
+      filtroSemTipo: estadoFiltroValido(dados.filtroSemTipo),
     };
   } catch {
     return FILTROS_PADRAO;
@@ -135,7 +141,9 @@ export function temFiltroAtivo(f: FiltrosSalvos): boolean {
     f.filtroNovel !== 'off' ||
     f.filtroUnsourced !== 'off' ||
     f.filtroSemCapa !== 'off' ||
-    f.filtroSemNu !== 'off'
+    f.filtroSemNu !== 'off' ||
+    f.filtroSemNota !== 'off' ||
+    f.filtroSemTipo !== 'off'
   );
 }
 
@@ -191,5 +199,7 @@ export function obrasFiltradasOrdenadas(
     .filter((o) => passaFiltro(filtros.filtroUnsourced, semFonte(o)))
     .filter((o) => passaFiltro(filtros.filtroSemCapa, semCapa(o)))
     .filter((o) => passaFiltro(filtros.filtroSemNu, !o.novelupdates_url))
+    .filter((o) => passaFiltro(filtros.filtroSemNota, o.score == null))
+    .filter((o) => passaFiltro(filtros.filtroSemTipo, !o.tipo))
     .sort((a, b) => comparar(a, b, ordenacao));
 }

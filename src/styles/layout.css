@@ -36,10 +36,26 @@
   margin: 0;
 }
 
+/* Linha das abas: nav à esquerda, botão do Edit mode grudado na direita. O
+   .app-nav mantém o flex-wrap, então as abas quebram em telas estreitas sem
+   empurrar o botão pra fora. */
+.app-nav-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
 .app-nav {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+/* O rato é mais alto que largo (20x30): sem isso o botão estica a linha. */
+.modo-edicao-toggle {
+  flex-shrink: 0;
 }
 
 .app-nav a {

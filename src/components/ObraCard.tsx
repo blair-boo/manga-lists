@@ -2,6 +2,14 @@ import { useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
 import { IconeLivro } from './Icones';
+import {
+  BotaoAdicionarSource,
+  CapaEditavel,
+  EstrelasEditaveis,
+  MetaEdicao,
+  NovelUpdatesEditavel,
+  TituloEditavel,
+} from './ObraCardEdicao';
 import { updateObra } from '../db/repo';
 import { temNovoCapitulo } from '../lib/obra';
 import { dominioDeUrl } from '../lib/scraperConfig';
@@ -101,8 +109,10 @@ function ConteudoFonte({ fonte, sitesAtivos }: { fonte: Fonte; sitesAtivos?: Set
 }
 
 /** Botão do Novel Updates no canto do card: link real se a obra tiver o
- * vínculo cadastrado, ou ícone translúcido e não clicável caso contrário. */
-function NovelUpdatesBotao({ obra }: { obra: Obra }) {
+ * vínculo cadastrado, ou ícone translúcido e não clicável caso contrário.
+ * No Edit mode os dois casos viram botão que abre o modal do NU. */
+function NovelUpdatesBotao({ obra, modoEdicao }: { obra: Obra; modoEdicao?: boolean }) {
+  if (modoEdicao) return <NovelUpdatesEditavel obra={obra} />;
   if (obra.novelupdates_url) {
     return (
       <a
@@ -133,44 +143,72 @@ interface Props {
   fontes: Fonte[];
   /** Nomes dos domínios aprovados para scraping — fontes fora dessa lista ganham o badge "unmonitored". */
   sitesAtivos?: Set<string>;
+  /** Edit mode da aba List: os mesmos blocos, com outro significado de clique (Handout 2, B4). */
+  modoEdicao?: boolean;
 }
 
-export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
+/**
+ * O layout do card NÃO muda entre os modos: mesmos blocos, mesma ordem, mesmas
+ * dimensões. O que muda é o que cada elemento faz ao ser clicado e a presença
+ * dos placeholders. O caminho comum (modo desligado) é o de sempre — os
+ * subcomponentes de edição só são montados com o modo ligado.
+ */
+export function ObraCard({ obra, fontes, sitesAtivos, modoEdicao }: Props) {
   const novoCapitulo = temNovoCapitulo(obra);
+
+  const conteudoCapa = (
+    <>
+      {obra.capa_url ? (
+        <img src={obra.capa_url} alt="" loading="lazy" />
+      ) : (
+        <div className="obra-card-capa-placeholder">{obra.titulo.slice(0, 1).toUpperCase()}</div>
+      )}
+      {novoCapitulo && <span className="badge-novo-capitulo">new ch.</span>}
+    </>
+  );
 
   return (
     <div className="obra-card">
-      <div className="obra-card-capa" data-tipo={obra.tipo ?? ''}>
-        {obra.capa_url ? (
-          <img src={obra.capa_url} alt="" loading="lazy" />
-        ) : (
-          <div className="obra-card-capa-placeholder">{obra.titulo.slice(0, 1).toUpperCase()}</div>
-        )}
-        {novoCapitulo && <span className="badge-novo-capitulo">new ch.</span>}
-      </div>
+      {modoEdicao ? (
+        <CapaEditavel obra={obra}>{conteudoCapa}</CapaEditavel>
+      ) : (
+        <div className="obra-card-capa" data-tipo={obra.tipo ?? ''}>
+          {conteudoCapa}
+        </div>
+      )}
       <div className="obra-card-info">
-        <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
-          {obra.titulo}
-        </Link>
+        {modoEdicao ? (
+          <TituloEditavel obra={obra} />
+        ) : (
+          <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
+            {obra.titulo}
+          </Link>
+        )}
         <div className="obra-card-meta">
-          {obra.classificacao && (
-            <span
-              className={`badge badge-classificacao ${obra.classificacao === 'R-18' ? 'badge-r18' : 'badge-r15'}`}
-            >
-              {obra.classificacao}
-            </span>
+          {modoEdicao ? (
+            <MetaEdicao obra={obra} />
+          ) : (
+            <>
+              {obra.classificacao && (
+                <span
+                  className={`badge badge-classificacao ${obra.classificacao === 'R-18' ? 'badge-r18' : 'badge-r15'}`}
+                >
+                  {obra.classificacao}
+                </span>
+              )}
+              {obra.status_publicacao && <span className="badge badge-pub">{obra.status_publicacao}</span>}
+              {obra.fim_de_temporada && <span className="badge badge-eos">End of Season</span>}
+              {obra.tipo && <span className="badge">{obra.tipo}</span>}
+              {obra.status_leitura && <span className="badge badge-status">{obra.status_leitura}</span>}
+            </>
           )}
-          {obra.status_publicacao && <span className="badge badge-pub">{obra.status_publicacao}</span>}
-          {obra.fim_de_temporada && <span className="badge badge-eos">End of Season</span>}
-          {obra.tipo && <span className="badge">{obra.tipo}</span>}
-          {obra.status_leitura && <span className="badge badge-status">{obra.status_leitura}</span>}
         </div>
         <div className="obra-card-progresso">
           <CapituloAtualEditavel obra={obra} />
           {obra.ultimo_capitulo_lancado != null && ` / ${obra.ultimo_capitulo_lancado} available`}
         </div>
         <ProgressoBarra obra={obra} />
-        <Estrelas score={obra.score} />
+        {modoEdicao ? <EstrelasEditaveis obra={obra} /> : <Estrelas score={obra.score} />}
 
         {fontes.length > 0 ? (
           <ul className="obra-card-fontes">
@@ -183,7 +221,7 @@ export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
                       <span className="obra-card-fonte-texto">
                         <ConteudoFonte fonte={f} sitesAtivos={sitesAtivos} />
                       </span>
-                      <NovelUpdatesBotao obra={obra} />
+                      <NovelUpdatesBotao obra={obra} modoEdicao={modoEdicao} />
                     </>
                   ) : (
                     <ConteudoFonte fonte={f} sitesAtivos={sitesAtivos} />
@@ -194,9 +232,11 @@ export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
           </ul>
         ) : (
           <div className="obra-card-nu-linha">
-            <NovelUpdatesBotao obra={obra} />
+            <NovelUpdatesBotao obra={obra} modoEdicao={modoEdicao} />
           </div>
         )}
+
+        {modoEdicao && <BotaoAdicionarSource obra={obra} />}
       </div>
     </div>
   );

@@ -131,6 +131,31 @@ label {
   padding: 20px;
 }
 
+.modal-wrap {
+  position: relative;
+}
+
+/* X fora da caixa, no canto superior direito (padrão de todos os modais). */
+.modal-fechar {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+}
+
 .modal {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -155,6 +180,100 @@ label {
 
 .modal p {
   margin: 0;
+}
+
+/* Modais de edição do Edit mode (Handout 2, B5): mais largos que o diálogo de
+   confirmação, que é curto por natureza. */
+.modal-edicao {
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal-edicao form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Mesmo tratamento do Cancel nas caixas do detalhe: sem preenchimento, pra o
+   Save continuar sendo o botão óbvio. */
+.modal-edicao .botao-secundario {
+  background: none;
+  border: 1px solid var(--border);
+}
+
+/* Opções como botões (não <select>): com poucas opções, o toque direto é
+   melhor no celular. */
+.modal-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-opcao {
+  background: none;
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.modal-opcao.ativa {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.modal-opcao-nenhum {
+  opacity: 0.75;
+}
+
+.modal-aviso {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.modal-aviso-bloqueio {
+  color: var(--danger);
+}
+
+.modal-fontes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.modal-fontes li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal-fontes-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal-fontes-vazio {
+  opacity: 0.7;
+}
+
+/* Este form também casa com ".modal-edicao form" (que empilha em coluna) e
+   perderia por especificidade — daí o seletor composto: aqui o + fica AO LADO
+   do campo, não embaixo. */
+.modal-edicao .modal-fonte-nova {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.modal-fonte-nova input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Botão de ação destrutiva em diálogos (E2). */
@@ -197,6 +316,33 @@ label {
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+}
+
+/* Ícone do Storage injetado inline (ver IconeSvgInline): a caixa é fixa (pra a
+   linha das abas não mudar de altura entre um ícone e outro) e o <svg> some
+   com a caixa dele mantendo a proporção do viewBox — sem esticar se o arquivo
+   trocar de proporção (os ratos, por exemplo, são quadrados numa caixa 20x30).
+   O preserveAspectRatio default do SVG ("xMidYMid meet") já faz o "contain". */
+.icone-svg-inline {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.icone-svg-inline svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Botão de ícone em estado "só a sombra": visível, mas inerte. Mesma opacidade
+   do .obra-card-nu-botao-vazio, pra o app ter um vocabulário visual só.
+   O seletor com `button` existe pra vencer o `button:disabled` (opacity .5) —
+   esse estado costuma vir junto com disabled, e é o .35 que deve valer. */
+.btn-icone-sombra,
+button.btn-icone-sombra {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* Dropdown de sugestões compartilhado (BuscaObras, VinculoObraSelect,
