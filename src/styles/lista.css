@@ -244,6 +244,11 @@
   transform: translateY(-2px);
 }
 
+/* Sem transform no hover da list-view. Além do gosto visual, isso é requisito
+   do Edit mode: os modais são renderizados DENTRO do card, e um ancestral com
+   transform viraria o containing block deles — o .modal-backdrop (position:
+   fixed) passaria a se posicionar pelo card e seria recortado pelo
+   overflow: hidden. Não reintroduzir transform aqui. */
 .grid-obras.list-view .obra-card:hover {
   transform: none;
 }
@@ -478,6 +483,111 @@ a.obra-card-nu-botao {
 .estrelas {
   color: var(--warn);
   font-size: 13px;
+}
+
+/* --- Edit mode da lista (Handout 2) --------------------------------------- */
+
+/* Título editável: perde a cara de link e ganha o sublinhado tracejado que o
+   app já usa pra edição inline (.cap-atual-botao). */
+.obra-card-titulo-editavel {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: left;
+  color: var(--accent);
+  border-bottom: 1px dashed var(--accent-border);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+/* Capa como alvo de upload. O .enviando existe pra .capa-preview no detalhe;
+   aqui vale o mesmo vocabulário (opaca + cursor de progresso). */
+.obra-card-capa-editavel {
+  cursor: pointer;
+}
+
+.obra-card-capa-editavel.enviando {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* Placeholder de campo vazio: alvo de toque, não indicador inerte — daí 0.55
+   em vez do 0.35 do .obra-card-nu-botao-vazio. */
+.chip-vazio {
+  font-size: 11px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.chip-vazio:hover {
+  opacity: 0.85;
+}
+
+/* Badge preenchido vira botão no modo, mantendo a aparência do <span>. */
+.badge-editavel {
+  cursor: pointer;
+}
+
+/* Botão do NU sem link cadastrado: clicável no modo (o .obra-card-nu-botao-vazio
+   normal tem pointer-events: none, que aqui não pode valer). */
+button.obra-card-nu-botao {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.obra-card-nu-botao-vazio-editavel {
+  opacity: 0.55;
+}
+
+.obra-card-nu-botao-vazio-editavel:hover {
+  opacity: 0.85;
+}
+
+/* Estrelas clicáveis: padding pra chegar aos 24px de alvo sem aumentar o glifo. */
+.estrelas-editaveis {
+  display: flex;
+  gap: 2px;
+  margin-left: -4px;
+}
+
+.estrela-botao {
+  background: none;
+  border: none;
+  padding: 4px;
+  min-width: 24px;
+  min-height: 24px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--warn);
+  cursor: pointer;
+}
+
+.obra-card-add-source {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* Saída do modo sempre à mão. z-index 90 fica ABAIXO do .modal-backdrop (100)
+   e dos toasts (200): com um modal aberto o flutuante fica atrás do véu, que é
+   o certo — não dá pra sair do modo no meio de uma edição. */
+.modo-edicao-flutuante {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 90;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px;
+  box-shadow: var(--shadow-hover);
 }
 
 

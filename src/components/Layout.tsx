@@ -6,10 +6,37 @@ import { useTema, type TemaPref } from '../hooks/useTema';
 import { mensagemDeErro } from '../lib/erros';
 import { APP_NAME } from '../config';
 import { DialogosProvider } from './Dialogo';
+import { ModoEdicaoProvider, useModoEdicao } from './ModoEdicaoContext';
+import { IconeModoEdicao, IconeSairModoEdicao } from './Icones';
 
 function formatHora(date: Date | null): string {
   if (!date) return 'never';
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Botão do Edit mode, na extremidade direita da linha das abas. Aparece em
+ * TODAS as abas pra a linha não mudar de altura nem de composição ao navegar;
+ * fora da aba List (e nela no Grid) fica "só a sombra". O disabled cobre
+ * teclado e leitor de tela, o pointer-events: none da classe cobre o toque.
+ */
+function BotaoModoEdicao() {
+  const { modoEdicao, alternarModo, disponivel } = useModoEdicao();
+  const rotulo = modoEdicao ? 'Exit edit mode' : 'Edit mode';
+
+  return (
+    <button
+      type="button"
+      className={`btn-icone modo-edicao-toggle${disponivel ? '' : ' btn-icone-sombra'}`}
+      onClick={alternarModo}
+      aria-pressed={modoEdicao}
+      disabled={!disponivel}
+      title={rotulo}
+      aria-label={rotulo}
+    >
+      {modoEdicao ? <IconeSairModoEdicao /> : <IconeModoEdicao />}
+    </button>
+  );
 }
 
 const TEMA_INFO: Record<TemaPref, { icone: string; titulo: string }> = {
@@ -25,41 +52,46 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <DialogosProvider>
-      <div className="app-layout">
-        <header className="app-header">
-          <div className="app-header-top">
-            <button
-              type="button"
-              onClick={ciclarTema}
-              className="tema-toggle"
-              title={TEMA_INFO[tema].titulo}
-              aria-label={TEMA_INFO[tema].titulo}
-            >
-              {TEMA_INFO[tema].icone}
-            </button>
-            <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
-            <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
-              {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
-            </button>
-            {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}
-            <button type="button" onClick={signOut} className="logout-button">
-              Sign out
-            </button>
-          </div>
-          <div className="app-header-main">
-            <h1 className="app-title">{APP_NAME}</h1>
-            <nav className="app-nav">
-              <NavLink to="/" end>
-                List
-              </NavLink>
-              <NavLink to="/atualizacoes">Updates</NavLink>
-              <NavLink to="/cadastrar">Add</NavLink>
-              <NavLink to="/testes">Tests</NavLink>
-            </nav>
-          </div>
-        </header>
-        <main className="app-main">{children}</main>
-      </div>
+      <ModoEdicaoProvider>
+        <div className="app-layout">
+          <header className="app-header">
+            <div className="app-header-top">
+              <button
+                type="button"
+                onClick={ciclarTema}
+                className="tema-toggle"
+                title={TEMA_INFO[tema].titulo}
+                aria-label={TEMA_INFO[tema].titulo}
+              >
+                {TEMA_INFO[tema].icone}
+              </button>
+              <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
+              <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
+                {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
+              </button>
+              {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}
+              <button type="button" onClick={signOut} className="logout-button">
+                Sign out
+              </button>
+            </div>
+            <div className="app-header-main">
+              <h1 className="app-title">{APP_NAME}</h1>
+              <div className="app-nav-linha">
+                <nav className="app-nav">
+                  <NavLink to="/" end>
+                    List
+                  </NavLink>
+                  <NavLink to="/atualizacoes">Updates</NavLink>
+                  <NavLink to="/cadastrar">Add</NavLink>
+                  <NavLink to="/testes">Tests</NavLink>
+                </nav>
+                <BotaoModoEdicao />
+              </div>
+            </div>
+          </header>
+          <main className="app-main">{children}</main>
+        </div>
+      </ModoEdicaoProvider>
     </DialogosProvider>
   );
 }

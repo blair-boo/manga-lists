@@ -64,11 +64,14 @@ export function ModalBase({ aberto, rotulo, onFechar, classe, children }: ModalB
         if (e.target === e.currentTarget) onFechar();
       }}
     >
-      <div className="modal-wrap">
+      {/* O foco fica preso no .modal-wrap, não no .modal: o X é irmão da caixa
+          (fica fora dela, no canto), e prendê-lo só no .modal o deixaria
+          inalcançável por Tab. */}
+      <div className="modal-wrap" ref={ref}>
         <button type="button" className="modal-fechar" onClick={onFechar} aria-label="Close">
           ×
         </button>
-        <div ref={ref} className={classe ? `modal ${classe}` : 'modal'} role="dialog" aria-modal="true" aria-label={rotulo}>
+        <div className={classe ? `modal ${classe}` : 'modal'} role="dialog" aria-modal="true" aria-label={rotulo}>
           {children}
         </div>
       </div>

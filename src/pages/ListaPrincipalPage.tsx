@@ -4,6 +4,8 @@ import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { BuscaObras } from '../components/BuscaObras';
+import { useModoEdicao } from '../components/ModoEdicaoContext';
+import { IconeSairModoEdicao } from '../components/Icones';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
@@ -74,6 +76,32 @@ export function ListaPrincipalPage() {
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+
+  // Edit mode (Handout 2): só existe na visualização List. Declarar a
+  // disponibilidade aqui é o que habilita o botão do header; o cleanup desliga
+  // o modo ao navegar pra outra aba.
+  const { modoEdicao, setDisponivel, sairDoModo } = useModoEdicao();
+
+  useEffect(() => {
+    setDisponivel(viewMode === 'list');
+    return () => setDisponivel(false);
+  }, [viewMode, setDisponivel]);
+
+  // Ao SAIR do modo, os cinco chips de lacuna voltam pra 'off'. Sem isso a
+  // lista continuaria filtrada por uma condição invisível — os chips que
+  // explicariam o porquê só aparecem dentro do modo. Só na transição
+  // true -> false: zerar na montagem apagaria filtros sem motivo.
+  const modoAnteriorRef = useRef(modoEdicao);
+  useEffect(() => {
+    if (modoAnteriorRef.current && !modoEdicao) {
+      setFiltroUnsourced('off');
+      setFiltroSemCapa('off');
+      setFiltroSemNu('off');
+      setFiltroSemNota('off');
+      setFiltroSemTipo('off');
+    }
+    modoAnteriorRef.current = modoEdicao;
+  }, [modoEdicao]);
 
   // Persiste os filtros a cada mudança — só somem de fato ao clicar "Clear
   // filters" (limparFiltros), mesmo saindo da tela e voltando depois.
@@ -318,51 +346,57 @@ export function ListaPrincipalPage() {
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
           </button>
         ))}
-        <button
-          type="button"
-          className={`status-chip status-chip-unsourced ${classeEstadoFiltro(filtroUnsourced)}`}
-          onClick={() => setFiltroUnsourced(proximoEstadoFiltro)}
-          title={tituloEstadoFiltro(filtroUnsourced)}
-        >
-          Unsourced
-          <span className="status-chip-contagem">{contagemUnsourced}</span>
-        </button>
-        <button
-          type="button"
-          className={`status-chip status-chip-sem-capa ${classeEstadoFiltro(filtroSemCapa)}`}
-          onClick={() => setFiltroSemCapa(proximoEstadoFiltro)}
-          title={tituloEstadoFiltro(filtroSemCapa)}
-        >
-          No cover
-          <span className="status-chip-contagem">{contagemSemCapa}</span>
-        </button>
-        <button
-          type="button"
-          className={`status-chip status-chip-sem-nu ${classeEstadoFiltro(filtroSemNu)}`}
-          onClick={() => setFiltroSemNu(proximoEstadoFiltro)}
-          title={tituloEstadoFiltro(filtroSemNu)}
-        >
-          No NU link
-          <span className="status-chip-contagem">{contagemSemNu}</span>
-        </button>
-        <button
-          type="button"
-          className={`status-chip status-chip-sem-nota ${classeEstadoFiltro(filtroSemNota)}`}
-          onClick={() => setFiltroSemNota(proximoEstadoFiltro)}
-          title={tituloEstadoFiltro(filtroSemNota)}
-        >
-          No rating
-          <span className="status-chip-contagem">{contagemSemNota}</span>
-        </button>
-        <button
-          type="button"
-          className={`status-chip status-chip-sem-tipo ${classeEstadoFiltro(filtroSemTipo)}`}
-          onClick={() => setFiltroSemTipo(proximoEstadoFiltro)}
-          title={tituloEstadoFiltro(filtroSemTipo)}
-        >
-          No type
-          <span className="status-chip-contagem">{contagemSemTipo}</span>
-        </button>
+        {/* Os cinco chips de lacuna são ferramenta do Edit mode: só aparecem
+            com o modo ligado, e voltam pra 'off' quando ele desliga. */}
+        {modoEdicao && (
+          <>
+            <button
+              type="button"
+              className={`status-chip status-chip-unsourced ${classeEstadoFiltro(filtroUnsourced)}`}
+              onClick={() => setFiltroUnsourced(proximoEstadoFiltro)}
+              title={tituloEstadoFiltro(filtroUnsourced)}
+            >
+              Unsourced
+              <span className="status-chip-contagem">{contagemUnsourced}</span>
+            </button>
+            <button
+              type="button"
+              className={`status-chip status-chip-sem-capa ${classeEstadoFiltro(filtroSemCapa)}`}
+              onClick={() => setFiltroSemCapa(proximoEstadoFiltro)}
+              title={tituloEstadoFiltro(filtroSemCapa)}
+            >
+              No cover
+              <span className="status-chip-contagem">{contagemSemCapa}</span>
+            </button>
+            <button
+              type="button"
+              className={`status-chip status-chip-sem-nu ${classeEstadoFiltro(filtroSemNu)}`}
+              onClick={() => setFiltroSemNu(proximoEstadoFiltro)}
+              title={tituloEstadoFiltro(filtroSemNu)}
+            >
+              No NU link
+              <span className="status-chip-contagem">{contagemSemNu}</span>
+            </button>
+            <button
+              type="button"
+              className={`status-chip status-chip-sem-nota ${classeEstadoFiltro(filtroSemNota)}`}
+              onClick={() => setFiltroSemNota(proximoEstadoFiltro)}
+              title={tituloEstadoFiltro(filtroSemNota)}
+            >
+              No rating
+              <span className="status-chip-contagem">{contagemSemNota}</span>
+            </button>
+            <button
+              type="button"
+              className={`status-chip status-chip-sem-tipo ${classeEstadoFiltro(filtroSemTipo)}`}
+              onClick={() => setFiltroSemTipo(proximoEstadoFiltro)}
+              title={tituloEstadoFiltro(filtroSemTipo)}
+            >
+              No type
+              <span className="status-chip-contagem">{contagemSemTipo}</span>
+            </button>
+          </>
+        )}
       </div>
 
       <div className="filtros-toggle-row">
@@ -473,9 +507,30 @@ export function ListaPrincipalPage() {
       ) : (
         <div className={`grid-obras ${viewMode === 'list' ? 'list-view' : ''}`}>
           {filtradas.map((obra) => (
-            <ObraCard key={obra.id} obra={obra} fontes={fontesPorObra.get(obra.id) ?? []} sitesAtivos={sitesAtivos} />
+            <ObraCard
+              key={obra.id}
+              obra={obra}
+              fontes={fontesPorObra.get(obra.id) ?? []}
+              sitesAtivos={sitesAtivos}
+              modoEdicao={modoEdicao}
+            />
           ))}
         </div>
+      )}
+
+      {/* Saída sempre à mão, sem precisar rolar até o header. Fica ABAIXO do
+          backdrop dos modais (z-index 90 < 100): com um modal aberto não dá
+          pra sair do modo no meio de uma edição sem fechar o modal antes. */}
+      {modoEdicao && (
+        <button
+          type="button"
+          className="btn-icone modo-edicao-flutuante"
+          onClick={sairDoModo}
+          title="Exit edit mode"
+          aria-label="Exit edit mode"
+        >
+          <IconeSairModoEdicao />
+        </button>
       )}
     </div>
   );

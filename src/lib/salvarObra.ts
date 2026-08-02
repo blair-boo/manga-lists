@@ -14,20 +14,24 @@ export async function salvarCamposObra(
   changes: Partial<NovaObra>,
   aoFalharRename?: (mensagem: string) => void
 ): Promise<void> {
-  if (('titulo' in changes || 'tipo' in changes) && obra.capa_url) {
+  // Cópia: quem chama costuma passar um literal, mas o patch não é nosso pra
+  // mutar — a capa renomeada entra só na cópia.
+  const patch: Partial<NovaObra> = { ...changes };
+
+  if (('titulo' in patch || 'tipo' in patch) && obra.capa_url) {
     try {
       const novaCapaUrl = await renomearCapaSeNecessario(
         obra.capa_url,
         obra.titulo,
         obra.tipo,
-        changes.titulo ?? obra.titulo,
-        'tipo' in changes ? (changes.tipo ?? null) : obra.tipo
+        patch.titulo ?? obra.titulo,
+        'tipo' in patch ? (patch.tipo ?? null) : obra.tipo
       );
-      if (novaCapaUrl) changes.capa_url = novaCapaUrl;
+      if (novaCapaUrl) patch.capa_url = novaCapaUrl;
     } catch (err) {
       aoFalharRename?.(mensagemDeErro(err));
-      // segue o autosave dos outros campos mesmo se o rename da capa falhar
+      // segue a gravação dos outros campos mesmo se o rename da capa falhar
     }
   }
-  await updateObra(obra.id, changes);
+  await updateObra(obra.id, patch);
 }
