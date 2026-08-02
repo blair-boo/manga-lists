@@ -370,8 +370,13 @@
   margin-top: 4px;
 }
 
-.obra-card-nu-botao {
+/* Especificidade (tipo + classe) pra vencer ".obra-card-fontes a" (mesmo peso,
+   mas essa regra vem antes): sem isso, o botão herdava o roxo do link quando
+   caía dentro da lista de fontes (obra com pelo menos uma fonte cadastrada),
+   ficando branco só nas obras sem fontes — inconsistente entre os cards. */
+a.obra-card-nu-botao {
   flex-shrink: 0;
+  color: var(--text-h);
 }
 
 .obra-card-nu-botao-vazio {

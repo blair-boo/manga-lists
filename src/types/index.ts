@@ -1,6 +1,6 @@
 export type Tipo = 'Manga' | 'Manwha' | 'Manhua' | 'Novel';
 
-export type StatusLeitura = 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped';
+export type StatusLeitura = 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped' | 'Re-read';
 
 export type StatusPublicacao = 'Ongoing' | 'Completed' | 'One shot' | 'Hiatus' | 'Canceled';
 
@@ -29,7 +29,7 @@ export interface Obra {
   fim_de_temporada: boolean;
   ultimo_capitulo_lancado: number | null;
   ultimo_capitulo_via_scraper: boolean;
-  nota: number | null;
+  score: number | null;
   generos: string[] | null;
   tags: string[] | null;
   observacoes: string | null;

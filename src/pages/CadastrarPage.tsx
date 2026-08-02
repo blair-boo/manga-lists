@@ -38,7 +38,7 @@ export function CadastrarPage() {
   const [tipo, setTipo] = useState('');
   const [statusPublicacao, setStatusPublicacao] = useState('');
   const [fimDeTemporada, setFimDeTemporada] = useState(false);
-  const [nota, setNota] = useState('');
+  const [score, setScore] = useState('');
   const [classificacao, setClassificacao] = useState<Classificacao | null>(null);
   const [pdf, setPdf] = useState(false);
 
@@ -68,7 +68,7 @@ export function CadastrarPage() {
     setTipo('');
     setStatusPublicacao('');
     setFimDeTemporada(false);
-    setNota('');
+    setScore('');
     setClassificacao(null);
     setPdf(false);
     setGeneros([]);
@@ -127,7 +127,7 @@ export function CadastrarPage() {
       fim_de_temporada: statusPublicacao === 'Hiatus' ? fimDeTemporada : false,
       ultimo_capitulo_lancado: null,
       ultimo_capitulo_via_scraper: false,
-      nota: nota === '' ? null : Number(nota),
+      score: score === '' ? null : Number(score),
       generos: generos.length > 0 ? generos : null,
       tags: tags.length > 0 ? tags : null,
       observacoes: observacoes.trim() || null,
@@ -222,7 +222,7 @@ export function CadastrarPage() {
           {completo && (
             <label>
               Rating
-              <select value={nota} onChange={(e) => setNota(e.target.value)}>
+              <select value={score} onChange={(e) => setScore(e.target.value)}>
                 <option value="">—</option>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>

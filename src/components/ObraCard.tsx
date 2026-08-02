@@ -7,9 +7,9 @@ import { temNovoCapitulo } from '../lib/obra';
 import { dominioDeUrl } from '../lib/scraperConfig';
 import type { Fonte, Obra } from '../types';
 
-function Estrelas({ nota }: { nota: number | null }) {
-  if (!nota) return null;
-  return <span className="estrelas">{'★'.repeat(nota)}{'☆'.repeat(5 - nota)}</span>;
+function Estrelas({ score }: { score: number | null }) {
+  if (!score) return null;
+  return <span className="estrelas">{'★'.repeat(score)}{'☆'.repeat(5 - score)}</span>;
 }
 
 function ProgressoBarra({ obra }: { obra: Obra }) {
@@ -170,7 +170,7 @@ export function ObraCard({ obra, fontes, sitesAtivos }: Props) {
           {obra.ultimo_capitulo_lancado != null && ` / ${obra.ultimo_capitulo_lancado} available`}
         </div>
         <ProgressoBarra obra={obra} />
-        <Estrelas nota={obra.nota} />
+        <Estrelas score={obra.score} />
 
         {fontes.length > 0 ? (
           <ul className="obra-card-fontes">

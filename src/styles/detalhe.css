@@ -205,8 +205,8 @@
   gap: 12px;
 }
 
-/* Save/Cancel das notas (Bloco E2), abaixo do textarea, alinhados à direita. */
-.notas-acoes {
+/* Save/Cancel das notes (Bloco E2), abaixo do textarea, alinhados à direita. */
+.observacoes-acoes {
   display: flex;
   gap: 6px;
   justify-content: flex-end;

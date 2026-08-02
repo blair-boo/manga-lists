@@ -124,7 +124,7 @@ mesmo pra leitura simples). Rode manualmente pela aba Actions após configurar
 as secrets e ajuste `scraper/common.py`/`scraper/discover_fontes.py` se algum
 site precisar de um parser dedicado.
 
-## 7. Preenchimento em massa (autor, capítulo, status, nota, gênero, tag…)
+## 7. Preenchimento em massa (autor, capítulo, status, score, gênero, tag…)
 
 A maioria das obras importadas da planilha só tem título (e às vezes tipo)
 preenchido. Pra completar em lote, sem precisar editar obra por obra no app:
