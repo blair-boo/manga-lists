@@ -6,6 +6,64 @@ export function isOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
 
+/**
+ * Colunas reais de cada tabela, usadas pra sanitizar o payload antes do
+ * upsert. Existem porque registros locais podem carregar campos legados que
+ * já não existem no servidor (ex.: `nota`, renomeada pra `score` — quem
+ * puxou a obra antes do rename guardou o payload com o nome antigo, e ele
+ * fica preso no objeto local até uma pull completa substituir o registro).
+ * O upsert falha (PGRST204 "column not found") se QUALQUER chave do payload
+ * não bater com uma coluna real, então filtrar aqui é o que destrava a fila
+ * sem depender de limpar cada registro local na mão.
+ */
+const COLUNAS_OBRAS = new Set<keyof Obra>([
+  'id',
+  'tipo',
+  'titulo',
+  'titulos_alternativos',
+  'autor',
+  'capa_url',
+  'capitulo_atual',
+  'status_leitura',
+  'status_publicacao',
+  'status_publicacao_manual',
+  'fim_de_temporada',
+  'ultimo_capitulo_lancado',
+  'ultimo_capitulo_via_scraper',
+  'score',
+  'generos',
+  'tags',
+  'observacoes',
+  'obra_vinculada_id',
+  'classificacao',
+  'novelupdates_url',
+  'pdf',
+  'criado_em',
+  'atualizado_em',
+]);
+
+const COLUNAS_FONTES = new Set<keyof Fonte>([
+  'id',
+  'obra_id',
+  'site',
+  'url',
+  'ultimo_capitulo_detectado',
+  'atualizado_por_scraper',
+  'confiavel',
+  'status_aprovacao',
+  'descoberta_automaticamente',
+  'ultima_verificacao',
+  'criado_em',
+  'tipo_detectado',
+  'tipo_manual',
+  'ordem',
+]);
+
+function sanitizarPayload(entity: 'obras' | 'fontes', payload: Record<string, unknown>): Record<string, unknown> {
+  const colunas: ReadonlySet<string> = entity === 'obras' ? COLUNAS_OBRAS : COLUNAS_FONTES;
+  return Object.fromEntries(Object.entries(payload).filter(([chave]) => colunas.has(chave)));
+}
+
 async function applyMutation(item: SyncQueueItem): Promise<void> {
   const table = item.entity;
   if (item.op === 'delete') {
@@ -14,7 +72,8 @@ async function applyMutation(item: SyncQueueItem): Promise<void> {
     return;
   }
   // insert/update: local id já é o uuid definitivo, então upsert cobre os dois casos
-  const { error } = await supabase.from(table).upsert(item.payload as unknown as Record<string, unknown>);
+  const payload = sanitizarPayload(table, item.payload as unknown as Record<string, unknown>);
+  const { error } = await supabase.from(table).upsert(payload);
   if (error) throw error;
 }
 
