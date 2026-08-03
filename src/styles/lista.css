@@ -575,16 +575,31 @@ button.obra-card-nu-botao {
   margin-top: 4px;
 }
 
-/* Saída do modo sempre à mão, no topo da página. z-index 90 fica ABAIXO do
-   .modal-backdrop (100) e dos toasts (200): com um modal aberto o flutuante
-   fica atrás do véu, que é o certo — não dá pra sair do modo no meio de uma
-   edição. Sem fundo/borda/sombra própria: o .rato-botao (via .btn-icone) já
-   cuida da aparência, igual ao rato do header. */
+/* Saída do modo, no mesmo canto do rato do header (right: 20px casa com o
+   padding do .app-header — o header não tem max-width, .app-main tem, então
+   alinhar pelo header é o que bate visualmente). Fica invisível enquanto o
+   rato do header está na tela (.visivel some com JS via IntersectionObserver
+   em Layout.tsx) pra não duplicar o ícone; só "descola" e aparece quando você
+   rola e o header sai da viewport. Continua montado o tempo todo (não some
+   por unmount) pra a transição de opacidade rodar e pro foco/leitor de tela
+   terem um elemento estável. z-index 90 fica ABAIXO do .modal-backdrop (100)
+   e dos toasts (200): com um modal aberto o flutuante fica atrás do véu, que
+   é o certo — não dá pra sair do modo no meio de uma edição. Sem fundo/borda/
+   sombra própria: o .rato-botao (via .btn-icone) já cuida da aparência, igual
+   ao rato do header. */
 .modo-edicao-flutuante {
   position: fixed;
-  right: 16px;
+  right: 20px;
   top: calc(16px + env(safe-area-inset-top));
   z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.modo-edicao-flutuante.visivel {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 

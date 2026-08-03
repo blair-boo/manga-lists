@@ -65,3 +65,14 @@ export async function renomearCapaSeNecessario(
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(slugNovo);
   return data.publicUrl;
 }
+
+/**
+ * Apaga o arquivo de capa no Storage a partir da publicUrl. No-op silencioso
+ * pra capa externa (não pertence ao bucket 'capas') — não há o que apagar.
+ */
+export async function deletarCapa(capaUrl: string): Promise<void> {
+  const path = pathNoBucket(capaUrl);
+  if (!path) return;
+  const { error } = await supabase.storage.from(BUCKET).remove([path]);
+  if (error) throw error;
+}

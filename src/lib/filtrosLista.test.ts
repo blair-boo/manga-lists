@@ -170,4 +170,23 @@ describe('obrasFiltradasOrdenadas', () => {
     const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
     expect(resultado.map((o) => o.id)).toEqual(['2']);
   });
+
+  it('obraFixada passa direto mesmo falhando o filtro ativo', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A' }), obraFake({ id: '2', titulo: 'B' })];
+    const comFonte = new Map<string, Fonte[]>([
+      ['1', [{ id: 'f1' } as Fonte]],
+      ['2', [{ id: 'f2' } as Fonte]],
+    ]);
+    const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroUnsourced: 'incluir' };
+    // Sem obraFixada, nenhuma obra tem fonte "faltando" -> nenhuma bate o filtro.
+    expect(obrasFiltradasOrdenadas(obras, comFonte, filtros, 'titulo').map((o) => o.id)).toEqual([]);
+    // Com '1' fixada, ela aparece mesmo tendo ganhado uma fonte (deixou de bater "Unsourced").
+    expect(obrasFiltradasOrdenadas(obras, comFonte, filtros, 'titulo', '1').map((o) => o.id)).toEqual(['1']);
+  });
+
+  it('obraFixada inexistente na lista não quebra nem aparece do nada', () => {
+    const obras = [obraFake({ id: '1', titulo: 'A' })];
+    const resultado = obrasFiltradasOrdenadas(obras, semFontes, FILTROS_PADRAO, 'titulo', 'nao-existe');
+    expect(resultado.map((o) => o.id)).toEqual(['1']);
+  });
 });

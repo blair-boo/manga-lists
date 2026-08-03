@@ -166,13 +166,22 @@ export function semCapa(o: Obra): boolean {
   return !o.capa_url || o.capa_url.trim() === '';
 }
 
-/** Mesmo pipeline de filtro + ordenação usado na lista principal — reaproveitado
- * pela tela da obra pro botão Next respeitar os filtros/ordenação ativos. */
+/**
+ * Mesmo pipeline de filtro + ordenação usado na lista principal — reaproveitado
+ * pela tela da obra pro botão Next respeitar os filtros/ordenação ativos.
+ *
+ * `obraFixada` (Edit mode, Handout 2 follow-up): quando informado, essa obra
+ * passa direto por todos os filtros — ela não pode sumir da lista enquanto
+ * tem um modal de edição aberto no card, mesmo que a própria edição faça a
+ * obra deixar de bater um filtro ativo (ex.: ganhar uma fonte com "Unsourced"
+ * ligado). Ainda entra na ordenação normal.
+ */
 export function obrasFiltradasOrdenadas(
   obras: Obra[],
   fontesPorObra: Map<string, Fonte[]>,
   filtros: FiltrosSalvos,
-  ordenacao: Ordenacao
+  ordenacao: Ordenacao,
+  obraFixada?: string | null
 ): Obra[] {
   const buscaLower = filtros.busca.trim().toLowerCase();
   const statusLeituraEntradas = Object.entries(filtros.statusLeituraFiltros).filter(
@@ -180,26 +189,27 @@ export function obrasFiltradasOrdenadas(
   ) as [string, EstadoFiltro][];
   const semFonte = (o: Obra) => (fontesPorObra.get(o.id)?.length ?? 0) === 0;
 
-  return obras
-    .filter(
-      (o) =>
-        !buscaLower ||
+  function passaTodosOsFiltros(o: Obra): boolean {
+    return (
+      (!buscaLower ||
         o.titulo.toLowerCase().includes(buscaLower) ||
-        (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))
-    )
-    .filter((o) => !filtros.tipo || o.tipo === filtros.tipo)
-    .filter((o) =>
-      statusLeituraEntradas.every(([valor, estado]) => passaFiltro(estado, o.status_leitura === valor))
-    )
-    .filter((o) => !filtros.statusPublicacao || o.status_publicacao === filtros.statusPublicacao)
-    .filter((o) => filtros.generosSel.every((g) => (o.generos ?? []).includes(g)))
-    .filter((o) => filtros.tagsSel.every((t) => (o.tags ?? []).includes(t)))
-    .filter((o) => passaFiltro(filtros.filtroNovoCapitulo, temNovoCapitulo(o)))
-    .filter((o) => passaFiltro(filtros.filtroNovel, familiaDeTipo(o.tipo) === 'novel'))
-    .filter((o) => passaFiltro(filtros.filtroUnsourced, semFonte(o)))
-    .filter((o) => passaFiltro(filtros.filtroSemCapa, semCapa(o)))
-    .filter((o) => passaFiltro(filtros.filtroSemNu, !o.novelupdates_url))
-    .filter((o) => passaFiltro(filtros.filtroSemNota, o.score == null))
-    .filter((o) => passaFiltro(filtros.filtroSemTipo, !o.tipo))
+        (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(buscaLower))) &&
+      (!filtros.tipo || o.tipo === filtros.tipo) &&
+      statusLeituraEntradas.every(([valor, estado]) => passaFiltro(estado, o.status_leitura === valor)) &&
+      (!filtros.statusPublicacao || o.status_publicacao === filtros.statusPublicacao) &&
+      filtros.generosSel.every((g) => (o.generos ?? []).includes(g)) &&
+      filtros.tagsSel.every((t) => (o.tags ?? []).includes(t)) &&
+      passaFiltro(filtros.filtroNovoCapitulo, temNovoCapitulo(o)) &&
+      passaFiltro(filtros.filtroNovel, familiaDeTipo(o.tipo) === 'novel') &&
+      passaFiltro(filtros.filtroUnsourced, semFonte(o)) &&
+      passaFiltro(filtros.filtroSemCapa, semCapa(o)) &&
+      passaFiltro(filtros.filtroSemNu, !o.novelupdates_url) &&
+      passaFiltro(filtros.filtroSemNota, o.score == null) &&
+      passaFiltro(filtros.filtroSemTipo, !o.tipo)
+    );
+  }
+
+  return obras
+    .filter((o) => o.id === obraFixada || passaTodosOsFiltros(o))
     .sort((a, b) => comparar(a, b, ordenacao));
 }

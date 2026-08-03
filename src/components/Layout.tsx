@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useSync } from '../sync/SyncContext';
@@ -21,11 +21,26 @@ function formatHora(date: Date | null): string {
  * teclado e leitor de tela, o pointer-events: none da classe cobre o toque.
  */
 function BotaoModoEdicao() {
-  const { modoEdicao, alternarModo, disponivel } = useModoEdicao();
+  const { modoEdicao, alternarModo, disponivel, setHeaderBotaoVisivel } = useModoEdicao();
   const rotulo = modoEdicao ? 'Exit edit mode' : 'Edit mode';
+  const botaoRef = useRef<HTMLButtonElement>(null);
+
+  // O flutuante da lista "descola" deste botão só quando ele sai da tela — ver
+  // .modo-edicao-flutuante em lista.css. root:null observa contra a viewport,
+  // certo aqui porque o header não é uma sub-área com scroll próprio.
+  useEffect(() => {
+    const alvo = botaoRef.current;
+    if (!alvo) return;
+    const observer = new IntersectionObserver(([entry]) => setHeaderBotaoVisivel(entry.isIntersecting), {
+      threshold: 0,
+    });
+    observer.observe(alvo);
+    return () => observer.disconnect();
+  }, [setHeaderBotaoVisivel]);
 
   return (
     <button
+      ref={botaoRef}
       type="button"
       className={`btn-icone rato-botao modo-edicao-toggle${disponivel ? '' : ' btn-icone-sombra'}`}
       onClick={alternarModo}

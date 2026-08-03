@@ -20,6 +20,19 @@ interface ModoEdicaoApi {
   disponivel: boolean;
   /** Chamado pela ListaPrincipalPage pra declarar disponibilidade. */
   setDisponivel: (v: boolean) => void;
+  /**
+   * Id da obra com um modal de edição aberto no card, ou null. A lista filtrada
+   * mantém essa obra visível mesmo que ela deixe de bater um filtro ativo (ex.:
+   * ganhar uma fonte com "Unsourced" ligado) — sem isso o card some da tela no
+   * meio da edição e desmonta o modal aberto junto.
+   */
+  obraFixada: string | null;
+  fixarObra: (id: string) => void;
+  /** Só desfixa se `id` ainda for a obra fixada (evita corrida entre modais). */
+  desafixarObra: (id: string) => void;
+  /** O botão do rato no header está visível na viewport agora (IntersectionObserver). */
+  headerBotaoVisivel: boolean;
+  setHeaderBotaoVisivel: (v: boolean) => void;
 }
 
 const ModoEdicaoContext = createContext<ModoEdicaoApi | null>(null);
@@ -29,6 +42,8 @@ export function ModoEdicaoProvider({ children }: { children: ReactNode }) {
   // setDisponivel do useState já é estável, então pode ir direto pra API sem
   // useCallback — a lista usa essa função dentro de um efeito.
   const [disponivel, setDisponivel] = useState(false);
+  const [obraFixada, setObraFixada] = useState<string | null>(null);
+  const [headerBotaoVisivel, setHeaderBotaoVisivel] = useState(true);
 
   // Ficar indisponível desliga o modo. Cobre de uma vez os três casos: sair da
   // aba List, desmontar a lista e trocar pro Grid.
@@ -43,9 +58,25 @@ export function ModoEdicaoProvider({ children }: { children: ReactNode }) {
 
   const sairDoModo = useCallback(() => setModoEdicao(false), []);
 
+  const fixarObra = useCallback((id: string) => setObraFixada(id), []);
+  const desafixarObra = useCallback((id: string) => {
+    setObraFixada((atual) => (atual === id ? null : atual));
+  }, []);
+
   const api = useMemo<ModoEdicaoApi>(
-    () => ({ modoEdicao, alternarModo, sairDoModo, disponivel, setDisponivel }),
-    [modoEdicao, alternarModo, sairDoModo, disponivel]
+    () => ({
+      modoEdicao,
+      alternarModo,
+      sairDoModo,
+      disponivel,
+      setDisponivel,
+      obraFixada,
+      fixarObra,
+      desafixarObra,
+      headerBotaoVisivel,
+      setHeaderBotaoVisivel,
+    }),
+    [modoEdicao, alternarModo, sairDoModo, disponivel, obraFixada, fixarObra, desafixarObra, headerBotaoVisivel]
   );
 
   return <ModoEdicaoContext.Provider value={api}>{children}</ModoEdicaoContext.Provider>;

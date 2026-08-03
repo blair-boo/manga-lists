@@ -7,6 +7,7 @@ import type { ObraDuplicada } from '../lib/duplicatas';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { adicionarFonteNaObra } from '../lib/adicionarFonte';
+import { deletarCapa } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
 import { salvarCamposObra } from '../lib/salvarObra';
 import { dominioDeUrl } from '../lib/site';
@@ -15,6 +16,7 @@ import { TagPicker } from './TagPicker';
 import { useToast } from './Toast';
 import { useDialogos } from './Dialogo';
 import { useUploadCapa } from './CapaUploader';
+import { useModoEdicao } from './ModoEdicaoContext';
 import { IconeLivro } from './Icones';
 import type { Categoria, Classificacao, Fonte, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
@@ -27,6 +29,20 @@ import type { Categoria, Classificacao, Fonte, Obra, StatusLeitura, StatusPublic
  * app (salvarCamposObra -> updateObra -> Dexie + syncQueue). Não existe buffer
  * de alterações pendentes; sair do modo apenas sai do modo.
  */
+
+/**
+ * Enquanto o modal está montado, a obra fica "fixada": a lista não a remove
+ * por deixar de bater um filtro ativo (ex.: ganhar uma fonte com "Unsourced"
+ * ligado), o que antes desmontava o card — e o modal junto — no meio da
+ * edição. Todo modal de campo do card usa isso.
+ */
+function useFixarObraEnquantoAberto(obraId: string): void {
+  const { fixarObra, desafixarObra } = useModoEdicao();
+  useEffect(() => {
+    fixarObra(obraId);
+    return () => desafixarObra(obraId);
+  }, [obraId, fixarObra, desafixarObra]);
+}
 
 /** Grava um patch da obra com toast de sucesso/erro — o "recibo" que substitui o salvar ao sair. */
 function useSalvarCampos() {
@@ -49,6 +65,7 @@ function useSalvarCampos() {
 const DEBOUNCE_DUPLICATA_MS = 400;
 
 function ModalTitulo({ obra, onFechar }: { obra: Obra; onFechar: () => void }) {
+  useFixarObraEnquantoAberto(obra.id);
   const salvar = useSalvarCampos();
   const [titulo, setTitulo] = useState(obra.titulo);
   const [alternativos, setAlternativos] = useState<string[]>(obra.titulos_alternativos ?? []);
@@ -140,11 +157,72 @@ export function TituloEditavel({ obra }: { obra: Obra }) {
 
 // --- Capa -------------------------------------------------------------------
 
-/** A capa inteira vira o alvo de upload. O conteúdo (img/placeholder) vem do
- * ObraCard, pra não duplicar a marcação entre os dois modos. */
+/** Menu de opções da capa (aparece só quando já existe uma): trocar ou
+ * remover. Remover apaga o arquivo no Storage antes de limpar capa_url — se o
+ * Storage falhar, a gravação nem acontece, então o card nunca fica com
+ * capa_url null apontando pra um arquivo que na real ainda existe (e
+ * vice-versa: nunca soltamos um arquivo órfão por engano). */
+function ModalCapa({
+  obra,
+  onFechar,
+  onTrocar,
+}: {
+  obra: Obra;
+  onFechar: () => void;
+  onTrocar: () => void;
+}) {
+  useFixarObraEnquantoAberto(obra.id);
+  const salvar = useSalvarCampos();
+  const { mostrarToast } = useToast();
+  const { confirmar } = useDialogos();
+  const [removendo, setRemovendo] = useState(false);
+
+  async function handleRemover() {
+    const ok = await confirmar({
+      titulo: 'Remove cover',
+      mensagem: `Remove the cover of "${obra.titulo}"? This deletes the image file too.`,
+      confirmarRotulo: 'Remove',
+      perigoso: true,
+    });
+    if (!ok) return;
+    setRemovendo(true);
+    try {
+      if (obra.capa_url) await deletarCapa(obra.capa_url);
+      await salvar(obra, { capa_url: null });
+      onFechar();
+    } catch (err) {
+      mostrarToast(mensagemDeErro(err), 'erro');
+    } finally {
+      setRemovendo(false);
+    }
+  }
+
+  return (
+    <ModalBase aberto rotulo="Cover" onFechar={onFechar} classe="modal-edicao">
+      <h3 className="modal-titulo">Cover</h3>
+      <div className="modal-acoes">
+        <button type="button" onClick={onTrocar}>
+          Change cover
+        </button>
+        <button type="button" className="botao-perigoso" onClick={handleRemover} disabled={removendo}>
+          {removendo ? 'Removing…' : 'Remove cover'}
+        </button>
+        <button type="button" className="botao-secundario" onClick={onFechar}>
+          Cancel
+        </button>
+      </div>
+    </ModalBase>
+  );
+}
+
+/** A capa inteira vira o alvo de clique. Com capa já cadastrada, abre o menu
+ * (trocar/remover); sem capa, não há o que remover — vai direto pro seletor
+ * de arquivo, como antes. O conteúdo (img/placeholder) vem do ObraCard, pra
+ * não duplicar a marcação entre os dois modos. */
 export function CapaEditavel({ obra, children }: { obra: Obra; children: ReactNode }) {
   const salvar = useSalvarCampos();
   const { mostrarToast } = useToast();
+  const [menuAberto, setMenuAberto] = useState(false);
   const { enviando, erro, abrirSeletor, inputProps } = useUploadCapa({
     titulo: obra.titulo,
     tipo: obra.tipo,
@@ -156,31 +234,52 @@ export function CapaEditavel({ obra, children }: { obra: Obra; children: ReactNo
     if (erro) mostrarToast(erro, 'erro');
   }, [erro, mostrarToast]);
 
+  function handleClick() {
+    if (obra.capa_url) setMenuAberto(true);
+    else abrirSeletor();
+  }
+
   return (
-    <div
-      className={`obra-card-capa obra-card-capa-editavel${enviando ? ' enviando' : ''}`}
-      data-tipo={obra.tipo ?? ''}
-      role="button"
-      tabIndex={0}
-      aria-label="Change cover"
-      title="Change cover"
-      onClick={abrirSeletor}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          abrirSeletor();
-        }
-      }}
-    >
-      {children}
-      <input {...inputProps} />
-    </div>
+    <>
+      {/* O menu fica FORA desta div (irmão, não filho): se ficasse dentro, o
+          clique nos botões do modal borbulharia até este onClick e reabriria
+          o menu ou disparava o seletor de arquivo sem querer. */}
+      <div
+        className={`obra-card-capa obra-card-capa-editavel${enviando ? ' enviando' : ''}`}
+        data-tipo={obra.tipo ?? ''}
+        role="button"
+        tabIndex={0}
+        aria-label={obra.capa_url ? 'Cover options' : 'Add cover'}
+        title={obra.capa_url ? 'Cover options' : 'Add cover'}
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+      >
+        {children}
+        <input {...inputProps} />
+      </div>
+      {menuAberto && (
+        <ModalCapa
+          obra={obra}
+          onFechar={() => setMenuAberto(false)}
+          onTrocar={() => {
+            setMenuAberto(false);
+            abrirSeletor();
+          }}
+        />
+      )}
+    </>
   );
 }
 
 // --- Novel Updates ----------------------------------------------------------
 
 function ModalNovelUpdates({ obra, onFechar }: { obra: Obra; onFechar: () => void }) {
+  useFixarObraEnquantoAberto(obra.id);
   const salvar = useSalvarCampos();
   const { mostrarToast } = useToast();
   const { confirmar } = useDialogos();
@@ -271,18 +370,21 @@ export function NovelUpdatesEditavel({ obra }: { obra: Obra }) {
 /** Opções como botões, não <select>: no modal, com poucas opções, o toque
  * direto é melhor no celular. Selecionar grava e fecha — o X cobre a desistência. */
 function ModalSelecao({
+  obraId,
   rotulo,
   categoria,
   valorAtual,
   onSelecionar,
   onFechar,
 }: {
+  obraId: string;
   rotulo: string;
   categoria: Categoria;
   valorAtual: string | null;
   onSelecionar: (valor: string | null) => void;
   onFechar: () => void;
 }) {
+  useFixarObraEnquantoAberto(obraId);
   const opcoes = useListasPorCategoria(categoria);
 
   return (
@@ -401,6 +503,7 @@ export function MetaEdicao({ obra }: { obra: Obra }) {
 
       {modal === 'tipo' && (
         <ModalSelecao
+          obraId={obra.id}
           rotulo="Type"
           categoria="tipo"
           valorAtual={obra.tipo}
@@ -413,6 +516,7 @@ export function MetaEdicao({ obra }: { obra: Obra }) {
       )}
       {modal === 'leitura' && (
         <ModalSelecao
+          obraId={obra.id}
           rotulo="Reading status"
           categoria="status_leitura"
           valorAtual={obra.status_leitura}
@@ -425,6 +529,7 @@ export function MetaEdicao({ obra }: { obra: Obra }) {
       )}
       {modal === 'publicacao' && (
         <ModalSelecao
+          obraId={obra.id}
           rotulo="Publication status"
           categoria="status_publicacao"
           valorAtual={obra.status_publicacao}
@@ -477,6 +582,7 @@ function urlNormalizada(url: string): string {
 }
 
 function ModalSources({ obra, onFechar }: { obra: Obra; onFechar: () => void }) {
+  useFixarObraEnquantoAberto(obra.id);
   const { mostrarToast } = useToast();
   const { confirmar } = useDialogos();
   const sitesAtivos = useSitesAtivos();
@@ -585,6 +691,17 @@ function ModalSources({ obra, onFechar }: { obra: Obra; onFechar: () => void }) 
         </button>
       </form>
       {erro && <p className="modal-aviso modal-aviso-bloqueio">{erro}</p>}
+
+      {/* Cada fonte já grava na hora (toast "Saved ✓" por ação); este botão só
+          fecha o modal. Existe pra ser o gatilho explícito de "terminei" — até
+          aqui a obra fica fixada na lista (useFixarObraEnquantoAberto), então
+          o card não some no meio da edição mesmo que ela deixe de bater um
+          filtro ativo (ex.: sair de "Unsourced" ao ganhar a primeira fonte). */}
+      <div className="modal-acoes">
+        <button type="button" onClick={onFechar}>
+          Save
+        </button>
+      </div>
     </ModalBase>
   );
 }

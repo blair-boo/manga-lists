@@ -80,7 +80,7 @@ export function ListaPrincipalPage() {
   // Edit mode (Handout 2): só existe na visualização List. Declarar a
   // disponibilidade aqui é o que habilita o botão do header; o cleanup desliga
   // o modo ao navegar pra outra aba.
-  const { modoEdicao, setDisponivel, sairDoModo } = useModoEdicao();
+  const { modoEdicao, setDisponivel, sairDoModo, obraFixada, headerBotaoVisivel } = useModoEdicao();
 
   useEffect(() => {
     setDisponivel(viewMode === 'list');
@@ -233,7 +233,7 @@ export function ListaPrincipalPage() {
       filtroSemNota,
       filtroSemTipo,
     };
-    return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao);
+    return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao, obraFixada);
   }, [
     obras,
     busca,
@@ -251,6 +251,7 @@ export function ListaPrincipalPage() {
     filtroSemTipo,
     fontesPorObra,
     ordenacao,
+    obraFixada,
   ]);
 
   const temFiltroAtivo = calcularTemFiltroAtivo({
@@ -518,16 +519,21 @@ export function ListaPrincipalPage() {
         </div>
       )}
 
-      {/* Saída sempre à mão, sem precisar rolar até o header. Fica ABAIXO do
-          backdrop dos modais (z-index 90 < 100): com um modal aberto não dá
-          pra sair do modo no meio de uma edição sem fechar o modal antes. */}
+      {/* Saída sempre à mão depois que o botão do header sai da tela por
+          rolagem — enquanto ele está visível, o flutuante fica invisível
+          (mantido montado, não escondido por unmount) pra não duplicar o
+          rato na tela. Fica ABAIXO do backdrop dos modais (z-index 90 < 100):
+          com um modal aberto não dá pra sair do modo no meio de uma edição
+          sem fechar o modal antes. */}
       {modoEdicao && (
         <button
           type="button"
-          className="btn-icone rato-botao modo-edicao-flutuante"
+          className={`btn-icone rato-botao modo-edicao-flutuante${headerBotaoVisivel ? '' : ' visivel'}`}
           onClick={sairDoModo}
           title="Exit edit mode"
           aria-label="Exit edit mode"
+          tabIndex={headerBotaoVisivel ? -1 : undefined}
+          aria-hidden={headerBotaoVisivel}
         >
           <IconeSairModoEdicao />
         </button>
