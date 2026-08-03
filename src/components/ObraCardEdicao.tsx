@@ -226,6 +226,7 @@ export function CapaEditavel({ obra, children }: { obra: Obra; children: ReactNo
   const { enviando, erro, abrirSeletor, inputProps } = useUploadCapa({
     titulo: obra.titulo,
     tipo: obra.tipo,
+    capaAtual: obra.capa_url,
     onUploaded: (url) => void salvar(obra, { capa_url: url }),
   });
 

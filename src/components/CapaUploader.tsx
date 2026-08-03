@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
+import { deletarCapaAntigaSeDiferente } from '../lib/capaStorage';
 import { uploadCapa } from '../lib/uploadCapa';
 import type { Tipo } from '../types';
 
@@ -11,10 +12,13 @@ import type { Tipo } from '../types';
 export function useUploadCapa({
   titulo,
   tipo,
+  capaAtual,
   onUploaded,
 }: {
   titulo: string;
   tipo: Tipo | null;
+  /** Capa antes desta troca, pra apagar o arquivo antigo do Storage se o path mudar. */
+  capaAtual: string | null;
   onUploaded: (url: string) => void;
 }) {
   const [enviando, setEnviando] = useState(false);
@@ -40,6 +44,12 @@ export function useUploadCapa({
     setErro(null);
     try {
       const url = await uploadCapa(file, titulo, tipo);
+      try {
+        await deletarCapaAntigaSeDiferente(capaAtual, url);
+      } catch {
+        // Best-effort: a capa nova já está gravada e funcionando: um órfão
+        // que sobrou no Storage não afeta a usuária, não vale um erro aqui.
+      }
       onUploaded(url);
     } catch {
       setErro('Failed to upload image.');
@@ -72,7 +82,7 @@ export function CapaUploader({
   tipo: Tipo | null;
   onUploaded: (url: string) => void;
 }) {
-  const { enviando, erro, abrirSeletor, inputProps } = useUploadCapa({ titulo, tipo, onUploaded });
+  const { enviando, erro, abrirSeletor, inputProps } = useUploadCapa({ titulo, tipo, capaAtual: capaUrl, onUploaded });
 
   return (
     <div className="capa-uploader">

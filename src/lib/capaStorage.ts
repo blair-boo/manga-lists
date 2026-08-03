@@ -76,3 +76,21 @@ export async function deletarCapa(capaUrl: string): Promise<void> {
   const { error } = await supabase.storage.from(BUCKET).remove([path]);
   if (error) throw error;
 }
+
+/**
+ * Apaga a capa ANTIGA no Storage depois de trocar por uma nova, mas só quando
+ * o path realmente mudou. O upload usa upsert:true num path determinístico
+ * pelo slug (ver uploadCapa) — se a extensão do arquivo novo bate com a
+ * antiga, o path é o MESMO e o upload já sobrescreveu sozinho; apagar de novo
+ * seria redundante. Path diferente (extensão trocou, ex. .jpg -> .webp) é
+ * exatamente o caso que deixa órfão: a capa antiga continua existindo no
+ * Storage sem nada mais apontando pra ela.
+ */
+export async function deletarCapaAntigaSeDiferente(capaAntiga: string | null, capaNova: string): Promise<void> {
+  if (!capaAntiga) return;
+  const pathAntigo = pathNoBucket(capaAntiga);
+  const pathNovo = pathNoBucket(capaNova);
+  if (!pathAntigo || !pathNovo || pathAntigo === pathNovo) return;
+  const { error } = await supabase.storage.from(BUCKET).remove([pathAntigo]);
+  if (error) throw error;
+}
