@@ -1,4 +1,4 @@
-export type Tipo = 'Manga' | 'Manwha' | 'Manhua' | 'Novel';
+export type Tipo = 'Manga' | 'Manhwa' | 'Manhua' | 'Novel';
 
 export type StatusLeitura = 'To read' | 'Reading' | 'Finished' | 'Paused' | 'Dropped' | 'Re-read';
 
@@ -13,7 +13,7 @@ export type Estrategia = 'fetch_direto' | 'busca_workaround';
 
 export type Categoria = 'tipo' | 'status_leitura' | 'status_publicacao' | 'rating' | 'genero' | 'tag';
 
-/** 'manga' cobre Manga/Manwha/Manhua para efeito de fontes (handout consolidado, Bloco B0). */
+/** 'manga' cobre Manga/Manhwa/Manhua para efeito de fontes (handout consolidado, Bloco B0). */
 export type FamiliaTipo = 'manga' | 'novel';
 
 export interface Obra {
@@ -22,6 +22,8 @@ export interface Obra {
   titulo: string;
   titulos_alternativos: string[] | null;
   autor: string | null;
+  /** Artistas da obra (desenho), separado de `autor` (roteiro). Texto livre, nomes separados por vírgula. */
+  artistas: string | null;
   capa_url: string | null;
   capitulo_atual: number | null;
   status_leitura: StatusLeitura | null;
@@ -41,6 +43,12 @@ export interface Obra {
   classificacao: Classificacao | null;
   /** Link canônico da página no Novel Updates (null = não vinculada). Espelhado entre obras vinculadas. */
   novelupdates_url: string | null;
+  /** Links externos de catálogo. Mesmo modelo de novelupdates_url: campo, não fonte. Espelhados entre obras vinculadas. */
+  anilist_url: string | null;
+  myanimelist_url: string | null;
+  mangaupdates_url: string | null;
+  mangadex_url: string | null;
+  mangabaka_url: string | null;
   /** A obra tem PDF? Independente por obra (não espelhado). */
   pdf: boolean;
   criado_em: string;

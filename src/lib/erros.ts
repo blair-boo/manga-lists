@@ -22,3 +22,8 @@ export function mensagemErroAcao(err: unknown): string {
   const detalhe = mensagemDeErro(err);
   return `Could not reach the scraper control (${detalhe}). Check that the "scraper-control" Edge Function is deployed and that the GH_ACTIONS_TOKEN secret is set.`;
 }
+
+/** Mensagem de erro para a busca de obras no comix.to via Edge Function. */
+export function mensagemErroComix(err: unknown): string {
+  return `Could not fetch from comix.to (${mensagemDeErro(err)}). Check that the "comix-fetch" Edge Function is deployed.`;
+}

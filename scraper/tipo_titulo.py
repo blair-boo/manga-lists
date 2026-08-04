@@ -73,15 +73,15 @@ def extrair_titulo_pagina(html: str) -> str:
 
 def familia_de_tipo(tipo_obra: str | None) -> str | None:
     """
-    Mapeia `obras.tipo` (Manga/Manwha/Manhua/Novel) pra família 'manga'/'novel'
-    usada na comparação com o tipo detectado de uma fonte. Manga/Manwha/Manhua
+    Mapeia `obras.tipo` (Manga/Manhwa/Manhua/Novel) pra família 'manga'/'novel'
+    usada na comparação com o tipo detectado de uma fonte. Manga/Manhwa/Manhua
     não se distinguem aqui (B0) — só manga vs novel importa.
     """
     if tipo_obra is None:
         return None
     if tipo_obra == "Novel":
         return "novel"
-    if tipo_obra in ("Manga", "Manwha", "Manhua"):
+    if tipo_obra in ("Manga", "Manhwa", "Manhua"):
         return "manga"
     return None
 

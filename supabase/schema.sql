@@ -1,11 +1,11 @@
--- Schema: Controle de Leitura (Manga/Manwha/Manhua/Novel)
+-- Schema: Controle de Leitura (Manga/Manhwa/Manhua/Novel)
 -- Supabase / Postgres
 
 create extension if not exists "pgcrypto";
 
 create table obras (
     id uuid primary key default gen_random_uuid(),
-    tipo text, -- 'Manga' | 'Manwha' | 'Manhua' | 'Novel'
+    tipo text, -- 'Manga' | 'Manhwa' | 'Manhua' | 'Novel'
     titulo text not null,
     titulos_alternativos text[],
     autor text,

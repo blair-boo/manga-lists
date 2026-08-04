@@ -20,12 +20,18 @@ import type { Fonte, Obra } from '../types';
 const CAMPOS_TEXTO = [
   'tipo',
   'autor',
+  'artistas',
   'capa_url',
   'status_leitura',
   'status_publicacao',
   'observacoes',
   'classificacao',
   'novelupdates_url',
+  'anilist_url',
+  'myanimelist_url',
+  'mangaupdates_url',
+  'mangadex_url',
+  'mangabaka_url',
 ] as const;
 const CAMPOS_NUMERO = ['capitulo_atual', 'score', 'ultimo_capitulo_lancado'] as const;
 const CAMPOS_ARRAY = ['generos', 'tags', 'titulos_alternativos'] as const;
