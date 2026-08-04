@@ -9,6 +9,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     titulo: 'Obra de teste',
     titulos_alternativos: null,
     autor: null,
+    artistas: null,
     capa_url: null,
     capitulo_atual: null,
     status_leitura: null,
@@ -24,6 +25,11 @@ function obraFake(parcial: Partial<Obra>): Obra {
     obra_vinculada_id: null,
     classificacao: null,
     novelupdates_url: null,
+    anilist_url: null,
+    myanimelist_url: null,
+    mangaupdates_url: null,
+    mangadex_url: null,
+    mangabaka_url: null,
     pdf: false,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
@@ -51,10 +57,10 @@ describe('obrasFiltradasOrdenadas', () => {
     expect(resultado.map((o) => o.id).sort()).toEqual(['1', '2']);
   });
 
-  it('filtroNovel em "incluir" só mostra Novel; Manga/Manwha/Manhua contam como manga', () => {
+  it('filtroNovel em "incluir" só mostra Novel; Manga/Manhwa/Manhua contam como manga', () => {
     const obras = [
       obraFake({ id: '1', titulo: 'A', tipo: 'Manga' }),
-      obraFake({ id: '2', titulo: 'B', tipo: 'Manwha' }),
+      obraFake({ id: '2', titulo: 'B', tipo: 'Manhwa' }),
       obraFake({ id: '3', titulo: 'C', tipo: 'Manhua' }),
       obraFake({ id: '4', titulo: 'D', tipo: 'Novel' }),
     ];

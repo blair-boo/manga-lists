@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { criarObraComFontes, vincularObras, type NovaObra } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { TagPicker } from '../components/TagPicker';
@@ -121,6 +121,7 @@ export function CadastrarPage() {
       titulo: titulo.trim(),
       titulos_alternativos: titulosAlternativos.length > 0 ? titulosAlternativos : null,
       autor: null,
+      artistas: null,
       capa_url: capaUrlFinal,
       capitulo_atual: capituloAtual === '' ? null : Number(capituloAtual),
       status_leitura: (statusLeitura || null) as StatusLeitura | null,
@@ -138,6 +139,11 @@ export function CadastrarPage() {
       obra_vinculada_id: null,
       classificacao,
       novelupdates_url: null,
+      anilist_url: null,
+      myanimelist_url: null,
+      mangaupdates_url: null,
+      mangadex_url: null,
+      mangabaka_url: null,
       pdf,
     };
     const r = await criarObraComFontes(obra, urlsValidas);
@@ -156,6 +162,10 @@ export function CadastrarPage() {
     <div className="cadastrar">
       <h2>Add</h2>
       <p>Fields marked with * are required.</p>
+
+      <Link to="/importar" className="link-importar-comix">
+        Import from comix.to
+      </Link>
 
       <form className="cadastro-obra-form" onSubmit={handleSubmit}>
         <label>

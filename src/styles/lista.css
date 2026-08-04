@@ -282,7 +282,7 @@
 .obra-card-capa[data-tipo='Manga'] .obra-card-capa-placeholder {
   background: linear-gradient(135deg, #f0709a, #b03f6a);
 }
-.obra-card-capa[data-tipo='Manwha'] .obra-card-capa-placeholder {
+.obra-card-capa[data-tipo='Manhwa'] .obra-card-capa-placeholder {
   background: linear-gradient(135deg, #6fb0f0, #3f6ab0);
 }
 .obra-card-capa[data-tipo='Manhua'] .obra-card-capa-placeholder {

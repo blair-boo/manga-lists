@@ -146,6 +146,13 @@ preenchido. Pra completar em lote, sem precisar editar obra por obra no app:
 Esse fluxo é repetível — pode exportar, preencher um pouco, importar,
 exportar de novo mais tarde, etc.
 
+## 8. Edge Functions
+
+```bash
+supabase functions deploy scraper-control   # dispara/cancela os workflows do GitHub Actions (secret GH_ACTIONS_TOKEN)
+supabase functions deploy comix-fetch       # busca páginas de título do comix.to (sem secrets — ver supabase/functions/comix-fetch/README.md)
+```
+
 ## Estrutura do repositório
 
 ```

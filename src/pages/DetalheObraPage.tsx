@@ -38,18 +38,11 @@ import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { BuscaObras } from '../components/BuscaObras';
+import { LinkExterno } from '../components/LinkExterno';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { ModalBase } from '../components/ModalBase';
-import {
-  IconeDisquete,
-  IconeGrip,
-  IconeLimparFiltros,
-  IconeLivro,
-  IconeMais,
-  IconeTrocar,
-  IconeX,
-} from '../components/Icones';
+import { IconeDisquete, IconeGrip, IconeLimparFiltros, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
 import { familiaDeTipo } from '../lib/obra';
 import {
   lerFiltrosSalvos,
@@ -207,6 +200,7 @@ type Draft = Pick<
   | 'titulo'
   | 'titulos_alternativos'
   | 'autor'
+  | 'artistas'
   | 'capa_url'
   | 'tipo'
   | 'status_leitura'
@@ -217,6 +211,11 @@ type Draft = Pick<
   | 'classificacao'
   | 'pdf'
   | 'novelupdates_url'
+  | 'anilist_url'
+  | 'myanimelist_url'
+  | 'mangaupdates_url'
+  | 'mangadex_url'
+  | 'mangabaka_url'
   | 'generos'
   | 'tags'
 >;
@@ -226,6 +225,7 @@ function toDraft(obra: Obra): Draft {
     titulo: obra.titulo,
     titulos_alternativos: obra.titulos_alternativos,
     autor: obra.autor,
+    artistas: obra.artistas,
     capa_url: obra.capa_url,
     tipo: obra.tipo,
     status_leitura: obra.status_leitura,
@@ -239,6 +239,11 @@ function toDraft(obra: Obra): Draft {
     // não-controlado até a obra ser re-sincronizada.
     pdf: obra.pdf ?? false,
     novelupdates_url: obra.novelupdates_url ?? null,
+    anilist_url: obra.anilist_url ?? null,
+    myanimelist_url: obra.myanimelist_url ?? null,
+    mangaupdates_url: obra.mangaupdates_url ?? null,
+    mangadex_url: obra.mangadex_url ?? null,
+    mangabaka_url: obra.mangabaka_url ?? null,
     generos: obra.generos,
     tags: obra.tags,
   };
@@ -258,7 +263,7 @@ export function DetalheObraPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { mostrarToast } = useToast();
-  const { confirmar, pedirTexto } = useDialogos();
+  const { confirmar } = useDialogos();
   const obra = useLiveQuery(() => (id ? db.obras.get(id) : undefined), [id]);
   const fontes = useLiveQuery(() => (id ? db.fontes.where('obra_id').equals(id).toArray() : []), [id]);
   const obraVinculada = useLiveQuery(
@@ -429,34 +434,6 @@ export function DetalheObraPage() {
     mostrarToast('Works unlinked');
   }
 
-  // Novel Updates (Bloco E7): a gravação passa por setCampo -> autosave -> updateObra,
-  // então o espelhamento na contraparte vinculada (E6, via CAMPOS_ESPELHADOS) é automático.
-  async function handleRemoverNU() {
-    const ok = await confirmar({
-      titulo: 'Remove Novel Updates link',
-      mensagem: 'Remove the Novel Updates link from this work?',
-      confirmarRotulo: 'Remove',
-    });
-    if (!ok) return;
-    setCampo('novelupdates_url', null);
-  }
-
-  async function handleAdicionarNU() {
-    const url = await pedirTexto({
-      titulo: 'Novel Updates link',
-      mensagem: 'Paste the novelupdates.com URL for this work:',
-      confirmarRotulo: 'Add',
-    });
-    if (url === null) return;
-    const limpo = url.trim();
-    if (!limpo) return;
-    if (!/novelupdates\.com/i.test(limpo)) {
-      mostrarToast("That doesn't look like a novelupdates.com URL", 'info');
-      return;
-    }
-    setCampo('novelupdates_url', limpo);
-  }
-
   // Cria a contraparte direto, sem pedir título — o título nasce espelhado da
   // obra de origem (C2), e daí em diante o espelhamento contínuo mantém os dois.
   async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
@@ -469,6 +446,7 @@ export function DetalheObraPage() {
       // espelhamento contínuo (B1) mantém os quatro campos sincronizados.
       titulos_alternativos: obra.titulos_alternativos,
       autor: null,
+      artistas: null,
       capa_url: null,
       capitulo_atual: null,
       status_leitura: null,
@@ -485,6 +463,12 @@ export function DetalheObraPage() {
       classificacao: null,
       // O link do NU refere-se à história: a contraparte nasce com o mesmo link (E6).
       novelupdates_url: obra.novelupdates_url,
+      // Links de catálogo idem — mesma história, mesmo espelhamento (Handout comix, A3).
+      anilist_url: obra.anilist_url,
+      myanimelist_url: obra.myanimelist_url,
+      mangaupdates_url: obra.mangaupdates_url,
+      mangadex_url: obra.mangadex_url,
+      mangabaka_url: obra.mangabaka_url,
       pdf: false,
     });
     setMostrarCaixaVinculo(false);
@@ -718,45 +702,56 @@ export function DetalheObraPage() {
               )}
             </div>
 
-            {/* Novel Updates — Bloco E7: livrinho (aberto em nova aba) + ×, ou + pra adicionar. */}
-            <div className="novelupdates-campo">
-              <span className="novelupdates-label">Novel Updates:</span>
-              <div className="novelupdates-acoes">
-                {draft.novelupdates_url ? (
-                  <>
-                    <a
-                      className="btn-icone"
-                      href={draft.novelupdates_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Open on Novel Updates"
-                      title="Open on Novel Updates"
-                    >
-                      <IconeLivro />
-                    </a>
-                    <button
-                      type="button"
-                      className="btn-icone btn-icone-perigo"
-                      onClick={handleRemoverNU}
-                      aria-label="Remove Novel Updates link"
-                      title="Remove"
-                    >
-                      <IconeX />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-icone"
-                    onClick={handleAdicionarNU}
-                    aria-label="Add Novel Updates link"
-                    title="Add Novel Updates link"
-                  >
-                    <IconeMais />
-                  </button>
-                )}
-              </div>
+            {/* Links externos — Bloco E7: NU + os 5 links de catálogo do comix,
+                todos no mesmo componente (LinkExterno), numa linha compartilhada. */}
+            <div className="links-externos-linha">
+              <LinkExterno
+                rotulo="NU"
+                nomeServico="Novel Updates"
+                url={draft.novelupdates_url}
+                hostEsperado={/novelupdates\.com/i}
+                onChange={(v) => setCampo('novelupdates_url', v)}
+              />
+              <LinkExterno
+                rotulo="AL"
+                nomeServico="AniList"
+                url={draft.anilist_url}
+                hostEsperado={/anilist\.co/i}
+                onChange={(v) => setCampo('anilist_url', v)}
+              />
+              <LinkExterno
+                rotulo="MAL"
+                nomeServico="MyAnimeList"
+                url={draft.myanimelist_url}
+                hostEsperado={/myanimelist\.net/i}
+                onChange={(v) => setCampo('myanimelist_url', v)}
+              />
+              <LinkExterno
+                rotulo="MU"
+                nomeServico="MangaUpdates"
+                url={draft.mangaupdates_url}
+                hostEsperado={/mangaupdates\.com/i}
+                onChange={(v) => setCampo('mangaupdates_url', v)}
+              />
+              <LinkExterno
+                rotulo="MD"
+                nomeServico="MangaDex"
+                url={draft.mangadex_url}
+                hostEsperado={/mangadex\.org/i}
+                onChange={(v) => setCampo('mangadex_url', v)}
+              />
+              <LinkExterno
+                rotulo="MB"
+                nomeServico="MangaBaka"
+                url={draft.mangabaka_url}
+                hostEsperado={/mangabaka\.org/i}
+                onChange={(v) => setCampo('mangabaka_url', v)}
+              />
             </div>
+
+            <Link to={`/importar?obra=${id}`} className="link-importar-comix">
+              Import from comix.to
+            </Link>
           </div>
         </div>
 
@@ -874,6 +869,29 @@ export function DetalheObraPage() {
           options={tags}
           onChange={(v) => setCampo('tags', v.length > 0 ? v : null)}
         />
+
+        {/* Author + Artists (Handout comix, Bloco B1): rótulo em tamanho normal,
+            valor em 12px — são campos de consulta, não de leitura frequente. */}
+        <div className="autoria-linha">
+          <label>
+            Author
+            <input
+              type="text"
+              className="campo-autoria"
+              value={draft.autor ?? ''}
+              onChange={(e) => setCampo('autor', e.target.value || null)}
+            />
+          </label>
+          <label>
+            Artists
+            <input
+              type="text"
+              className="campo-autoria"
+              value={draft.artistas ?? ''}
+              onChange={(e) => setCampo('artistas', e.target.value || null)}
+            />
+          </label>
+        </div>
 
         <label>
           Notes

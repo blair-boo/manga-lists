@@ -15,10 +15,10 @@ export async function adicionarFonteNaObra(
   url: string,
   tipoObra: Tipo | null,
   fontesAtuais: Fonte[]
-): Promise<void> {
+): Promise<Fonte> {
   // Nova fonte entra no fim da lista: maior ordem atual + 1 (Bloco F).
   const maiorOrdem = fontesAtuais.reduce((max, f) => (f.ordem != null && f.ordem > max ? f.ordem : max), -1);
-  await createFonte({
+  const fonte = await createFonte({
     obra_id: obraId,
     site: deriveSite(url),
     url,
@@ -29,10 +29,11 @@ export async function adicionarFonteNaObra(
     descoberta_automaticamente: false,
     ultima_verificacao: null,
     // Fonte cadastrada à mão direto na obra já nasce com o tipo da obra
-    // (Manga/Manwha/Manhua contam todos como 'manga' — familiaDeTipo).
+    // (Manga/Manhwa/Manhua contam todos como 'manga' — familiaDeTipo).
     tipo_detectado: familiaDeTipo(tipoObra),
     tipo_manual: false,
     ordem: maiorOrdem + 1,
   });
   void registrarDominioManual(url); // domínio novo inserido à mão vira site suportado
+  return fonte;
 }

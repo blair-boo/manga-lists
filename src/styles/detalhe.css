@@ -157,25 +157,47 @@
   border: 1px solid var(--border);
 }
 
-/* Novel Updates (Bloco E7): rótulo + ações (livrinho/×/+) na mesma linha. */
-.novelupdates-campo {
+/* Links externos (Handout comix, E7): NU + os 5 links de catálogo, cada um
+   com o componente LinkExterno (rótulo + ações livrinho/×/+), numa linha
+   compartilhada que quebra no mobile. */
+.links-externos-linha {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.link-externo-campo {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.novelupdates-label {
+.link-externo-label {
   font-size: 14px;
 }
 
-.novelupdates-acoes {
+.link-externo-acoes {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.novelupdates-acoes a.btn-icone {
+.link-externo-acoes a.btn-icone {
   text-decoration: none;
+}
+
+/* Botão discreto pra abrir a importação do comix.to (Handout comix, E2). */
+.link-importar-comix {
+  align-self: flex-start;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px dashed var(--accent-border);
+  border-radius: 6px;
+  color: var(--accent);
+  background: none;
 }
 
 /* PDF (Bloco F): mesmo formato do Content rating (título em cima, controle embaixo). */
@@ -203,6 +225,23 @@
 .classificacao-caixas {
   display: flex;
   gap: 12px;
+}
+
+/* Author + Artists lado a lado, logo acima das notas. Rótulo em tamanho
+   normal (herda do label), valor em 12px: são campos de consulta, não de
+   leitura frequente (decisão da dona). */
+.autoria-linha {
+  display: flex;
+  gap: 12px;
+}
+
+.autoria-linha label {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.campo-autoria {
+  font-size: 12px;
 }
 
 /* Save/Cancel das notes (Bloco E2), abaixo do textarea, alinhados à direita. */

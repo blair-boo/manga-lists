@@ -9,6 +9,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     titulo: 'Obra de teste',
     titulos_alternativos: null,
     autor: null,
+    artistas: null,
     capa_url: null,
     capitulo_atual: null,
     status_leitura: null,
@@ -24,6 +25,11 @@ function obraFake(parcial: Partial<Obra>): Obra {
     obra_vinculada_id: null,
     classificacao: null,
     novelupdates_url: null,
+    anilist_url: null,
+    myanimelist_url: null,
+    mangaupdates_url: null,
+    mangadex_url: null,
+    mangabaka_url: null,
     pdf: false,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
@@ -32,9 +38,9 @@ function obraFake(parcial: Partial<Obra>): Obra {
 }
 
 describe('familiaDeTipo', () => {
-  it('agrupa Manga/Manwha/Manhua na família manga', () => {
+  it('agrupa Manga/Manhwa/Manhua na família manga', () => {
     expect(familiaDeTipo('Manga')).toBe('manga');
-    expect(familiaDeTipo('Manwha')).toBe('manga');
+    expect(familiaDeTipo('Manhwa')).toBe('manga');
     expect(familiaDeTipo('Manhua')).toBe('manga');
   });
 

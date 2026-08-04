@@ -1,0 +1,133 @@
+/* Tela de importação do comix.to (Handout comix, Bloco F). */
+
+.importar-page {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.importar-url-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.importar-url-form input {
+  flex: 1 1 220px;
+}
+
+.importar-erro {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.importar-alvo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.importar-alvo-motivo {
+  font-size: 13px;
+  opacity: 0.75;
+  margin: 0;
+}
+
+.importar-alvo-novo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.importar-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.importar-secao h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.importar-linha {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.importar-linha input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.importar-valor-atual {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.importar-valor-novo {
+  color: var(--text-h);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.importar-ja-existe-lista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.importar-ja-existe {
+  opacity: 0.55;
+  font-size: 13px;
+}
+
+.importar-capas {
+  display: flex;
+  gap: 10px;
+}
+
+.importar-capas img {
+  width: 100px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.importar-resumo {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  font-size: 13px;
+}
+
+/* iOS ~390px: nada estoura horizontalmente; URLs longas nas linhas de link
+   truncam (mesmo tratamento de .fonte-link em updates.css). */
+@media (max-width: 640px) {
+  .importar-linha {
+    min-width: 0;
+  }
+
+  .importar-linha .importar-valor-novo {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .importar-capas img {
+    width: 84px;
+  }
+}

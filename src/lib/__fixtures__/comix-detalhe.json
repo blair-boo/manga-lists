@@ -1,0 +1,42 @@
+{
+  "id": 17667,
+  "hid": "x0ynk",
+  "title": "Villains Are Destined to Die",
+  "altTitles": [
+    "빌런의 죽음",
+    "악당의 죽음",
+    "The Villain's Death",
+    "Le Destin des Méchants",
+    "Судьба злодейки"
+  ],
+  "type": "manhwa",
+  "status": "finished",
+  "poster": {
+    "large": "https://static.comix.to/covers/x0ynk-large.jpg",
+    "medium": "https://static.comix.to/covers/x0ynk-medium.jpg"
+  },
+  "latestChapter": 214,
+  "contentRating": "safe",
+  "url": "/title/x0ynk-villains-are-destined-to-die",
+  "authors": [{ "title": "Gwon Gyeoeul (권겨을)" }],
+  "artists": [{ "title": "SUOL (수월)" }],
+  "genres": [
+    { "title": "Drama", "slug": "drama" },
+    { "title": "Fantasy", "slug": "fantasy" },
+    { "title": "Romance", "slug": "romance" }
+  ],
+  "tags": [
+    { "title": "Reincarnation", "slug": "reincarnation" },
+    { "title": "Villainess", "slug": "villainess" },
+    { "title": "Regression", "slug": "regression" },
+    { "title": "Royalty", "slug": "royalty" },
+    { "title": "Otome Game", "slug": "otome-game" }
+  ],
+  "links": {
+    "al": "https://anilist.co/manga/107376",
+    "mal": "https://myanimelist.net/manga/113138",
+    "mu": "https://www.mangaupdates.com/series/abc123",
+    "md": "https://mangadex.org/title/def456",
+    "mb": "https://mangabaka.dev/series/ghi789"
+  }
+}

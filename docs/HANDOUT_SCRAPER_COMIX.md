@@ -483,3 +483,16 @@ Isto **não** é escopo deste handout. Fica registrado como insumo de decisão.
 - [ ] `comix.to` (ativo) e `comix.ws` (inativo) inseridos em `sites_suportados`
 - [ ] Rodar `update_fontes.py` numa fonte comix real e conferir que `ultimo_capitulo_detectado` e o link batem com o site
 - [ ] Ressalvas da seção 8 registradas na docstring da classe
+
+---
+
+## Adendo (Handout de importação comix.to/links externos, Bloco H)
+
+Um handout posterior (importação via `comix-fetch` + tela `/importar`) pediu
+só para **registrar**, sem implementar, que o comix.to é raspável por
+`requests` puro (sem Playwright/FlareSolverr/token) e que `access_strategy`
+inicial deveria ser `http`. Isso já está feito: é exatamente este handout —
+`ComixAdapter` (`scraper/adapters_novos.py`, seção 2) usa
+`access_strategy_padrao = ACCESS_HTTP` e extrai `latestChapter` direto do
+`initial-data`, sem chamada de API nenhuma. Nada novo a fazer aqui; ponto
+registrado pra quem chegar a este arquivo pela referência do outro handout.
