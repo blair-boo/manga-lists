@@ -7,6 +7,21 @@
   max-width: 900px;
 }
 
+/* Fica grudado no topo da viewport ao rolar (a página não tem header fixo
+   próprio), então o seletor de tamanho continua acessível; só o conteúdo
+   abaixo dele (fonte/ícones) rola por baixo. */
+.testes-topo {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+  margin-top: -8px;
+  background: var(--bg);
+}
+
 .testes-cabecalho h1 {
   margin: 0 0 4px;
   font-size: 20px;
@@ -106,4 +121,11 @@
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+}
+
+/* Ícone "original color": <img> normal, sem mask — mantém as cores do
+   próprio arquivo SVG em vez de herdar a cor do tema. */
+.testes-icone-img {
+  display: inline-block;
+  object-fit: contain;
 }
