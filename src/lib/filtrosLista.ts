@@ -75,6 +75,7 @@ export interface FiltrosSalvos {
   statusPublicacao: string;
   generosSel: string[];
   tagsSel: string[];
+  filtroFavorito: EstadoFiltro;
   filtroNovoCapitulo: EstadoFiltro;
   filtroNovel: EstadoFiltro;
   filtroUnsourced: EstadoFiltro;
@@ -91,6 +92,7 @@ export const FILTROS_PADRAO: FiltrosSalvos = {
   statusPublicacao: '',
   generosSel: [],
   tagsSel: [],
+  filtroFavorito: 'off',
   filtroNovoCapitulo: 'off',
   filtroNovel: 'off',
   filtroUnsourced: 'off',
@@ -116,6 +118,7 @@ export function lerFiltrosSalvos(): FiltrosSalvos {
       statusPublicacao: typeof dados.statusPublicacao === 'string' ? dados.statusPublicacao : FILTROS_PADRAO.statusPublicacao,
       generosSel: Array.isArray(dados.generosSel) ? dados.generosSel : FILTROS_PADRAO.generosSel,
       tagsSel: Array.isArray(dados.tagsSel) ? dados.tagsSel : FILTROS_PADRAO.tagsSel,
+      filtroFavorito: estadoFiltroValido(dados.filtroFavorito),
       filtroNovoCapitulo: estadoFiltroValido(dados.filtroNovoCapitulo),
       filtroNovel: estadoFiltroValido(dados.filtroNovel),
       filtroUnsourced: estadoFiltroValido(dados.filtroUnsourced),
@@ -137,6 +140,7 @@ export function temFiltroAtivo(f: FiltrosSalvos): boolean {
     !!f.statusPublicacao ||
     f.generosSel.length > 0 ||
     f.tagsSel.length > 0 ||
+    f.filtroFavorito !== 'off' ||
     f.filtroNovoCapitulo !== 'off' ||
     f.filtroNovel !== 'off' ||
     f.filtroUnsourced !== 'off' ||
@@ -199,6 +203,7 @@ export function obrasFiltradasOrdenadas(
       (!filtros.statusPublicacao || o.status_publicacao === filtros.statusPublicacao) &&
       filtros.generosSel.every((g) => (o.generos ?? []).includes(g)) &&
       filtros.tagsSel.every((t) => (o.tags ?? []).includes(t)) &&
+      passaFiltro(filtros.filtroFavorito, o.favorito) &&
       passaFiltro(filtros.filtroNovoCapitulo, temNovoCapitulo(o)) &&
       passaFiltro(filtros.filtroNovel, familiaDeTipo(o.tipo) === 'novel') &&
       passaFiltro(filtros.filtroUnsourced, semFonte(o)) &&

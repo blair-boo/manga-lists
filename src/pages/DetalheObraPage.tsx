@@ -39,6 +39,8 @@ import { StatusScraper } from '../components/StatusScraper';
 import { VinculoObraSelect } from '../components/VinculoObraSelect';
 import { BuscaObras } from '../components/BuscaObras';
 import { LinkExterno } from '../components/LinkExterno';
+import { LinkFonte } from '../components/LinkFonte';
+import { FavoritoBotao } from '../components/FavoritoBotao';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { ModalBase } from '../components/ModalBase';
@@ -470,6 +472,7 @@ export function DetalheObraPage() {
       mangadex_url: obra.mangadex_url,
       mangabaka_url: obra.mangabaka_url,
       pdf: false,
+      favorito: false,
     });
     setMostrarCaixaVinculo(false);
     mostrarToast(`"${nova.titulo}" created and linked ✓`);
@@ -599,10 +602,13 @@ export function DetalheObraPage() {
       </div>
 
       <div className="detalhe-obra-form">
-        <label>
-          Title
-          <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
-        </label>
+        <div className="detalhe-obra-titulo-linha">
+          <label className="detalhe-obra-titulo-campo">
+            Title
+            <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
+          </label>
+          <FavoritoBotao obra={obra} />
+        </div>
 
         <TagPicker
           label="Associated Names"
@@ -706,46 +712,78 @@ export function DetalheObraPage() {
                 todos no mesmo componente (LinkExterno), numa linha compartilhada. */}
             <div className="links-externos-linha">
               <LinkExterno
-                rotulo="NU"
                 nomeServico="Novel Updates"
+                icone="w-color/novel-updates-435984.svg"
                 url={draft.novelupdates_url}
                 hostEsperado={/novelupdates\.com/i}
                 onChange={(v) => setCampo('novelupdates_url', v)}
               />
               <LinkExterno
-                rotulo="AL"
                 nomeServico="AniList"
+                icone="w-color/anilist-4F85E4.svg"
                 url={draft.anilist_url}
                 hostEsperado={/anilist\.co/i}
                 onChange={(v) => setCampo('anilist_url', v)}
               />
               <LinkExterno
-                rotulo="MAL"
                 nomeServico="MyAnimeList"
+                icone="w-color/mal-27448A.svg"
                 url={draft.myanimelist_url}
                 hostEsperado={/myanimelist\.net/i}
                 onChange={(v) => setCampo('myanimelist_url', v)}
               />
               <LinkExterno
-                rotulo="MU"
                 nomeServico="MangaUpdates"
+                icone="w-color/manga-updates-original.svg"
                 url={draft.mangaupdates_url}
                 hostEsperado={/mangaupdates\.com/i}
                 onChange={(v) => setCampo('mangaupdates_url', v)}
               />
               <LinkExterno
-                rotulo="MD"
                 nomeServico="MangaDex"
+                icone="w-color/mangadex-original-icon.svg"
                 url={draft.mangadex_url}
                 hostEsperado={/mangadex\.org/i}
                 onChange={(v) => setCampo('mangadex_url', v)}
               />
               <LinkExterno
-                rotulo="MB"
                 nomeServico="MangaBaka"
+                icone="w-color/mangabaka-original.png"
                 url={draft.mangabaka_url}
                 hostEsperado={/mangabaka\.org/i}
                 onChange={(v) => setCampo('mangabaka_url', v)}
+              />
+              <LinkFonte
+                nomeServico="Comix.to"
+                icone="w-color/comix-98CCF0.svg"
+                hostEsperado={/comix\.to/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
+              <LinkFonte
+                nomeServico="Lehzin"
+                icone="w-color/lehzin-a40909.svg"
+                hostEsperado={/lehzin/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
+              <LinkFonte
+                nomeServico="Webtoon"
+                icone="w-color/webtoon-5dac8e.svg"
+                hostEsperado={/webtoons?\.com/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
+              <LinkFonte
+                nomeServico="Tapas"
+                icone="w-color/Tapas-logo-original.png"
+                hostEsperado={/tapas\.io/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
               />
             </div>
 

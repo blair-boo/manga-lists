@@ -51,6 +51,8 @@ export interface Obra {
   mangabaka_url: string | null;
   /** A obra tem PDF? Independente por obra (não espelhado). */
   pdf: boolean;
+  /** Marcada como favorita (Handout favoritos). Independente por obra, não espelhada. */
+  favorito: boolean;
   criado_em: string;
   atualizado_em: string;
 }

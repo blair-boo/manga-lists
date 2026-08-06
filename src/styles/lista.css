@@ -183,6 +183,20 @@
   text-align: center;
 }
 
+/* Filtro Favorites: mesmo btn-icone do NU (não é chip de texto) — o ícone já
+   vem colorido (#FECC01), então o estado do filtro aparece no fundo/borda do
+   botão, não no ícone. */
+.favoritos-filtro-botao.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.favoritos-filtro-botao.excluido {
+  background: rgba(209, 38, 79, 0.1);
+  border-color: rgba(209, 38, 79, 0.5);
+  opacity: 0.7;
+}
+
 .lista-vazia {
   padding: 48px 20px;
   text-align: center;
@@ -326,6 +340,24 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
+}
+
+/* Título + botão de favoritar na mesma linha, cada canto (D: Favorites). */
+.obra-card-titulo-linha {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.obra-card-titulo-linha .obra-card-titulo,
+.obra-card-titulo-linha .obra-card-titulo-editavel {
+  flex: 1;
+  min-width: 0;
+}
+
+.obra-card-favorito-botao {
+  flex-shrink: 0;
 }
 
 .obra-card-titulo {

@@ -145,6 +145,7 @@ export function CadastrarPage() {
       mangadex_url: null,
       mangabaka_url: null,
       pdf,
+      favorito: false,
     };
     const r = await criarObraComFontes(obra, urlsValidas);
     setSalvando(false);

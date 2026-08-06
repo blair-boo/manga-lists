@@ -44,6 +44,7 @@ const COLUNAS_OBRAS = new Set<keyof Obra>([
   'mangadex_url',
   'mangabaka_url',
   'pdf',
+  'favorito',
   'criado_em',
   'atualizado_em',
 ]);
