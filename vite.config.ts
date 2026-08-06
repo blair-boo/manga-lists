@@ -20,7 +20,7 @@ export default defineConfig(({ command }) => ({
         name: `${APP_NAME} — Manga & Novels`,
         short_name: APP_NAME,
         description: 'Personal reading tracker for manga, manhwa, manhua and novels',
-        theme_color: '#584784',
+        theme_color: '#1e1440',
         background_color: '#0d0712',
         display: 'standalone',
         start_url: '.',
