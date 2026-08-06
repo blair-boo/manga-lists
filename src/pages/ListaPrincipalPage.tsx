@@ -5,7 +5,7 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { BuscaObras } from '../components/BuscaObras';
 import { useModoEdicao } from '../components/ModoEdicaoContext';
-import { IconeSairModoEdicao } from '../components/Icones';
+import { IconeColorido, IconeSairModoEdicao } from '../components/Icones';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
@@ -64,6 +64,7 @@ export function ListaPrincipalPage() {
   const [statusPublicacao, setStatusPublicacao] = useState(() => lerFiltrosSalvos().statusPublicacao);
   const [generosSel, setGenerosSel] = useState<string[]>(() => lerFiltrosSalvos().generosSel);
   const [tagsSel, setTagsSel] = useState<string[]>(() => lerFiltrosSalvos().tagsSel);
+  const [filtroFavorito, setFiltroFavorito] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroFavorito);
   const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>(
     () => lerFiltrosSalvos().filtroNovoCapitulo
   );
@@ -113,6 +114,7 @@ export function ListaPrincipalPage() {
       statusPublicacao,
       generosSel,
       tagsSel,
+      filtroFavorito,
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
@@ -129,6 +131,7 @@ export function ListaPrincipalPage() {
     statusPublicacao,
     generosSel,
     tagsSel,
+    filtroFavorito,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -225,6 +228,7 @@ export function ListaPrincipalPage() {
       statusPublicacao,
       generosSel,
       tagsSel,
+      filtroFavorito,
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
@@ -242,6 +246,7 @@ export function ListaPrincipalPage() {
     statusPublicacao,
     generosSel,
     tagsSel,
+    filtroFavorito,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -261,6 +266,7 @@ export function ListaPrincipalPage() {
     statusPublicacao,
     generosSel,
     tagsSel,
+    filtroFavorito,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -277,6 +283,7 @@ export function ListaPrincipalPage() {
     setStatusPublicacao('');
     setGenerosSel([]);
     setTagsSel([]);
+    setFiltroFavorito('off');
     setFiltroNovoCapitulo('off');
     setFiltroNovel('off');
     setFiltroUnsourced('off');
@@ -317,6 +324,15 @@ export function ListaPrincipalPage() {
       <BuscaObras value={busca} onChange={setBusca} />
 
       <div className="status-chips">
+        <button
+          type="button"
+          className={`btn-icone favoritos-filtro-botao ${classeEstadoFiltro(filtroFavorito)}`}
+          onClick={() => setFiltroFavorito(proximoEstadoFiltro)}
+          title={`Favorites — ${tituloEstadoFiltro(filtroFavorito)}`}
+          aria-label="Favorites filter"
+        >
+          <IconeColorido arquivo="w-color/stars-FECC01.svg" />
+        </button>
         <button
           type="button"
           className={`status-chip status-chip-novo ${classeEstadoFiltro(filtroNovoCapitulo)}`}

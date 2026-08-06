@@ -31,6 +31,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     mangadex_url: null,
     mangabaka_url: null,
     pdf: false,
+    favorito: false,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
     ...parcial,

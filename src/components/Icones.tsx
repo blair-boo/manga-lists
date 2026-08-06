@@ -171,6 +171,19 @@ export function IconeSairModoEdicao() {
   return <IconeSvgInline arquivo={ARQUIVO_SAIR_MODO_EDICAO} largura={RATO_SAIR_TAMANHO} altura={RATO_SAIR_TAMANHO} />;
 }
 
+/** Sparkle — botão de favoritar (lista e página da obra). Colorido via
+ * currentColor: cinza no estado inativo, #FECC01 no ativo (CSS). */
+export function IconeSparkle() {
+  return <IconeMascarado arquivo="sparkle.svg" />;
+}
+
+/** Ícone com cor PRÓPRIA (arquivo já colorido no Storage, pasta w-color/) —
+ * renderizado via <img> em vez de mask, pra não perder a cor original. Fica
+ * acinzentado (via filtro CSS, classe do botão pai) quando não há link. */
+export function IconeColorido({ arquivo, tamanho = 20 }: { arquivo: string; tamanho?: number }) {
+  return <img className="icone-colorido" src={urlIconeSupabase(arquivo)} alt="" width={tamanho} height={tamanho} loading="lazy" />;
+}
+
 /** Moldura de imagem — placeholder da capa vazia. */
 export function IconeImagem() {
   return (

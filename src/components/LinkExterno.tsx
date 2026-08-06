@@ -1,25 +1,26 @@
 import { useDialogos } from './Dialogo';
 import { useToast } from './Toast';
-import { IconeLivro, IconeMais, IconeX } from './Icones';
+import { IconeColorido } from './Icones';
+import { useLongPress } from '../hooks/useLongPress';
 
 interface LinkExternoProps {
-  /** Rótulo curto exibido na tela (AL, MAL, MU, MD, MB, NU). */
-  rotulo: string;
-  /** Nome do serviço usado nos textos de diálogo/toast (AniList, Novel Updates…). */
+  /** Nome do serviço, usado nos textos de diálogo/toast e como title (tooltip). */
   nomeServico: string;
+  /** Caminho do ícone colorido no bucket "icons" (pasta w-color/), 20x20. */
+  icone: string;
   url: string | null;
-  /** Host esperado da URL colada — rejeita e avisa se não bater (mesmo padrão do handleAdicionarNU). */
+  /** Host esperado da URL colada — rejeita e avisa se não bater. */
   hostEsperado: RegExp;
   onChange: (url: string | null) => void;
 }
 
 /**
- * Campo de link externo (ícone de livrinho que abre em nova aba + × pra
- * remover, ou + pra adicionar quando vazio). Parametrizado pra cobrir os
- * cinco links de catálogo (AniList/MyAnimeList/MangaUpdates/MangaDex/
- * MangaBaka) e o Novel Updates com o mesmo componente (handout comix, E7).
+ * Ícone de link externo (sem rótulo — o nome aparece só no title/tooltip):
+ * clique curto abre o link (ou o diálogo de adicionar, se vazio); pressionar
+ * e segurar abre o diálogo de remover. Parametrizado pra cobrir os seis links
+ * de catálogo (NU/AniList/MyAnimeList/MangaUpdates/MangaDex/MangaBaka).
  */
-export function LinkExterno({ rotulo, nomeServico, url, hostEsperado, onChange }: LinkExternoProps) {
+export function LinkExterno({ nomeServico, icone, url, hostEsperado, onChange }: LinkExternoProps) {
   const { confirmar, pedirTexto } = useDialogos();
   const { mostrarToast } = useToast();
 
@@ -44,49 +45,32 @@ export function LinkExterno({ rotulo, nomeServico, url, hostEsperado, onChange }
       titulo: `Remove ${nomeServico} link`,
       mensagem: `Remove the ${nomeServico} link from this work?`,
       confirmarRotulo: 'Remove',
+      perigoso: true,
     });
     if (!ok) return;
     onChange(null);
   }
 
+  const pressHandlers = useLongPress({
+    onClick: () => {
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else void handleAdicionar();
+    },
+    onLongPress: () => {
+      if (url) void handleRemover();
+      else void handleAdicionar();
+    },
+  });
+
   return (
-    <div className="link-externo-campo">
-      <span className="link-externo-label">{rotulo}:</span>
-      <div className="link-externo-acoes">
-        {url ? (
-          <>
-            <a
-              className="btn-icone"
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Open on ${nomeServico}`}
-              title={`Open on ${nomeServico}`}
-            >
-              <IconeLivro />
-            </a>
-            <button
-              type="button"
-              className="btn-icone btn-icone-perigo"
-              onClick={handleRemover}
-              aria-label={`Remove ${nomeServico} link`}
-              title="Remove"
-            >
-              <IconeX />
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="btn-icone"
-            onClick={handleAdicionar}
-            aria-label={`Add ${nomeServico} link`}
-            title={`Add ${nomeServico} link`}
-          >
-            <IconeMais />
-          </button>
-        )}
-      </div>
-    </div>
+    <button
+      type="button"
+      className={`btn-icone link-externo-botao ${url ? '' : 'link-externo-vazio'}`}
+      aria-label={url ? `Open on ${nomeServico}` : `Add ${nomeServico} link`}
+      title={nomeServico}
+      {...pressHandlers}
+    >
+      <IconeColorido arquivo={icone} />
+    </button>
   );
 }

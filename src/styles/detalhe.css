@@ -157,34 +157,28 @@
   border: 1px solid var(--border);
 }
 
-/* Links externos (Handout comix, E7): NU + os 5 links de catálogo, cada um
-   com o componente LinkExterno (rótulo + ações livrinho/×/+), numa linha
-   compartilhada que quebra no mobile. */
+/* Título + botão de favoritar na mesma linha, cada canto (D: Favorites). */
+.detalhe-obra-titulo-linha {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detalhe-obra-titulo-campo {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Links externos (Handout comix/favoritos): NU + 5 links de catálogo (campo
+   próprio na obra) + Comix/Lehzin/Webtoon/Tapas (espelham uma fonte) — só
+   ícones (sem rótulo, o nome vira title/tooltip), numa linha que quebra no
+   mobile. Clique curto abre/adiciona o link; pressionar e segurar remove. */
 .links-externos-linha {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px 16px;
-}
-
-.link-externo-campo {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.link-externo-label {
-  font-size: 14px;
-}
-
-.link-externo-acoes {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.link-externo-acoes a.btn-icone {
-  text-decoration: none;
+  gap: 8px 10px;
 }
 
 /* Botão discreto pra abrir a importação do comix.to (Handout comix, E2). */

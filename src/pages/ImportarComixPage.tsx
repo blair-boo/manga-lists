@@ -296,6 +296,7 @@ export function ImportarComixPage() {
         mangadex_url: aceitarLinks.md ? comixObra.links.mangadex_url : null,
         mangabaka_url: aceitarLinks.mb ? comixObra.links.mangabaka_url : null,
         pdf: false,
+        favorito: false,
       };
       const { obra } = await criarObraComFontes(novaObra, []);
       obraId = obra.id;

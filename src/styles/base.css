@@ -345,6 +345,38 @@ label {
   display: block;
 }
 
+/* Ícone com cor PRÓPRIA vindo do Storage (pasta w-color/), renderizado via
+   <img> pra não perder a cor original (mask tingiria tudo com currentColor).
+   Fica acinzentado quando o botão pai marca "vazio" (sem link vinculado). */
+.icone-colorido {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.link-externo-vazio .icone-colorido {
+  filter: grayscale(1) opacity(0.4);
+}
+
+/* Favoritar (sparkle): cinza no estado inativo, #FECC01 quando marcado.
+   currentColor via .icone-mascarado — só a cor do botão muda. */
+.favorito-botao {
+  color: var(--border);
+}
+
+.favorito-botao.favorito-ativo {
+  color: #fecc01;
+}
+
+/* Pressionar-e-segurar (useLongPress) não deve acionar o menu de contexto
+   nativo nem a seleção de texto — relevante pra botões que embrulham <img>. */
+.favorito-botao,
+.link-externo-botao {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
 /* Botão de ícone em estado "só a sombra": visível, mas inerte. Mesma opacidade
    do .obra-card-nu-botao-vazio, pra o app ter um vocabulário visual só.
    O seletor com `button` existe pra vencer o `button:disabled` (opacity .5) —

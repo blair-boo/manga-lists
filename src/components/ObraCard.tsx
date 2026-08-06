@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
 import { IconeLivro } from './Icones';
+import { FavoritoBotao } from './FavoritoBotao';
 import {
   BotaoAdicionarSource,
   CapaEditavel,
@@ -177,13 +178,16 @@ export function ObraCard({ obra, fontes, sitesAtivos, modoEdicao }: Props) {
         </div>
       )}
       <div className="obra-card-info">
-        {modoEdicao ? (
-          <TituloEditavel obra={obra} />
-        ) : (
-          <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
-            {obra.titulo}
-          </Link>
-        )}
+        <div className="obra-card-titulo-linha">
+          {modoEdicao ? (
+            <TituloEditavel obra={obra} />
+          ) : (
+            <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
+              {obra.titulo}
+            </Link>
+          )}
+          <FavoritoBotao obra={obra} className="obra-card-favorito-botao" />
+        </div>
         <div className="obra-card-meta">
           {modoEdicao ? (
             <MetaEdicao obra={obra} />
