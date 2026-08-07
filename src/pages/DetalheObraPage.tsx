@@ -762,9 +762,9 @@ export function DetalheObraPage() {
                 fontes={fontes ?? []}
               />
               <LinkFonte
-                nomeServico="Lehzin"
+                nomeServico="Lezhin"
                 icone="w-color/lehzin-a40909.svg"
-                hostEsperado={/lehzin/i}
+                hostEsperado={/lezhin/i}
                 obraId={id}
                 tipoObra={draft.tipo}
                 fontes={fontes ?? []}
@@ -785,11 +785,23 @@ export function DetalheObraPage() {
                 tipoObra={draft.tipo}
                 fontes={fontes ?? []}
               />
+              <LinkFonte
+                nomeServico="Manta"
+                icone="w-color/manta-765AAF.svg"
+                hostEsperado={/manta\.net/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
+              <LinkFonte
+                nomeServico="TappyToon"
+                icone="w-color/tapy-98f0ae.svg"
+                hostEsperado={/tappytoon\.com/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
             </div>
-
-            <Link to={`/importar?obra=${id}`} className="link-importar-comix">
-              Import from comix.to
-            </Link>
           </div>
         </div>
 
