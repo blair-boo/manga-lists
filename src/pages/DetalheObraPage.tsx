@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import {
   DndContext,
   KeyboardSensor,
@@ -33,6 +33,7 @@ import {
 } from '../db/repo';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
+import { useLongPress } from '../hooks/useLongPress';
 import { TagPicker } from '../components/TagPicker';
 import { CapaUploader } from '../components/CapaUploader';
 import { StatusScraper } from '../components/StatusScraper';
@@ -273,6 +274,17 @@ export function DetalheObraPage() {
     [obra?.obra_vinculada_id]
   );
   const sitesAtivos = useSitesAtivos();
+  // Long-press pra desvincular (mesmo padrão dos ícones de fonte/catálogo).
+  // handleDesvincular é function declaration (hoisted) — pode ser referenciada
+  // aqui mesmo sendo definida mais abaixo no corpo do componente.
+  const pressVinculo = useLongPress({
+    onClick: () => {
+      if (obraVinculada) navigate(`/obra/${obraVinculada.id}`);
+    },
+    onLongPress: () => {
+      if (obraVinculada) void handleDesvincular();
+    },
+  });
 
   // Pro botão Next: mesma lista filtrada/ordenada da tela List (filtros e
   // ordenação persistidos em localStorage), pra achar a próxima obra.
@@ -603,7 +615,7 @@ export function DetalheObraPage() {
 
       <div className="detalhe-obra-form">
         <div className="detalhe-obra-titulo-linha">
-          <label className="detalhe-obra-titulo-campo">
+          <label>
             Title
             <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
           </label>
@@ -649,26 +661,18 @@ export function DetalheObraPage() {
                 <span className="vinculo-obra-label">Corresponding work:</span>
                 <div className="vinculo-obra-acoes-topo">
                   {obraVinculada ? (
-                    <>
-                      {/* Ícone no lugar do título — o title/aria-label seguem dizendo qual é a obra. */}
-                      <Link
-                        to={`/obra/${obraVinculada.id}`}
-                        className="btn-icone"
-                        aria-label={`Open corresponding work "${obraVinculada.titulo}"`}
-                        title={obraVinculada.titulo}
-                      >
-                        <IconeTrocar />
-                      </Link>
-                      <button
-                        type="button"
-                        className="btn-icone btn-icone-perigo"
-                        onClick={handleDesvincular}
-                        aria-label="Unlink corresponding work"
-                        title="Unlink"
-                      >
-                        <IconeX />
-                      </button>
-                    </>
+                    // Ícone no lugar do título (title/aria-label dizem qual é a obra).
+                    // Clique curto abre a obra; pressionar e segurar desvincula
+                    // (mesmo padrão dos ícones de fonte/catálogo).
+                    <button
+                      type="button"
+                      className="btn-icone"
+                      aria-label={`Open corresponding work "${obraVinculada.titulo}"`}
+                      title={obraVinculada.titulo}
+                      {...pressVinculo}
+                    >
+                      <IconeTrocar />
+                    </button>
                   ) : (
                     !mostrarCaixaVinculo && (
                       <button

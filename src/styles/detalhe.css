@@ -52,11 +52,6 @@
   gap: 6px;
 }
 
-/* Link-ícone pra obra correspondente (mesmo tratamento do livrinho do NU). */
-.vinculo-obra-acoes-topo a.btn-icone {
-  text-decoration: none;
-}
-
 .vinculo-obra-caixa {
   display: flex;
   flex-direction: column;
@@ -157,17 +152,17 @@
   border: 1px solid var(--border);
 }
 
-/* Título + botão de favoritar na mesma linha, cada canto (D: Favorites). */
+/* Título + botão de favoritar na mesma linha do label "Title" (D: Favorites).
+   Botão em position:absolute (não sibling flex do label) — assim o input
+   continua ocupando 100% da largura, sem "roubar" espaço pro botão. */
 .detalhe-obra-titulo-linha {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  position: relative;
 }
 
-.detalhe-obra-titulo-campo {
-  flex: 1;
-  min-width: 0;
+.detalhe-obra-titulo-linha .favorito-botao {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 /* Links externos (Handout comix/favoritos): NU + 5 links de catálogo (campo
