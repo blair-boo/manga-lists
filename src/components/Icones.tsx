@@ -100,6 +100,12 @@ export function IconeLimparFiltros() {
   return <IconeMascarado arquivo="clear_filter.svg" />;
 }
 
+/** Recarregar — botão "Refresh icons" da aba Tests (Supabase storage
+ * icons/refresh.svg), 20px fixo, colorido via mask. */
+export function IconeRefresh() {
+  return <IconeMascarado arquivo="refresh.svg" />;
+}
+
 // Cache module-level do texto dos SVGs buscados do Storage — os dois ratos
 // aparecem em vários lugares ao mesmo tempo (header, botão flutuante) e não
 // precisam refazer o fetch a cada montagem.

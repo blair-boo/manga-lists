@@ -1,32 +1,32 @@
 /* Aba Tests: preview de fonte/ícones em tamanho ajustável (sem duplicar por tamanho). */
 
+/* A página inteira rola normalmente dentro de .app-main (scroll da aba). O
+   conteúdo abaixo do topo (fonte/ícones) tem, além disso, seu próprio scroll
+   interno (.testes-conteudo), pra não crescer sem limite quando o topo já
+   ocupa bastante espaço (ex.: picker de cor aberto no celular). */
 .testes-pagina {
   display: flex;
   flex-direction: column;
   gap: 0;
   max-width: 900px;
-  height: 100%;
-  overflow: hidden;
 }
 
-/* Área superior: controles de tamanho, refresh e cor. Altura intrínseca,
-   sem sticky — o conteúdo abaixo (fonte/ícones) tem seu próprio scroll. */
+/* Área superior: controles de tamanho, refresh e cor. Altura intrínseca. */
 .testes-topo {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 8px 0 12px;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 
 .testes-conteudo {
-  flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding-top: 16px;
+  max-height: 55vh;
+  overflow-y: auto;
 }
 
 /* A seção de cor fica no topo (sem border-top — já tem o separador do container) */
@@ -69,8 +69,17 @@
   width: 64px;
 }
 
-.testes-refresh {
-  font-size: 14px;
+.testes-refresh-carregando .icone-mascarado {
+  animation: testes-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes testes-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .testes-secao {
