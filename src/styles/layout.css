@@ -2,10 +2,18 @@
 
 /* Layout */
 
+/* html/body/#root precisam de altura definida na cadeia para que .app-layout
+   (100svh) e .app-main (flex: 1) tenham altura real — necessário pra páginas
+   com scroll interno próprio, como a TestesPage (ver testes.css). */
+html, body, #root {
+  height: 100%;
+}
+
 .app-layout {
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
@@ -103,6 +111,8 @@
 
 .app-main {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 20px;
   max-width: 1200px;
   width: 100%;
