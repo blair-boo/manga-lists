@@ -177,6 +177,17 @@ export function IconeSparkle() {
   return <IconeMascarado arquivo="sparkle.svg" />;
 }
 
+const ARQUIVO_VOLTAR_TOPO = 'w-color/star-up-f5ae0a.svg';
+const VOLTAR_TOPO_TAMANHO = 40;
+
+/** Seta "voltar ao topo" (lista): SVG com duas cores — amarelo fixo embutido
+ * no arquivo + currentColor pro resto, que herda a cor do botão (--text-h,
+ * via .btn-icone) e assim acompanha o tema claro/escuro. Precisa ser inline
+ * (não <img>, que isola o SVG e mata o currentColor) — mesma técnica do rato. */
+export function IconeVoltarTopo() {
+  return <IconeSvgInline arquivo={ARQUIVO_VOLTAR_TOPO} largura={VOLTAR_TOPO_TAMANHO} altura={VOLTAR_TOPO_TAMANHO} />;
+}
+
 /** Ícone com cor PRÓPRIA (arquivo já colorido no Storage, pasta w-color/) —
  * renderizado via <img> em vez de mask, pra não perder a cor original. Fica
  * acinzentado (via filtro CSS, classe do botão pai) quando não há link. */
