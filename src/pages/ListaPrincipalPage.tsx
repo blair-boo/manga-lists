@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { db } from '../db/localDb';
 import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
@@ -41,6 +41,33 @@ function tituloEstadoFiltro(estado: EstadoFiltro): string {
 
 function lerViewModeSalvo(): ViewMode {
   return localStorage.getItem('viewMode') === 'list' ? 'list' : 'grid';
+}
+
+/** Os cinco filtros de "lacuna" (dados faltando): visíveis direto nos chips de
+ * status durante o Edit mode (uso frequente ao arrumar o acervo), e dentro do
+ * painel "Filters" no modo normal (uso ocasional, não precisa de espaço fixo). */
+interface ChipLacunaConfig {
+  key: string;
+  classe: string;
+  label: string;
+  contagem: number;
+  estado: EstadoFiltro;
+  setEstado: Dispatch<SetStateAction<EstadoFiltro>>;
+}
+
+function renderChipLacuna(chip: ChipLacunaConfig) {
+  return (
+    <button
+      key={chip.key}
+      type="button"
+      className={`status-chip ${chip.classe} ${classeEstadoFiltro(chip.estado)}`}
+      onClick={() => chip.setEstado(proximoEstadoFiltro)}
+      title={tituloEstadoFiltro(chip.estado)}
+    >
+      {chip.label}
+      <span className="status-chip-contagem">{chip.contagem}</span>
+    </button>
+  );
 }
 
 /** Posição de scroll da lista, restaurada quando se volta da tela da obra. */
@@ -88,22 +115,6 @@ export function ListaPrincipalPage() {
     setDisponivel(viewMode === 'list');
     return () => setDisponivel(false);
   }, [viewMode, setDisponivel]);
-
-  // Ao SAIR do modo, os cinco chips de lacuna voltam pra 'off'. Sem isso a
-  // lista continuaria filtrada por uma condição invisível — os chips que
-  // explicariam o porquê só aparecem dentro do modo. Só na transição
-  // true -> false: zerar na montagem apagaria filtros sem motivo.
-  const modoAnteriorRef = useRef(modoEdicao);
-  useEffect(() => {
-    if (modoAnteriorRef.current && !modoEdicao) {
-      setFiltroUnsourced('off');
-      setFiltroSemCapa('off');
-      setFiltroSemNu('off');
-      setFiltroSemNota('off');
-      setFiltroSemTipo('off');
-    }
-    modoAnteriorRef.current = modoEdicao;
-  }, [modoEdicao]);
 
   // Persiste os filtros a cada mudança — só somem de fato ao clicar "Clear
   // filters" (limparFiltros), mesmo saindo da tela e voltando depois.
@@ -219,6 +230,14 @@ export function ListaPrincipalPage() {
   );
   const contagemSemNota = useMemo(() => (obras ?? []).filter((o) => o.score == null).length, [obras]);
   const contagemSemTipo = useMemo(() => (obras ?? []).filter((o) => !o.tipo).length, [obras]);
+
+  const chipsLacuna: ChipLacunaConfig[] = [
+    { key: 'unsourced', classe: 'status-chip-unsourced', label: 'Unsourced', contagem: contagemUnsourced, estado: filtroUnsourced, setEstado: setFiltroUnsourced },
+    { key: 'sem-capa', classe: 'status-chip-sem-capa', label: 'No cover', contagem: contagemSemCapa, estado: filtroSemCapa, setEstado: setFiltroSemCapa },
+    { key: 'sem-nu', classe: 'status-chip-sem-nu', label: 'No NU link', contagem: contagemSemNu, estado: filtroSemNu, setEstado: setFiltroSemNu },
+    { key: 'sem-nota', classe: 'status-chip-sem-nota', label: 'No rating', contagem: contagemSemNota, estado: filtroSemNota, setEstado: setFiltroSemNota },
+    { key: 'sem-tipo', classe: 'status-chip-sem-tipo', label: 'No type', contagem: contagemSemTipo, estado: filtroSemTipo, setEstado: setFiltroSemTipo },
+  ];
 
   const filtradas = useMemo(() => {
     if (!obras) return [];
@@ -369,57 +388,10 @@ export function ListaPrincipalPage() {
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
           </button>
         ))}
-        {/* Os cinco chips de lacuna são ferramenta do Edit mode: só aparecem
-            com o modo ligado, e voltam pra 'off' quando ele desliga. */}
-        {modoEdicao && (
-          <>
-            <button
-              type="button"
-              className={`status-chip status-chip-unsourced ${classeEstadoFiltro(filtroUnsourced)}`}
-              onClick={() => setFiltroUnsourced(proximoEstadoFiltro)}
-              title={tituloEstadoFiltro(filtroUnsourced)}
-            >
-              Unsourced
-              <span className="status-chip-contagem">{contagemUnsourced}</span>
-            </button>
-            <button
-              type="button"
-              className={`status-chip status-chip-sem-capa ${classeEstadoFiltro(filtroSemCapa)}`}
-              onClick={() => setFiltroSemCapa(proximoEstadoFiltro)}
-              title={tituloEstadoFiltro(filtroSemCapa)}
-            >
-              No cover
-              <span className="status-chip-contagem">{contagemSemCapa}</span>
-            </button>
-            <button
-              type="button"
-              className={`status-chip status-chip-sem-nu ${classeEstadoFiltro(filtroSemNu)}`}
-              onClick={() => setFiltroSemNu(proximoEstadoFiltro)}
-              title={tituloEstadoFiltro(filtroSemNu)}
-            >
-              No NU link
-              <span className="status-chip-contagem">{contagemSemNu}</span>
-            </button>
-            <button
-              type="button"
-              className={`status-chip status-chip-sem-nota ${classeEstadoFiltro(filtroSemNota)}`}
-              onClick={() => setFiltroSemNota(proximoEstadoFiltro)}
-              title={tituloEstadoFiltro(filtroSemNota)}
-            >
-              No rating
-              <span className="status-chip-contagem">{contagemSemNota}</span>
-            </button>
-            <button
-              type="button"
-              className={`status-chip status-chip-sem-tipo ${classeEstadoFiltro(filtroSemTipo)}`}
-              onClick={() => setFiltroSemTipo(proximoEstadoFiltro)}
-              title={tituloEstadoFiltro(filtroSemTipo)}
-            >
-              No type
-              <span className="status-chip-contagem">{contagemSemTipo}</span>
-            </button>
-          </>
-        )}
+        {/* Os cinco chips de lacuna ficam direto aqui só durante o Edit mode
+            (uso frequente ao arrumar o acervo); no modo normal moram dentro
+            do painel "Filters" — ver chipsLacuna mais abaixo. */}
+        {modoEdicao && chipsLacuna.map(renderChipLacuna)}
       </div>
 
       <div className="filtros-toggle-row">
@@ -467,6 +439,9 @@ export function ListaPrincipalPage() {
           </select>
           <TagPicker label="Genres" value={generosSel} options={generos} onChange={setGenerosSel} />
           <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
+          {/* Fora do Edit mode os chips de lacuna ficam aqui — uso ocasional,
+              não precisam de espaço fixo nos chips de status. */}
+          {!modoEdicao && <div className="filtros-chips-lacuna">{chipsLacuna.map(renderChipLacuna)}</div>}
         </div>
       )}
 
