@@ -5,7 +5,7 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { BuscaObras } from '../components/BuscaObras';
 import { useModoEdicao } from '../components/ModoEdicaoContext';
-import { IconeColorido, IconeSairModoEdicao } from '../components/Icones';
+import { IconeColorido, IconeSairModoEdicao, IconeVoltarTopo } from '../components/Icones';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
@@ -569,7 +569,7 @@ export function ListaPrincipalPage() {
         title="Back to top"
         aria-label="Back to top"
       >
-        <IconeColorido arquivo="w-color/star-up-f5ae0a.svg" />
+        <IconeVoltarTopo />
       </button>
     </div>
   );
