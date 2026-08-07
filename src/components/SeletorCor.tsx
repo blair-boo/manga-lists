@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import iro from '@jaames/iro';
+import { IconeMais } from './Icones';
 import '../styles/seletor-cor.css';
 
 const COR_INICIAL = '#f3f4f6';
@@ -35,6 +36,7 @@ function lerCssVar(cssVar: string): string {
 export function SeletorCor(props: SeletorCorProps) {
   const [aberto, setAberto] = useState(false);
   const [corHex, setCorHex] = useState(COR_INICIAL);
+  const [adicionarRapidoAberto, setAdicionarRapidoAberto] = useState(false);
   const [painelAberto, setPainelAberto] = useState(false);
   const [grupoAppAberto, setGrupoAppAberto] = useState(false);
   const [grupoCustomAberto, setGrupoCustomAberto] = useState(false);
@@ -149,6 +151,16 @@ export function SeletorCor(props: SeletorCorProps) {
 
         <button
           type="button"
+          className="btn-icone seletor-cor-add-rapido"
+          onClick={() => setAdicionarRapidoAberto((v) => !v)}
+          title="Add to my colors"
+          aria-expanded={adicionarRapidoAberto}
+        >
+          <IconeMais />
+        </button>
+
+        <button
+          type="button"
           className="btn-icone seletor-cor-engrenagem"
           onClick={() => {
             setPainelAberto((v) => !v);
@@ -160,6 +172,31 @@ export function SeletorCor(props: SeletorCorProps) {
           <IconeEngrenagem />
         </button>
       </div>
+
+      {adicionarRapidoAberto && (
+        <div className="seletor-cor-adicionar">
+          <span className="seletor-cor-swatch" style={{ background: corHex }} />
+          <span className="seletor-cor-adicionar-hex">{corHex}</span>
+          <input
+            type="text"
+            className="seletor-cor-adicionar-label"
+            placeholder="Label (optional)"
+            value={labelNovo}
+            onChange={(e) => setLabelNovo(e.target.value)}
+            maxLength={40}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={() => {
+              adicionarSwatch();
+              setAdicionarRapidoAberto(false);
+            }}
+          >
+            Add
+          </button>
+        </div>
+      )}
 
       {swatchInfo && (
         <div className="seletor-cor-swatch-info">

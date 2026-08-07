@@ -96,6 +96,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  color: var(--testes-cor-preview, var(--text-h));
 }
 
 .testes-fonte-amostra p {
@@ -132,11 +133,13 @@
   word-break: break-all;
 }
 
-/* Ícone "pintado" via mask: usa a cor do tema (--text-h) em vez da cor fixa
-   do SVG original, então acompanha modo claro/escuro como os demais ícones. */
+/* Ícone "pintado" via mask: usa --testes-cor-preview (setada pelo seletor de
+   cor em .testes-conteudo) com fallback pra --text-h, em vez da cor fixa do
+   SVG original — assim segue a cor escolhida sem repintar ícones/botões de
+   fora desta seção (ver .testes-fonte-amostra e aplicarCor em TestesPage). */
 .testes-icone-svg {
   display: inline-block;
-  background-color: var(--text-h);
+  background-color: var(--testes-cor-preview, var(--text-h));
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;

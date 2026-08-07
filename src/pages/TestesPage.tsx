@@ -39,10 +39,13 @@ export function TestesPage() {
   const [iconesCorOriginal, setIconesCorOriginal] = useState<IconeArquivo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const paginaRef = useRef<HTMLDivElement>(null);
+  const conteudoRef = useRef<HTMLDivElement>(null);
 
+  // Var própria (não --text-h): setar na .testes-conteudo escopa o efeito só
+  // aos textos de exemplo da fonte e aos ícones da seção Icons, sem repintar
+  // cabeçalhos, botões e outros ícones da página (que usam --text-h global).
   function aplicarCor(hex: string) {
-    paginaRef.current?.style.setProperty('--text-h', hex);
+    conteudoRef.current?.style.setProperty('--testes-cor-preview', hex);
   }
 
   const carregarIcones = useCallback(async () => {
@@ -69,7 +72,7 @@ export function TestesPage() {
   }
 
   return (
-    <div className="testes-pagina" ref={paginaRef}>
+    <div className="testes-pagina">
       {/* Área superior (sem scroll próprio): cabeçalho, controle de tamanho e
           seletor de cor. O conteúdo abaixo (fonte/ícones) tem seu próprio
           scroll, independente desta área — ver .testes-conteudo. */}
@@ -117,7 +120,7 @@ export function TestesPage() {
         </section>
       </div>
 
-      <div className="testes-conteudo">
+      <div className="testes-conteudo" ref={conteudoRef}>
         <section className="testes-secao">
           <h2>Font — {tamanho}px</h2>
           <div className="testes-fonte-amostra" style={{ fontSize: tamanho }}>
@@ -135,8 +138,8 @@ export function TestesPage() {
           <div className="testes-icones-grid">
             {icones.map((icone) => (
               <div key={icone.nome} className="testes-icone-item">
-                {/* Ícone "pintado" com mask (não <img>) pra herdar a cor do tema
-                    (--text-h), igual aos ícones inline nos botões da app. */}
+                {/* Ícone "pintado" com mask (não <img>) pra acompanhar a cor
+                    escolhida no seletor (ver .testes-icone-svg em testes.css). */}
                 <span
                   className="testes-icone-svg"
                   role="img"
