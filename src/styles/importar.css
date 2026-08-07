@@ -62,10 +62,17 @@
   align-items: flex-start;
 }
 
-.importar-linha input[type='checkbox'] {
+.importar-linha input[type='checkbox'],
+.importar-linha input[type='radio'] {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+}
+
+.importar-titulo-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .importar-valor-atual {
