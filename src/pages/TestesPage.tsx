@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
+import { IconeRefresh } from '../components/Icones';
 import { SeletorCor } from '../components/SeletorCor';
 import '../styles/seletor-cor.css';
 
@@ -97,15 +98,17 @@ export function TestesPage() {
               className="testes-tamanho-input"
             />
             px
+            <button
+              type="button"
+              className={`btn-icone testes-refresh${carregando ? ' testes-refresh-carregando' : ''}`}
+              onClick={() => void carregarIcones()}
+              disabled={carregando}
+              title={carregando ? 'Refreshing…' : 'Refresh icons'}
+              aria-label={carregando ? 'Refreshing…' : 'Refresh icons'}
+            >
+              <IconeRefresh />
+            </button>
           </label>
-          <button
-            type="button"
-            className="testes-refresh"
-            onClick={() => void carregarIcones()}
-            disabled={carregando}
-          >
-            {carregando ? 'Refreshing…' : 'Refresh icons'}
-          </button>
         </div>
 
         <section className="testes-secao testes-secao-cor">

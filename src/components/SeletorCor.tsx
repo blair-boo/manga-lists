@@ -150,7 +150,10 @@ export function SeletorCor(props: SeletorCorProps) {
         <button
           type="button"
           className="btn-icone seletor-cor-engrenagem"
-          onClick={() => setPainelAberto((v) => !v)}
+          onClick={() => {
+            setPainelAberto((v) => !v);
+            setAberto(false);
+          }}
           title="Manage swatches"
           aria-expanded={painelAberto}
         >
