@@ -283,7 +283,9 @@ label {
   color: var(--danger);
 }
 
-/* Botões de ícone com borda transparente (Blocos E2 e F3). */
+/* Botões de ícone: borda e fundo transparentes em QUALQUER estado (hover,
+   active, focus) — nunca ganham contorno/preenchimento visível (Blocos E2 e
+   F3, ajuste posterior). */
 .btn-icone {
   background: none;
   border: 1px solid #0000;
@@ -296,23 +298,21 @@ label {
   justify-content: center;
 }
 
-.btn-icone:hover {
-  border-color: var(--border);
+.btn-icone:hover,
+.btn-icone:active,
+.btn-icone:focus {
+  background: none;
+  border-color: transparent;
 }
 
 .btn-icone-perigo {
   color: var(--danger);
 }
 
-/* Botões do rato (Edit mode: header e flutuante): sem padding e sem contorno
-   em NENHUM estado — inclusive hover, que cancela o border-color que
-   .btn-icone:hover normalmente revela. */
+/* Botões do rato (Edit mode: header e flutuante): sem padding (o resto do
+   comportamento — sem contorno em nenhum estado — já é o padrão do .btn-icone). */
 .rato-botao {
   padding: 0;
-}
-
-.rato-botao:hover {
-  border-color: transparent;
 }
 
 /* Ícone "pintado" via mask (SVG do Supabase Storage) — acompanha a cor do

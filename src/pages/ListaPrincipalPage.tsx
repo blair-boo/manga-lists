@@ -307,6 +307,10 @@ export function ListaPrincipalPage() {
     return () => window.removeEventListener('scroll', salvarScroll);
   }, []);
 
+  function voltarAoTopo() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   // Restaura a posição salva só depois que a lista de verdade renderizou
   // (não no esqueleto de loading), senão a altura da página ainda não bate.
   const scrollRestaurado = useRef(false);
@@ -554,6 +558,19 @@ export function ListaPrincipalPage() {
           <IconeSairModoEdicao />
         </button>
       )}
+
+      {/* Volta ao topo: canto inferior direito, sempre montado com position:
+          fixed — nada de aparecer/desaparecer por scroll (isso só causava
+          "pulo" visual junto com re-renders da lista). */}
+      <button
+        type="button"
+        className="btn-icone voltar-topo-flutuante"
+        onClick={voltarAoTopo}
+        title="Back to top"
+        aria-label="Back to top"
+      >
+        <IconeColorido arquivo="w-color/star-up-f5ae0a.svg" />
+      </button>
     </div>
   );
 }
