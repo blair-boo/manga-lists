@@ -77,6 +77,7 @@ export function ListaPrincipalPage() {
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [mostrarBotaoTopo, setMostrarBotaoTopo] = useState(false);
 
   // Edit mode (Handout 2): só existe na visualização List. Declarar a
   // disponibilidade aqui é o que habilita o botão do header; o cleanup desliga
@@ -302,6 +303,7 @@ export function ListaPrincipalPage() {
   useEffect(() => {
     function salvarScroll() {
       sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+      setMostrarBotaoTopo(window.scrollY > 300);
     }
     window.addEventListener('scroll', salvarScroll, { passive: true });
     return () => window.removeEventListener('scroll', salvarScroll);
@@ -560,14 +562,16 @@ export function ListaPrincipalPage() {
       )}
 
       {/* Volta ao topo: canto inferior direito, sempre montado com position:
-          fixed — nada de aparecer/desaparecer por scroll (isso só causava
-          "pulo" visual junto com re-renders da lista). */}
+          fixed — só a opacidade muda com o scroll (mesma técnica do
+          flutuante do rato), sem entrar/sair do DOM pra não "pular". */}
       <button
         type="button"
-        className="btn-icone voltar-topo-flutuante"
+        className={`btn-icone voltar-topo-flutuante${mostrarBotaoTopo ? ' visivel' : ''}`}
         onClick={voltarAoTopo}
         title="Back to top"
         aria-label="Back to top"
+        tabIndex={mostrarBotaoTopo ? undefined : -1}
+        aria-hidden={!mostrarBotaoTopo}
       >
         <IconeVoltarTopo />
       </button>
