@@ -9,10 +9,10 @@ function lerTemaSalvo(): TemaPref {
   return v === 'light' || v === 'dark' ? v : 'system';
 }
 
-// --bg claro/escuro de src/styles/base.css, duplicado de propósito (mesmo
+// --accent claro/escuro de src/styles/base.css, duplicado de propósito (mesmo
 // motivo do script inline em index.html, que faz a mesma coisa antes do 1º
 // paint): não dá pra ler uma custom property antes do CSS carregar.
-const BG_POR_TEMA: Record<'light' | 'dark', string> = { light: '#5d7cab', dark: '#0d0712' };
+const ACCENT_POR_TEMA: Record<'light' | 'dark', string> = { light: '#1e1440', dark: '#6c7bc0' };
 
 function temaResolvido(pref: TemaPref): 'light' | 'dark' {
   if (pref === 'system') return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -30,7 +30,7 @@ function aplicarTema(pref: TemaPref) {
   // Status bar/toolbar (iOS Safari, Chrome Android): sem isso a cor fica
   // travada na do 1º paint mesmo trocando de tema em runtime.
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', BG_POR_TEMA[temaResolvido(pref)]);
+  if (meta) meta.setAttribute('content', ACCENT_POR_TEMA[temaResolvido(pref)]);
 }
 
 /**
