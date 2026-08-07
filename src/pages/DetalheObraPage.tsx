@@ -785,11 +785,15 @@ export function DetalheObraPage() {
                 tipoObra={draft.tipo}
                 fontes={fontes ?? []}
               />
+              <LinkFonte
+                nomeServico="Manta"
+                icone="w-color/manta-765AAF.svg"
+                hostEsperado={/mantacomics\.com/i}
+                obraId={id}
+                tipoObra={draft.tipo}
+                fontes={fontes ?? []}
+              />
             </div>
-
-            <Link to={`/importar?obra=${id}`} className="link-importar-comix">
-              Import from comix.to
-            </Link>
           </div>
         </div>
 
