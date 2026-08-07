@@ -635,12 +635,24 @@ button.obra-card-nu-botao {
 }
 
 /* Voltar ao topo: canto inferior direito, mesma ideia do flutuante do rato
-   (sem fundo/borda própria — só o .btn-icone). */
+   (sem fundo/borda própria — só o .btn-icone; opacidade em vez de
+   montar/desmontar, pra não "pular" a cada re-render da lista). Cor em
+   --text (não a --text-h herdada do .btn-icone): --text-h fica clara
+   demais pro currentColor deste ícone. */
 .voltar-topo-flutuante {
   position: fixed;
   right: 20px;
   bottom: calc(20px + env(safe-area-inset-bottom));
   z-index: 90;
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.voltar-topo-flutuante.visivel {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 
