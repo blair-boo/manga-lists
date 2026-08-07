@@ -57,6 +57,15 @@
   flex: 1 1 180px;
 }
 
+/* Chips de lacuna dentro do painel (fora do Edit mode): flex-basis 100% pra
+   quebrarem numa linha própria, abaixo dos selects/tag-pickers. */
+.filtros-chips-lacuna {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+}
+
 .lista-principal-toolbar {
   display: flex;
   align-items: center;
