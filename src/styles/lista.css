@@ -634,6 +634,15 @@ button.obra-card-nu-botao {
   pointer-events: auto;
 }
 
+/* Voltar ao topo: canto inferior direito, mesma ideia do flutuante do rato
+   (sem fundo/borda própria — só o .btn-icone). */
+.voltar-topo-flutuante {
+  position: fixed;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 90;
+}
+
 
 /* Responsivo mobile */
 
