@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
+import { SeletorCor } from '../components/SeletorCor';
+import '../styles/seletor-cor.css';
 
 const BUCKET = 'icons';
 const PASTA_COR_ORIGINAL = 'w-color';
@@ -36,6 +38,11 @@ export function TestesPage() {
   const [iconesCorOriginal, setIconesCorOriginal] = useState<IconeArquivo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const paginaRef = useRef<HTMLDivElement>(null);
+
+  function aplicarCor(hex: string) {
+    paginaRef.current?.style.setProperty('--text-h', hex);
+  }
 
   const carregarIcones = useCallback(async () => {
     setCarregando(true);
@@ -61,10 +68,10 @@ export function TestesPage() {
   }
 
   return (
-    <div className="testes-pagina">
-      {/* Cabeçalho + controle de tamanho fixos (sticky) no topo: só o
-          conteúdo abaixo (fonte/ícones) rola, o seletor de tamanho fica
-          sempre visível e acessível durante a rolagem. */}
+    <div className="testes-pagina" ref={paginaRef}>
+      {/* Área superior (sem scroll próprio): cabeçalho, controle de tamanho e
+          seletor de cor. O conteúdo abaixo (fonte/ícones) tem seu próprio
+          scroll, independente desta área — ver .testes-conteudo. */}
       <div className="testes-topo">
         <div className="testes-cabecalho">
           <h1>Tests</h1>
@@ -100,71 +107,78 @@ export function TestesPage() {
             {carregando ? 'Refreshing…' : 'Refresh icons'}
           </button>
         </div>
+
+        <section className="testes-secao testes-secao-cor">
+          <h2>Icon color</h2>
+          <SeletorCor onCorChange={aplicarCor} />
+        </section>
       </div>
 
-      <section className="testes-secao">
-        <h2>Font — {tamanho}px</h2>
-        <div className="testes-fonte-amostra" style={{ fontSize: tamanho }}>
-          <p>Regular — The quick brown fox jumps over the lazy dog.</p>
-          <p style={{ fontWeight: 600 }}>Bold (600) — The quick brown fox jumps over the lazy dog.</p>
-          <p style={{ fontStyle: 'italic' }}>Italic — The quick brown fox jumps over the lazy dog.</p>
-          <p className="testes-fonte-muted">Muted (opacity 0.7) — hints and captions.</p>
-        </div>
-      </section>
+      <div className="testes-conteudo">
+        <section className="testes-secao">
+          <h2>Font — {tamanho}px</h2>
+          <div className="testes-fonte-amostra" style={{ fontSize: tamanho }}>
+            <p>Regular — The quick brown fox jumps over the lazy dog.</p>
+            <p style={{ fontWeight: 600 }}>Bold (600) — The quick brown fox jumps over the lazy dog.</p>
+            <p style={{ fontStyle: 'italic' }}>Italic — The quick brown fox jumps over the lazy dog.</p>
+            <p className="testes-fonte-muted">Muted (opacity 0.7) — hints and captions.</p>
+          </div>
+        </section>
 
-      <section className="testes-secao">
-        <h2>Icons — {tamanho}px</h2>
-        {erro && <p className="testes-erro">Could not load icons: {erro}</p>}
-        {!erro && !carregando && icones.length === 0 && <p>No icons found in the "{BUCKET}" folder.</p>}
-        <div className="testes-icones-grid">
-          {icones.map((icone) => (
-            <div key={icone.nome} className="testes-icone-item">
-              {/* Ícone "pintado" com mask (não <img>) pra herdar a cor do tema
-                  (--text-h), igual aos ícones inline nos botões da app. */}
-              <span
-                className="testes-icone-svg"
-                role="img"
-                aria-label={icone.nome}
-                style={{
-                  width: tamanho,
-                  height: tamanho,
-                  WebkitMaskImage: `url(${icone.url})`,
-                  maskImage: `url(${icone.url})`,
-                }}
-              />
-              <span className="testes-icone-nome">{icone.nome}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        <section className="testes-secao">
+          <h2>Icons — {tamanho}px</h2>
+          {erro && <p className="testes-erro">Could not load icons: {erro}</p>}
+          {!erro && !carregando && icones.length === 0 && <p>No icons found in the "{BUCKET}" folder.</p>}
+          <div className="testes-icones-grid">
+            {icones.map((icone) => (
+              <div key={icone.nome} className="testes-icone-item">
+                {/* Ícone "pintado" com mask (não <img>) pra herdar a cor do tema
+                    (--text-h), igual aos ícones inline nos botões da app. */}
+                <span
+                  className="testes-icone-svg"
+                  role="img"
+                  aria-label={icone.nome}
+                  style={{
+                    width: tamanho,
+                    height: tamanho,
+                    WebkitMaskImage: `url(${icone.url})`,
+                    maskImage: `url(${icone.url})`,
+                  }}
+                />
+                <span className="testes-icone-nome">{icone.nome}</span>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <section className="testes-secao">
-        <h2>Icons (original color) — {tamanho}px</h2>
-        {erro && <p className="testes-erro">Could not load icons: {erro}</p>}
-        {!erro && !carregando && iconesCorOriginal.length === 0 && (
-          <p>
-            No icons found in the "{BUCKET}/{PASTA_COR_ORIGINAL}" folder.
-          </p>
-        )}
-        <div className="testes-icones-grid">
-          {iconesCorOriginal.map((icone) => (
-            <div key={icone.nome} className="testes-icone-item">
-              {/* Aqui não pintamos com mask: o SVG mantém a cor original do
-                  arquivo (não segue o tema), só o tamanho é ajustável. */}
-              <img
-                className="testes-icone-img"
-                src={icone.url}
-                alt={icone.nome}
-                width={tamanho}
-                height={tamanho}
-                style={{ width: tamanho, height: tamanho }}
-                loading="lazy"
-              />
-              <span className="testes-icone-nome">{icone.nome}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        <section className="testes-secao">
+          <h2>Icons (original color) — {tamanho}px</h2>
+          {erro && <p className="testes-erro">Could not load icons: {erro}</p>}
+          {!erro && !carregando && iconesCorOriginal.length === 0 && (
+            <p>
+              No icons found in the "{BUCKET}/{PASTA_COR_ORIGINAL}" folder.
+            </p>
+          )}
+          <div className="testes-icones-grid">
+            {iconesCorOriginal.map((icone) => (
+              <div key={icone.nome} className="testes-icone-item">
+                {/* Aqui não pintamos com mask: o SVG mantém a cor original do
+                    arquivo (não segue o tema), só o tamanho é ajustável. */}
+                <img
+                  className="testes-icone-img"
+                  src={icone.url}
+                  alt={icone.nome}
+                  width={tamanho}
+                  height={tamanho}
+                  style={{ width: tamanho, height: tamanho }}
+                  loading="lazy"
+                />
+                <span className="testes-icone-nome">{icone.nome}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

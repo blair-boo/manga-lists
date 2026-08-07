@@ -3,23 +3,36 @@
 .testes-pagina {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   max-width: 900px;
+  height: 100%;
+  overflow: hidden;
 }
 
-/* Fica grudado no topo da viewport ao rolar (a página não tem header fixo
-   próprio), então o seletor de tamanho continua acessível; só o conteúdo
-   abaixo dele (fonte/ícones) rola por baixo. */
+/* Área superior: controles de tamanho, refresh e cor. Altura intrínseca,
+   sem sticky — o conteúdo abaixo (fonte/ícones) tem seu próprio scroll. */
 .testes-topo {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.testes-conteudo {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding-top: 8px;
-  margin-top: -8px;
-  background: var(--bg);
+  padding-top: 16px;
+}
+
+/* A seção de cor fica no topo (sem border-top — já tem o separador do container) */
+.testes-secao-cor {
+  border-top: none;
+  padding-top: 0;
 }
 
 .testes-cabecalho h1 {
