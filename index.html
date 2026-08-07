@@ -5,7 +5,7 @@
     <link rel="icon" type="image/png" href="favicon-32.png" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0d0712" />
+    <meta name="theme-color" content="#6c7bc0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Personal reading tracker for manga, manhwa, manhua and novels" />
@@ -14,7 +14,7 @@
     <script>
       // Aplica o tema salvo (e a cor da status bar/toolbar, meta theme-color)
       // antes do 1º paint para evitar flash. Cores duplicadas de propósito
-      // de src/styles/base.css (--bg claro/escuro) — manter em sincronia;
+      // de src/styles/base.css (--accent claro/escuro) — manter em sincronia;
       // ver também useTema.ts, que assume esta mesma duplicação no toggle.
       (function () {
         try {
@@ -24,7 +24,7 @@
           }
           var escuro = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', escuro ? '#0d0712' : '#5d7cab');
+          if (meta) meta.setAttribute('content', escuro ? '#6c7bc0' : '#1e1440');
         } catch (e) {}
       })();
     </script>
