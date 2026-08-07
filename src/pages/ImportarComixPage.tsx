@@ -149,7 +149,7 @@ export function ImportarComixPage() {
   const alvoResolvido = obraAlvo !== null || criandoNova;
 
   // --- Estado de aceite dos campos da conferência (Bloco E5) ------------------
-  const [aceitarTitulo, setAceitarTitulo] = useState(false);
+  const [acaoTitulo, setAcaoTitulo] = useState<'manter' | 'usarComix' | 'altComix'>('manter');
   const [altSelecionados, setAltSelecionados] = useState<Set<string>>(new Set());
   const [aceitarTipo, setAceitarTipo] = useState(false);
   const [aceitarStatus, setAceitarStatus] = useState(false);
@@ -168,7 +168,7 @@ export function ImportarComixPage() {
     if (!comixObra || !alvoResolvido) return;
 
     const tituloIgual = obraAlvo ? normalizarTitulo(obraAlvo.titulo) === normalizarTitulo(comixObra.titulo) : true;
-    setAceitarTitulo(!criandoNova && !tituloIgual);
+    setAcaoTitulo(!criandoNova && !tituloIgual ? 'usarComix' : 'manter');
     setAltSelecionados(new Set());
 
     setAceitarTipo(comixObra.tipo != null && (criandoNova || !obraAlvo?.tipo));
@@ -232,12 +232,12 @@ export function ImportarComixPage() {
 
   // --- Resumo (Bloco E6) -------------------------------------------------------
   const tituloIgualAtual = obraAlvo ? normalizarTitulo(obraAlvo.titulo) === normalizarTitulo(comixObra?.titulo ?? '') : true;
-  const mostrarCheckboxTitulo = !criandoNova && comixObra != null && !tituloIgualAtual;
+  const mostrarOpcaoTitulo = !criandoNova && comixObra != null && !tituloIgualAtual;
 
   const classificacaoAtualAlvo = criandoNova ? null : (obraAlvo?.classificacao ?? null);
   const camposEscalaresAceitos = comixObra
     ? [
-        mostrarCheckboxTitulo && aceitarTitulo,
+        mostrarOpcaoTitulo && acaoTitulo !== 'manter',
         comixObra.tipo != null && aceitarTipo,
         comixObra.statusPublicacao != null && aceitarStatus,
         comixObra.autores.length > 0 && aceitarAutor,
@@ -260,7 +260,7 @@ export function ImportarComixPage() {
   const { executar: executarConfirmar, executando: salvando } = useAsyncAction(async () => {
     if (!comixObra) return;
 
-    const tituloFinal = criandoNova ? comixObra.titulo : aceitarTitulo ? comixObra.titulo : obraAlvo!.titulo;
+    const tituloFinal = criandoNova ? comixObra.titulo : acaoTitulo === 'usarComix' ? comixObra.titulo : obraAlvo!.titulo;
     const tipoFinal =
       criandoNova || (aceitarTipo && comixObra.tipo) ? (aceitarTipo ? comixObra.tipo : null) : obraAlvo!.tipo;
 
@@ -305,9 +305,14 @@ export function ImportarComixPage() {
       const obra = obraAlvo!;
       const patch: Partial<NovaObra> = {};
 
-      if (aceitarTitulo) {
+      if (acaoTitulo === 'usarComix') {
         patch.titulo = comixObra.titulo;
         patch.titulos_alternativos = [...(obra.titulos_alternativos ?? []), obra.titulo];
+      } else if (acaoTitulo === 'altComix') {
+        const existentes = obra.titulos_alternativos ?? [];
+        if (!existentes.some((t) => normalizarTitulo(t) === normalizarTitulo(comixObra.titulo))) {
+          patch.titulos_alternativos = [...existentes, comixObra.titulo];
+        }
       }
       if (altSelecionados.size > 0) {
         const base = (patch.titulos_alternativos as string[] | undefined) ?? obra.titulos_alternativos ?? [];
@@ -446,11 +451,36 @@ export function ImportarComixPage() {
                 <h3>Title</h3>
                 {criandoNova ? (
                   <p className="importar-linha">New work: "{comixObra.titulo}"</p>
-                ) : mostrarCheckboxTitulo ? (
-                  <label className="importar-linha">
-                    <input type="checkbox" checked={aceitarTitulo} onChange={(e) => setAceitarTitulo(e.target.checked)} />
-                    Use the comix.to title and keep "{obraAlvo!.titulo}" as an alternative title
-                  </label>
+                ) : mostrarOpcaoTitulo ? (
+                  <div className="importar-titulo-opcoes">
+                    <label className="importar-linha">
+                      <input
+                        type="radio"
+                        name="acaoTitulo"
+                        checked={acaoTitulo === 'manter'}
+                        onChange={() => setAcaoTitulo('manter')}
+                      />
+                      Keep "{obraAlvo!.titulo}"
+                    </label>
+                    <label className="importar-linha">
+                      <input
+                        type="radio"
+                        name="acaoTitulo"
+                        checked={acaoTitulo === 'usarComix'}
+                        onChange={() => setAcaoTitulo('usarComix')}
+                      />
+                      Use the comix.to title and keep "{obraAlvo!.titulo}" as an alternative title
+                    </label>
+                    <label className="importar-linha">
+                      <input
+                        type="radio"
+                        name="acaoTitulo"
+                        checked={acaoTitulo === 'altComix'}
+                        onChange={() => setAcaoTitulo('altComix')}
+                      />
+                      Keep "{obraAlvo!.titulo}" and add "{comixObra.titulo}" as an alternative title
+                    </label>
+                  </div>
                 ) : (
                   <p className="importar-linha">Title already matches.</p>
                 )}
