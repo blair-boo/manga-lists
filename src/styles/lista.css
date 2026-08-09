@@ -365,7 +365,8 @@
   min-width: 0;
 }
 
-.obra-card-favorito-botao {
+.obra-card-favorito-botao,
+.obra-card-copiar-titulo-botao {
   flex-shrink: 0;
 }
 

@@ -17,7 +17,7 @@ import { useToast } from './Toast';
 import { useDialogos } from './Dialogo';
 import { useUploadCapa } from './CapaUploader';
 import { useModoEdicao } from './ModoEdicaoContext';
-import { IconeLivro } from './Icones';
+import { IconeCopiar, IconeLivro } from './Icones';
 import type { Categoria, Classificacao, Fonte, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 /**
@@ -152,6 +152,32 @@ export function TituloEditavel({ obra }: { obra: Obra }) {
       </button>
       {aberto && <ModalTitulo obra={obra} onFechar={() => setAberto(false)} />}
     </>
+  );
+}
+
+/** Copia o título da obra pro clipboard — só ícone, ao lado do título no modo. */
+export function CopiarTituloBotao({ obra }: { obra: Obra }) {
+  const { mostrarToast } = useToast();
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(obra.titulo);
+      mostrarToast('Title copied ✓');
+    } catch (err) {
+      mostrarToast(mensagemDeErro(err), 'erro');
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn-icone obra-card-copiar-titulo-botao"
+      onClick={() => void copiar()}
+      aria-label="Copy title"
+      title="Copy title"
+    >
+      <IconeCopiar />
+    </button>
   );
 }
 
