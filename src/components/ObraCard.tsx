@@ -6,6 +6,7 @@ import { FavoritoBotao } from './FavoritoBotao';
 import {
   BotaoAdicionarSource,
   CapaEditavel,
+  CopiarTituloBotao,
   EstrelasEditaveis,
   MetaEdicao,
   NovelUpdatesEditavel,
@@ -180,7 +181,10 @@ export function ObraCard({ obra, fontes, sitesAtivos, modoEdicao }: Props) {
       <div className="obra-card-info">
         <div className="obra-card-titulo-linha">
           {modoEdicao ? (
-            <TituloEditavel obra={obra} />
+            <>
+              <TituloEditavel obra={obra} />
+              <CopiarTituloBotao obra={obra} />
+            </>
           ) : (
             <Link to={`/obra/${obra.id}`} className="obra-card-titulo">
               {obra.titulo}
