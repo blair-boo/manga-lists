@@ -40,6 +40,37 @@
   font-size: 13px;
 }
 
+/* Resumo de pendências (Settings > Sources) no topo da página. */
+.pending-approvals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.pending-approvals-rotulo {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.pending-approvals-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+}
+
+.pending-approvals-item:hover {
+  color: var(--text-h);
+  text-decoration: underline;
+}
+
 .atualizacao-secao {
   border: 1px solid var(--border);
   border-radius: 8px;

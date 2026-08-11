@@ -26,6 +26,27 @@
   border-bottom-color: var(--accent);
 }
 
+/* Sources: fluxo normal (sem scroll duplo) — só um cabeçalho simples seguido
+   das seções (mesmo padrão .atualizacao-secao de updates.css, já disponível
+   globalmente). */
+.sources-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 560px;
+}
+
+.sources-topo h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.sources-subtitulo {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 0 0 16px;
+}
+
 /* Genres/Tags: mesmo padrão de scroll de .testes-pagina — topo sem scroll
    próprio (cabeçalho, busca, Save/Discard) + conteúdo com scroll interno
    independente do scroll da página (.app-main), pra a barra de ações não
@@ -93,9 +114,18 @@
   overflow-y: auto;
 }
 
+/* Sticky: o título da seção fica preso no topo do scroll enquanto ela está em
+   vista, e é "empurrado" pelo título da próxima seção assim que ela começa —
+   assim sempre dá pra saber em qual seção (Genres/Tags) você está rolando,
+   sem os dois títulos ocupando tela ao mesmo tempo. */
 .generos-tags-secao h2 {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
   font-size: 15px;
-  margin: 0 0 10px;
+  margin: 0;
+  padding: 8px 0 10px;
 }
 
 .generos-tags-secao-contagem {
@@ -111,8 +141,8 @@
 
 .generos-tags-acoes-massa {
   position: sticky;
-  top: 0;
-  z-index: 1;
+  top: 40px; /* logo abaixo do título fixo da seção (.generos-tags-secao h2), sem sobrepor */
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -130,8 +160,9 @@
 
 .generos-tags-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px 16px;
+  font-size: 13px;
 }
 
 .generos-tags-item {
@@ -201,7 +232,14 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
+  .generos-tags-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Só telas bem estreitas (celulares pequenos) caem pra 1 coluna. */
+@media (max-width: 360px) {
   .generos-tags-grid {
     grid-template-columns: 1fr;
   }

@@ -5,6 +5,7 @@ import { db } from '../db/localDb';
 import { setFonteAprovacao, setFonteTipo } from '../db/repo';
 import { mensagemDeErro } from '../lib/erros';
 import { tituloNoSite } from '../lib/site';
+import { fontePertenceAoEscopo } from '../lib/fontesAprovacao';
 import { useDialogos } from './Dialogo';
 import {
   adicionarDominioBloqueado,
@@ -67,10 +68,7 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
   const suportadosSet = useMemo(() => new Set(sitesSuportados), [sitesSuportados]);
 
   const pertence = useCallback(
-    (f: Fonte) => {
-      const ehSuportado = !!f.site && suportadosSet.has(f.site);
-      return escopo === 'suportados' ? ehSuportado : !ehSuportado;
-    },
+    (f: Fonte) => fontePertenceAoEscopo(f, escopo, suportadosSet),
     [suportadosSet, escopo]
   );
 

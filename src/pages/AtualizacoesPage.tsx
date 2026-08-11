@@ -1,20 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useEffect, useState } from 'react';
 import { mensagemErroAcao } from '../lib/erros';
 import { controlarScraper } from '../lib/scraperControl';
-import { useScraperRun } from '../hooks/useScraperRun';
 import { useSitesSuportados } from '../hooks/useSitesSuportados';
-import { useAsyncAction } from '../hooks/useAsyncAction';
-import { StatusExecucaoScraper } from '../components/StatusExecucaoScraper';
+import { useNomesSitesAtivos } from '../hooks/useSitesAtivos';
 import { ListaSitesSuportados, StatusAgregadoScraper } from '../components/ListaSitesSuportados';
-import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
-import { AprovacaoDominios } from '../components/AprovacaoDominios';
-import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
 import { CsvBulkSection } from '../components/CsvBulkSection';
 import { ConciliacaoSitesSection } from '../components/ConciliacaoSitesSection';
-import { FilaAprovacoes } from '../components/FilaAprovacoes';
+import { PendingApprovalsBar } from '../components/PendingApprovalsBar';
 import { SecaoNovelUpdates } from '../components/SecaoNovelUpdates';
-import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
 import type { ScraperTipo } from '../types';
 
 /** Data/hora local de conclusão da run, ou vazio. */
@@ -29,7 +22,7 @@ function formatarFinalizacao(iso: string | null): string {
 const PENDENTE_MAX_MS = 3 * 60 * 1000;
 const POLL_MS = 8000;
 
-function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }) {
+function SecaoSitesSuportados() {
   const sitesInfo = useSitesSuportados();
   const [acionando, setAcionando] = useState<ScraperTipo | null>(null);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
@@ -134,57 +127,6 @@ function SecaoSitesSuportados({ sitesSuportados }: { sitesSuportados: string[] }
       </div>
 
       <ListaSitesSuportados sites={sitesInfo.sites} carregando={sitesInfo.carregando} erro={sitesInfo.erro} />
-
-      <h4 className="atualizacao-subtitulo">Domain approvals</h4>
-      <p className="atualizacao-subtitulo-nota">
-        A source you add manually is saved right away, but its domain only gets scraped automatically once approved
-        here. You can also add a known-safe domain directly, without adding a source first — this also reactivates a
-        previously rejected domain.
-      </p>
-      <AdicionarDominioManual />
-      <AprovacaoDominios />
-
-      <DominiosSemAdaptador />
-
-      <FilaAprovacoes titulo="Approvals" escopo="suportados" sitesSuportados={sitesSuportados} />
-    </section>
-  );
-}
-
-function SecaoNovasFontes({ sitesSuportados }: { sitesSuportados: string[] }) {
-  const { run, carregando, erro, recarregar } = useScraperRun('fontes');
-
-  const rodando = run?.status === 'rodando';
-
-  const { executar: handleAcao, executando: acionando, erro: erroAcao } = useAsyncAction(
-    useCallback(async () => {
-      try {
-        await controlarScraper('fontes', rodando ? 'stop' : 'start');
-        await recarregar();
-      } catch (err) {
-        throw new Error(mensagemErroAcao(err));
-      }
-    }, [rodando, recarregar])
-  );
-
-  return (
-    <section className="atualizacao-secao">
-      <h3>New sources</h3>
-      <p>
-        Search for brand-new sources (outside your supported sites) for works that don't have any yet. Web results go
-        through a stricter title-match threshold and land in the approvals queue below.
-      </p>
-
-      <div className="scraper-controles">
-        <button type="button" onClick={handleAcao} disabled={acionando}>
-          {acionando ? 'Please wait…' : rodando ? 'Stop search' : 'Find new sources'}
-        </button>
-      </div>
-      {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
-
-      <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
-
-      <FilaAprovacoes titulo="Approvals" escopo="novas" sitesSuportados={sitesSuportados} comBlacklist />
     </section>
   );
 }
@@ -195,36 +137,16 @@ function SecaoNovasFontes({ sitesSuportados }: { sitesSuportados: string[] }) {
 const MOSTRAR_NOVELUPDATES = false;
 
 export function AtualizacoesPage() {
-  const [sitesSuportados, setSitesSuportados] = useState<string[]>([]);
-  const [matchAberto, setMatchAberto] = useState(false);
-
-  useEffect(() => {
-    supabase
-      .from('sites_suportados')
-      .select('nome')
-      .eq('ativo', true)
-      .then(({ data }) => setSitesSuportados((data ?? []).map((r) => r.nome as string)));
-  }, []);
+  const sitesSuportados = useNomesSitesAtivos();
 
   return (
     <div className="atualizacao-massa">
       <h2>Updates</h2>
 
-      <SecaoSitesSuportados sitesSuportados={sitesSuportados} />
-      <SecaoNovasFontes sitesSuportados={sitesSuportados} />
-      {MOSTRAR_NOVELUPDATES && <SecaoNovelUpdates />}
+      <PendingApprovalsBar sitesSuportados={sitesSuportados} />
 
-      <section className="atualizacao-secao">
-        <button
-          type="button"
-          className="fila-aprovacoes-toggle"
-          onClick={() => setMatchAberto((v) => !v)}
-          aria-expanded={matchAberto}
-        >
-          {matchAberto ? '▾' : '▸'} Match settings
-        </button>
-        {matchAberto && <ConfigMatchTitulo />}
-      </section>
+      <SecaoSitesSuportados />
+      {MOSTRAR_NOVELUPDATES && <SecaoNovelUpdates />}
 
       <CsvBulkSection />
       <ConciliacaoSitesSection />
