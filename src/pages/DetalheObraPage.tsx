@@ -56,6 +56,7 @@ import {
   temFiltroAtivo,
 } from '../lib/filtrosLista';
 import { dominioDeUrl } from '../lib/scraperConfig';
+import { urlNormalizada } from '../lib/site';
 import { salvarCamposObra } from '../lib/salvarObra';
 import { adicionarFonteNaObra } from '../lib/adicionarFonte';
 import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
@@ -423,8 +424,17 @@ export function DetalheObraPage() {
 
   async function handleAdicionarFonte(e: FormEvent) {
     e.preventDefault();
-    if (!novaFonteUrl.trim() || !id) return;
-    await adicionarFonteNaObra(id, novaFonteUrl.trim(), draft?.tipo ?? null, fontes ?? []);
+    const limpo = novaFonteUrl.trim();
+    if (!limpo || !id) return;
+    // Sem essa checagem, um clique duplo (ou reenviar por achar que a primeira
+    // vez "sumiu" — ver bug de sync corrigido em pullFontes) cria a mesma fonte
+    // várias vezes, já que o formulário não recusava URL repetida como o modal
+    // de Sources do Edit mode (ModalSources) já fazia.
+    if ((fontes ?? []).some((f) => urlNormalizada(f.url) === urlNormalizada(limpo))) {
+      mostrarToast('This work already has that source', 'info');
+      return;
+    }
+    await adicionarFonteNaObra(id, limpo, draft?.tipo ?? null, fontes ?? []);
     setNovaFonteUrl('');
   }
 
