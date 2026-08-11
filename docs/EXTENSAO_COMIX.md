@@ -46,15 +46,28 @@ caminho passa a ser a extensão ou o bookmarklet"). O bookmarklet abaixo lê a
 página no navegador da própria usuária (IP não bloqueado), então funciona
 mesmo com a Edge Function bloqueada.
 
-**Capa também precisa ser buscada aqui, não na página de importação:**
-`static.comix.to` tem proteção de hotlink — bloqueia requisições de imagem
-cujo `Referer` não seja o próprio comix.to. A página `/importar` roda na
-origem do PWA (`blair-boo.github.io`), então um `fetch(capaUrl)` feito de
-lá vem bloqueado e a capa chega corrompida. Solução: o bookmarklet busca a
-imagem *ainda dentro* de `comix.to` (Referer aceito), converte pra data URL
-(base64) e embute no payload como `capaBase64`; `/importar` usa esse campo
-no lugar de `capaUrl` quando presente (ver `ComixObra.capaBase64` em
-`src/lib/comix.ts`).
+**Capa: por que o fetch automático não é confiável.** A primeira hipótese foi
+"hotlink protection por `Referer` externo" — dava pra imaginar que buscar a
+imagem *ainda dentro* de `comix.to` (Referer aceito) resolveria. Não resolve:
+confirmado em produção (console do navegador, na própria página do comix.to)
+que `fetch('https://static.comix.to/...')` quebra com
+`net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` (403) mesmo rodando ali. Isso é
+`Cross-Origin-Resource-Policy` (`static.comix.to` manda `same-origin`), não
+Referer — e `comix.to` e `static.comix.to` são origens diferentes (subdomínios
+diferentes), então nenhum `fetch()`/XHR entre eles passa, não importa de onde
+o script roda. Um `<img>` comum funciona (exibir uma imagem cross-origin não
+exige CORS/CORP), mas *ler os bytes* dela via JS — `fetch()`, ou
+`canvas.toDataURL()` a partir do próprio `<img>` — exige, e não tem contorno
+client-side sem o servidor liberar via CORS.
+
+O bookmarklet ainda tenta o fetch-e-embute-como-`capaBase64` (best-effort,
+dentro de `try/catch` — se `static.comix.to` algum dia liberar CORS pra esse
+endpoint, volta a funcionar sozinho, de graça). Mas o caminho real pra capa
+funcionar hoje é o **fallback manual** em `/importar`: quando o `<img>`
+automático (via `capaBase64` ou `capaUrl`) falha (`onError`), a seção "Cover"
+mostra um seletor de arquivo — a usuária salva a imagem manualmente (botão
+direito no comix.to → salvar imagem) e escolhe o arquivo ali (ver
+`capaManual`/`capaAutoFalhou` em `ImportarComixPage.tsx`).
 
 Fonte (não minificada, pra manter legível e fácil de regenerar):
 
