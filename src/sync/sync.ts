@@ -168,6 +168,12 @@ async function reconciliarObrasDeletadas(): Promise<void> {
     return;
   }
 
+  // Defensivo: uma resposta vazia (sem erro) quase certamente indica um problema
+  // transitório (ex.: token de auth expirando bem na hora da query) do que a
+  // conta genuinamente ter zero obras — tratar como "zero" apagaria a lista
+  // inteira. Só reconcilia quando o servidor claramente tem pelo menos uma.
+  if (idsServidor.size === 0) return;
+
   const idsLocais = (await db.obras.toCollection().primaryKeys()) as string[];
   const candidatos = idsLocais.filter((id) => !idsServidor.has(id));
   if (candidatos.length === 0) return;
@@ -193,50 +199,80 @@ async function pullFontes(): Promise<void> {
   const { data, error } = await supabase.from('fontes').select('*');
   if (error) throw error;
   const rows = (data ?? []) as Fonte[];
-  await db.fontes.clear();
-  if (rows.length > 0) await db.fontes.bulkPut(rows);
+  // Transação: sem isso, uma useLiveQuery que rode bem entre o clear() e o
+  // bulkPut() (duas operações separadas) veria a tabela momentaneamente vazia
+  // — ex.: a seção Sources da obra piscando "No sources yet." no meio de um sync.
+  await db.transaction('rw', db.fontes, async () => {
+    await db.fontes.clear();
+    if (rows.length > 0) await db.fontes.bulkPut(rows);
+  });
 }
 
 async function pullListas(): Promise<void> {
   const { data, error } = await supabase.from('listas').select('*');
   if (error) throw error;
   const rows = (data ?? []) as ListaItem[];
-  await db.listas.clear();
-  if (rows.length > 0) await db.listas.bulkPut(rows);
+  await db.transaction('rw', db.listas, async () => {
+    await db.listas.clear();
+    if (rows.length > 0) await db.listas.bulkPut(rows);
+  });
 }
 
 let syncEmAndamento: Promise<{ ok: boolean; error?: unknown }> | null = null;
+// Uma escrita local (ex.: adicionar uma fonte) pode acontecer DEPOIS que o
+// pushPending() de um ciclo já em andamento já rodou — nesse caso a mutação
+// nova só seria enviada no PRÓXIMO ciclo periódico (5 min), mas o
+// pullFontes()/pullListas() (full refresh) do ciclo ATUAL ainda vai rodar e
+// reescrever a tabela local com a versão do servidor, que não tem essa
+// mutação — o registro recém-criado "some" da tela até o próximo sync. Essa
+// flag fecha a janela: quando o ciclo em andamento termina, dispara mais um
+// imediatamente (uma rodada extra só, não uma por chamada concorrente).
+let reSyncPendente = false;
+
+async function executarCicloSync(): Promise<{ ok: boolean; error?: unknown }> {
+  try {
+    const { falhas } = await pushPending();
+    await pullObras();
+    await reconciliarObrasDeletadas();
+    await pullFontes();
+    await pullListas();
+    return falhas > 0
+      ? { ok: false, error: `${falhas} alteração(ões) local(is) não sincronizaram, tentando de novo mais tarde` }
+      : { ok: true };
+  } catch (error) {
+    console.error('Erro durante sincronização', error);
+    return { ok: false, error };
+  }
+}
+
+function iniciarCiclo(): Promise<{ ok: boolean; error?: unknown }> {
+  const execucao = executarCicloSync().finally(() => {
+    syncEmAndamento = null;
+    if (reSyncPendente && isOnline()) {
+      reSyncPendente = false;
+      syncEmAndamento = iniciarCiclo();
+    }
+  });
+  return execucao;
+}
 
 /**
  * Roda o ciclo completo: envia pendências, depois puxa mudanças do servidor.
  * Silencioso se offline. Chamadas concorrentes (ex.: uma atualização em massa
- * via CSV dispara uma por linha) compartilham a MESMA execução em andamento
- * em vez de virar no-op — antes, só a primeira chamada realmente rodava
- * pushPending e as demais recebiam `{ok: false, error: 'already-syncing'}`
- * sem nunca reagendar o envio das suas próprias mutações, que ficavam presas
- * na fila até o próximo ciclo periódico (5 min).
+ * via CSV dispara uma por linha, ou o gatilho automático de uma escrita
+ * enquanto o sync periódico já está rodando) compartilham a MESMA execução em
+ * andamento em vez de virar no-op — antes, só a primeira chamada realmente
+ * rodava pushPending e as demais recebiam `{ok: false, error: 'already-syncing'}`
+ * sem nunca reagendar o envio das suas próprias mutações. Ver reSyncPendente
+ * acima pra por que isso sozinho ainda não bastava.
  */
 export function syncNow(): Promise<{ ok: boolean; error?: unknown }> {
-  if (syncEmAndamento) return syncEmAndamento;
+  if (syncEmAndamento) {
+    reSyncPendente = true;
+    return syncEmAndamento;
+  }
   if (!isOnline()) return Promise.resolve({ ok: false, error: 'offline' });
 
-  syncEmAndamento = (async () => {
-    try {
-      const { falhas } = await pushPending();
-      await pullObras();
-      await reconciliarObrasDeletadas();
-      await pullFontes();
-      await pullListas();
-      return falhas > 0
-        ? { ok: false, error: `${falhas} alteração(ões) local(is) não sincronizaram, tentando de novo mais tarde` }
-        : { ok: true };
-    } catch (error) {
-      console.error('Erro durante sincronização', error);
-      return { ok: false, error };
-    } finally {
-      syncEmAndamento = null;
-    }
-  })();
-
+  syncEmAndamento = iniciarCiclo();
   return syncEmAndamento;
 }
