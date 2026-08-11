@@ -175,7 +175,7 @@ export function ImportarComixPage() {
     setAceitarStatus(comixObra.statusPublicacao != null && (criandoNova || !obraAlvo?.status_publicacao));
     setAceitarAutor(comixObra.autores.length > 0 && (criandoNova || !obraAlvo?.autor));
     setAceitarArtistas(comixObra.artistas.length > 0 && (criandoNova || !obraAlvo?.artistas));
-    setAceitarCapa(!!comixObra.capaUrl && (criandoNova || !obraAlvo?.capa_url));
+    setAceitarCapa(!!(comixObra.capaBase64 || comixObra.capaUrl) && (criandoNova || !obraAlvo?.capa_url));
     setClassificacaoEscolhida(criandoNova ? null : (obraAlvo?.classificacao ?? null));
 
     const { conhecidos: generosConhecidosMatch } = classificarValoresLista(comixObra.generos, generosConhecidos);
@@ -242,7 +242,7 @@ export function ImportarComixPage() {
         comixObra.statusPublicacao != null && aceitarStatus,
         comixObra.autores.length > 0 && aceitarAutor,
         comixObra.artistas.length > 0 && aceitarArtistas,
-        !!comixObra.capaUrl && aceitarCapa,
+        !!(comixObra.capaBase64 || comixObra.capaUrl) && aceitarCapa,
         classificacaoEscolhida !== classificacaoAtualAlvo,
         aceitarLinks.al && !!comixObra.links.anilist_url,
         aceitarLinks.mal && !!comixObra.links.myanimelist_url,
@@ -348,12 +348,15 @@ export function ImportarComixPage() {
 
     // 3. Capa — depois do patch/criação de propósito: salvarCamposObra já rodou
     // o rename com o slug novo, então o upload usa o slug certo (E6).
-    if (aceitarCapa && comixObra.capaUrl) {
+    if (aceitarCapa && (comixObra.capaBase64 || comixObra.capaUrl)) {
       try {
-        const resp = await fetch(comixObra.capaUrl);
+        // capaBase64 (pré-buscada pelo bookmarklet ainda em comix.to) é preferida:
+        // fetch de uma data: URL é decodificação local, sem rede — dribla a proteção
+        // de hotlink de static.comix.to, que bloqueia fetch(capaUrl) feito daqui.
+        const resp = comixObra.capaBase64 ? await fetch(comixObra.capaBase64) : await fetch(comixObra.capaUrl!);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const blob = await resp.blob();
-        const contentType = resp.headers.get('content-type') ?? 'image/jpeg';
+        const contentType = resp.headers.get('content-type') ?? blob.type ?? 'image/jpeg';
         const ext = contentType.split('/').pop()?.split(';')[0] || 'jpg';
         const file = new File([blob], `capa.${ext}`, { type: contentType });
         const novaCapaUrl = await uploadCapa(file, tituloFinal, tipoFinal);
@@ -600,14 +603,14 @@ export function ImportarComixPage() {
               </section>
 
               {/* 5. Cover */}
-              {comixObra.capaUrl && (
+              {(comixObra.capaBase64 || comixObra.capaUrl) && (
                 <section className="importar-secao">
                   <h3>Cover</h3>
                   <label className="importar-linha">
                     <input type="checkbox" checked={aceitarCapa} onChange={(e) => setAceitarCapa(e.target.checked)} />
                     <div className="importar-capas">
                       {!criandoNova && obraAlvo!.capa_url && <img src={obraAlvo!.capa_url} alt="Current cover" />}
-                      <img src={comixObra.capaUrl} alt="comix.to cover" />
+                      <img src={comixObra.capaBase64 ?? comixObra.capaUrl ?? undefined} alt="comix.to cover" />
                     </div>
                   </label>
                 </section>

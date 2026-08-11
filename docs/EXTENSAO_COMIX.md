@@ -46,10 +46,20 @@ caminho passa a ser a extensão ou o bookmarklet"). O bookmarklet abaixo lê a
 página no navegador da própria usuária (IP não bloqueado), então funciona
 mesmo com a Edge Function bloqueada.
 
+**Capa também precisa ser buscada aqui, não na página de importação:**
+`static.comix.to` tem proteção de hotlink — bloqueia requisições de imagem
+cujo `Referer` não seja o próprio comix.to. A página `/importar` roda na
+origem do PWA (`blair-boo.github.io`), então um `fetch(capaUrl)` feito de
+lá vem bloqueado e a capa chega corrompida. Solução: o bookmarklet busca a
+imagem *ainda dentro* de `comix.to` (Referer aceito), converte pra data URL
+(base64) e embute no payload como `capaBase64`; `/importar` usa esse campo
+no lugar de `capaUrl` quando presente (ver `ComixObra.capaBase64` em
+`src/lib/comix.ts`).
+
 Fonte (não minificada, pra manter legível e fácil de regenerar):
 
 ```js
-(function(){
+(async function(){
   try {
     var s = document.getElementById('initial-data');
     if (!s) { alert('initial-data não encontrado nesta página. Você está numa página de título do comix.to?'); return; }
@@ -85,6 +95,7 @@ Fonte (não minificada, pra manter legível e fácil de regenerar):
     var links = d.links || {};
     var tipo = d.type ? (MAPA_TIPO[d.type.toLowerCase()] || null) : null;
     var status = d.status ? (MAPA_STATUS[d.status.toLowerCase()] || null) : null;
+    var capaUrl = (d.poster && (d.poster.large || d.poster.medium)) || null;
 
     var obra = {
       hid: d.hid,
@@ -95,7 +106,7 @@ Fonte (não minificada, pra manter legível e fácil de regenerar):
       statusPublicacao: status,
       statusPublicacaoBruto: status ? null : (d.status || null),
       contentRating: d.contentRating || null,
-      capaUrl: (d.poster && (d.poster.large || d.poster.medium)) || null,
+      capaUrl: capaUrl,
       ultimoCapitulo: d.latestChapter ? d.latestChapter : null,
       url: url,
       autores: extrair(d.authors),
@@ -110,6 +121,23 @@ Fonte (não minificada, pra manter legível e fácil de regenerar):
         mangabaka_url: links.mb || null
       }
     };
+
+    // Busca a capa ainda aqui, em comix.to (Referer aceito), e embute como
+    // data URL — se falhar (rede, formato inesperado), segue sem capaBase64
+    // e a página de importação cai pro fetch direto de capaUrl.
+    if (capaUrl) {
+      try {
+        var resp = await fetch(capaUrl);
+        if (resp.ok) {
+          var blob = await resp.blob();
+          obra.capaBase64 = await new Promise(function(resolve) {
+            var leitor = new FileReader();
+            leitor.onloadend = function() { resolve(leitor.result); };
+            leitor.readAsDataURL(blob);
+          });
+        }
+      } catch (fetchErr) { /* segue sem capaBase64 */ }
+    }
 
     var json = JSON.stringify(obra);
     var bytes = new TextEncoder().encode(json);
@@ -128,7 +156,7 @@ Versão minificada em uma linha só (pronta pra colar no campo "URL" de um
 favorito, prefixada com `javascript:`):
 
 ```
-javascript:(function(){try{let t=function(l){return(l||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()},e=function(l){var f=[];return(l||[]).forEach(function(C){var b=(C&&C.title||"").trim();b&&f.push(b)}),f};var c=document.getElementById("initial-data");if(!c){alert("initial-data n\xE3o encontrado nesta p\xE1gina. Voc\xEA est\xE1 numa p\xE1gina de t\xEDtulo do comix.to?");return}var n=JSON.parse(c.textContent),y=n.manga&&n.manga.hid,a=n.queries&&n.queries['["manga","detail","'+y+'"]'];if(!a||!a.hid||!a.title||!a.url){alert("N\xE3o consegui achar o detalhe da obra nesta p\xE1gina.");return}var _={manga:"Manga",manhwa:"Manhwa",manhua:"Manhua"},w={releasing:"Ongoing",finished:"Completed",on_hiatus:"Hiatus",discontinued:"Canceled"},g=Array.isArray(a.altTitles)?a.altTitles:[],u={};u[t(a.title)]=!0;for(var m=[],i=0;i<g.length;i++){var o=(g[i]||"").trim(),s=t(o);!o||!s||u[s]||(u[s]=!0,m.push(o))}var E=/^https?:\/\//i.test(a.url)?a.url:"https://comix.to"+(a.url.charAt(0)==="/"?a.url:"/"+a.url),r=a.links||{},h=a.type&&_[a.type.toLowerCase()]||null,p=a.status&&w[a.status.toLowerCase()]||null,x={hid:a.hid,titulo:a.title,titulosAlternativos:m,tipo:h,tipoBruto:h?null:a.type||null,statusPublicacao:p,statusPublicacaoBruto:p?null:a.status||null,contentRating:a.contentRating||null,capaUrl:a.poster&&(a.poster.large||a.poster.medium)||null,ultimoCapitulo:a.latestChapter?a.latestChapter:null,url:E,autores:e(a.authors),artistas:e(a.artists),generos:e(a.genres),tags:e(a.tags),links:{anilist_url:r.al||null,myanimelist_url:r.mal||null,mangaupdates_url:r.mu||null,mangadex_url:r.md||null,mangabaka_url:r.mb||null}},A=JSON.stringify(x),N=new TextEncoder().encode(A),v="";N.forEach(function(l){v+=String.fromCharCode(l)});var L=btoa(v).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");location.href="https://blair-boo.github.io/manga-lists/importar#d="+L}catch(t){alert("Erro no bookmarklet: "+(t&&t.message||t))}})();
+javascript:(async%20function(){try{var%20s=document.getElementById('initial-data');if(!s){alert('initial-data%20n\xE3o%20encontrado%20nesta%20p\xE1gina.%20Voc\xEA%20est\xE1%20numa%20p\xE1gina%20de%20t\xEDtulo%20do%20comix.to?');return}var%20n=JSON.parse(s.textContent),y=n.manga&&n.manga.hid,a=n.queries&&n.queries['["manga","detail","'+y+'"]'];if(!a||!a.hid||!a.title||!a.url){alert('N\xE3o%20consegui%20achar%20o%20detalhe%20da%20obra%20nesta%20p\xE1gina.');return}function%20T(l){return(l||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'%20').trim()}function%20E(l){var%20f=[];(l||[]).forEach(function(C){var%20b=(C&&C.title||'').trim();b&&f.push(b)});return%20f}var%20_={manga:'Manga',manhwa:'Manhwa',manhua:'Manhua'},w={releasing:'Ongoing',finished:'Completed',on_hiatus:'Hiatus',discontinued:'Canceled'},g=Array.isArray(a.altTitles)?a.altTitles:[],u={};u[T(a.title)]=!0;var%20m=[],i,o,sl;for(i=0;i<g.length;i++){o=(g[i]||'').trim();sl=T(o);if(!o||!sl||u[sl])continue;u[sl]=!0;m.push(o)}var%20eu=/^https?:\/\//i.test(a.url)?a.url:'https://comix.to'+(a.url.charAt(0)==='/'?a.url:'/'+a.url),r=a.links||{},h=a.type&&_[a.type.toLowerCase()]||null,p=a.status&&w[a.status.toLowerCase()]||null,capaUrl=a.poster&&(a.poster.large||a.poster.medium)||null,x={hid:a.hid,titulo:a.title,titulosAlternativos:m,tipo:h,tipoBruto:h?null:a.type||null,statusPublicacao:p,statusPublicacaoBruto:p?null:a.status||null,contentRating:a.contentRating||null,capaUrl:capaUrl,ultimoCapitulo:a.latestChapter?a.latestChapter:null,url:eu,autores:E(a.authors),artistas:E(a.artists),generos:E(a.genres),tags:E(a.tags),links:{anilist_url:r.al||null,myanimelist_url:r.mal||null,mangaupdates_url:r.mu||null,mangadex_url:r.md||null,mangabaka_url:r.mb||null}};if(capaUrl){try{var%20resp=await%20fetch(capaUrl);if(resp.ok){var%20bl=await%20resp.blob();x.capaBase64=await%20new%20Promise(function(res){var%20fr=new%20FileReader();fr.onloadend=function(){res(fr.result)};fr.readAsDataURL(bl)})}}catch(fe){}}var%20A=JSON.stringify(x),N=new%20TextEncoder().encode(A),v='';N.forEach(function(l){v+=String.fromCharCode(l)});var%20L=btoa(v).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');location.href='https://blair-boo.github.io/manga-lists/importar#d='+L}catch(err){alert('Erro%20no%20bookmarklet:%20'+(err&&err.message||err))}})();
 ```
 
 URL do PWA hardcoded acima: `https://blair-boo.github.io/manga-lists/`

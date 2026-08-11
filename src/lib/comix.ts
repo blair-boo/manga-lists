@@ -23,6 +23,8 @@ export interface ComixObra {
   /** Classificação bruta do site ("safe", etc.). Apenas exibida, nunca mapeada. */
   contentRating: string | null;
   capaUrl: string | null;
+  /** Capa pré-buscada como data URL (base64) pelo bookmarklet, ainda no contexto de comix.to — usada no lugar de capaUrl quando presente, pra driblar a proteção de hotlink de static.comix.to. */
+  capaBase64?: string | null;
   ultimoCapitulo: number | null;
   /** URL absoluta da obra no comix.to. */
   url: string;
