@@ -36,15 +36,15 @@ function nomeArquivoComDataHora(base: string): string {
 
 const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] = [
   {
-    valor: 'sobrescrever',
-    rotulo: 'Overwrite',
-    descricao: 'a blank cell clears the field; sources not listed in the "sources" column are removed.',
-  },
-  {
     valor: 'complementar',
     rotulo: 'Merge (non-destructive)',
     descricao:
       'a blank cell leaves the field untouched; genres/tags/alternative titles and sources only get new values added, nothing is ever removed.',
+  },
+  {
+    valor: 'sobrescrever',
+    rotulo: 'Overwrite',
+    descricao: 'a blank cell clears the field; sources not listed in the "sources" column are removed.',
   },
 ];
 
@@ -105,7 +105,7 @@ async function reconciliarFontes(
 /** Seção "Bulk fill via CSV" da página de Updates: upload, download e resultado. */
 export function CsvBulkSection() {
   const { confirmar } = useDialogos();
-  const [modo, setModo] = useState<ModoImportacaoCsv>('sobrescrever');
+  const [modo, setModo] = useState<ModoImportacaoCsv>('complementar');
   const [processando, setProcessando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [baixando, setBaixando] = useState(false);
