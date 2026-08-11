@@ -26,3 +26,29 @@ export function useSitesAtivos(): Set<string> {
 
   return ativos;
 }
+
+/**
+ * Nomes (com o case original) dos sites_suportados ativos — usado por
+ * FilaAprovacoes pra separar fontes "supported" vs "web", que compara
+ * `fonte.site` sem normalizar case (useSitesAtivos não serve aqui porque
+ * devolve os nomes em lowercase).
+ */
+export function useNomesSitesAtivos(): string[] {
+  const [nomes, setNomes] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    supabase
+      .from('sites_suportados')
+      .select('nome')
+      .eq('ativo', true)
+      .then(({ data }) => {
+        if (!cancelado) setNomes((data ?? []).map((r) => r.nome as string));
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  return nomes;
+}
