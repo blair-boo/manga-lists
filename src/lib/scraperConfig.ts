@@ -185,11 +185,14 @@ export interface LimiaresOperacao {
 export interface MatchConfig {
   atualizar_obras: LimiaresOperacao;
   buscar_novas_fontes: LimiaresOperacao;
+  /** Modo 3 da importação CSV (Conciliação de sites relacionados). */
+  conciliacao_csv: LimiaresOperacao;
 }
 
 export const MATCH_CONFIG_PADRAO: MatchConfig = {
   atualizar_obras: { limiar_auto_aprovacao: 0.95, limiar_minimo_pendencia: 0.7 },
   buscar_novas_fontes: { limiar_auto_aprovacao: 0.95, limiar_minimo_pendencia: 0.85 },
+  conciliacao_csv: { limiar_auto_aprovacao: 0.9, limiar_minimo_pendencia: 0.7 },
 };
 
 export async function getMatchConfig(): Promise<MatchConfig> {
@@ -199,8 +202,15 @@ export async function getMatchConfig(): Promise<MatchConfig> {
     .eq('chave', 'match_titulo')
     .maybeSingle();
   if (error) throw error;
-  const valor = data?.valor as MatchConfig | undefined;
-  return valor ?? MATCH_CONFIG_PADRAO;
+  const valor = data?.valor as Partial<MatchConfig> | undefined;
+  // Mescla com o default por operação — uma configuração salva antes da
+  // operação 'conciliacao_csv' existir não teria essa chave, o que quebraria
+  // o acesso a config[chave] na tela de settings.
+  return {
+    atualizar_obras: valor?.atualizar_obras ?? MATCH_CONFIG_PADRAO.atualizar_obras,
+    buscar_novas_fontes: valor?.buscar_novas_fontes ?? MATCH_CONFIG_PADRAO.buscar_novas_fontes,
+    conciliacao_csv: valor?.conciliacao_csv ?? MATCH_CONFIG_PADRAO.conciliacao_csv,
+  };
 }
 
 export async function setMatchConfig(valor: MatchConfig): Promise<void> {
@@ -210,5 +220,39 @@ export async function setMatchConfig(valor: MatchConfig): Promise<void> {
       { chave: 'match_titulo', valor, atualizado_em: new Date().toISOString() },
       { onConflict: 'chave' }
     );
+  if (error) throw error;
+}
+
+// --- Blacklist de conciliação (Modo 3 da importação CSV) --------------------
+// Par (obra, url) rejeitado explicitamente na fila de aprovação: uma futura
+// importação com a mesma linha (mesmo link) pra mesma obra é pulada sem
+// reaparecer na fila. Diferente de dominios_bloqueados (bloqueia o domínio
+// inteiro pra descoberta automática) — aqui é só aquele candidato específico.
+
+export interface ConciliacaoBlacklistItem {
+  id: string;
+  obra_id: string;
+  url: string;
+  criado_em: string;
+}
+
+export async function listarBlacklistConciliacao(): Promise<ConciliacaoBlacklistItem[]> {
+  const { data, error } = await supabase
+    .from('conciliacao_blacklist')
+    .select('*')
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ConciliacaoBlacklistItem[];
+}
+
+export async function adicionarBlacklistConciliacao(obraId: string, url: string): Promise<void> {
+  const { error } = await supabase
+    .from('conciliacao_blacklist')
+    .upsert({ obra_id: obraId, url }, { onConflict: 'obra_id,url' });
+  if (error) throw error;
+}
+
+export async function removerBlacklistConciliacao(id: string): Promise<void> {
+  const { error } = await supabase.from('conciliacao_blacklist').delete().eq('id', id);
   if (error) throw error;
 }

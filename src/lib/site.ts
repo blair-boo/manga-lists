@@ -15,6 +15,33 @@ export function dominioDeUrl(url: string): string {
   }
 }
 
+/**
+ * Domínios de catálogo que têm campo dedicado em `obras` (não são "fontes" de
+ * leitura — Bloco B0/handout de links). Usado pelo Modo 3 da importação CSV
+ * (Conciliação de sites relacionados) pra decidir se um link aprovado grava
+ * no campo certo da obra ou vira uma fonte genérica (tabela `fontes`).
+ */
+const CAMPO_OBRA_POR_DOMINIO: Record<
+  string,
+  'novelupdates_url' | 'anilist_url' | 'myanimelist_url' | 'mangaupdates_url' | 'mangadex_url' | 'mangabaka_url'
+> = {
+  'novelupdates.com': 'novelupdates_url',
+  'anilist.co': 'anilist_url',
+  'myanimelist.net': 'myanimelist_url',
+  'mangaupdates.com': 'mangaupdates_url',
+  'mangadex.org': 'mangadex_url',
+  'mangabaka.dev': 'mangabaka_url',
+  'mangabaka.com': 'mangabaka_url',
+};
+
+/**
+ * Campo dedicado de `obras` para o domínio do link, ou `null` se o domínio
+ * não é um catálogo conhecido (nesse caso o link vira uma fonte genérica).
+ */
+export function campoPorDominio(url: string): (typeof CAMPO_OBRA_POR_DOMINIO)[string] | null {
+  return CAMPO_OBRA_POR_DOMINIO[dominioDeUrl(url)] ?? null;
+}
+
 /** Título aproximado da obra no site, derivado do slug da URL (para conferência). */
 export function tituloNoSite(url: string): string {
   try {

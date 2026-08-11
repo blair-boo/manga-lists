@@ -109,6 +109,32 @@ create table novelupdates_pendentes (
 
 create index idx_novelupdates_pendentes_status on novelupdates_pendentes(status_aprovacao);
 
+-- Fila de aprovação do Modo 3 da importação CSV (Conciliação de sites
+-- relacionados): matches na faixa 70-89% entre título/títulos alternativos
+-- de uma obra e uma linha (título, link) de uma planilha externa.
+create table conciliacao_pendentes (
+    id uuid primary key default gen_random_uuid(),
+    obra_id uuid not null references obras(id) on delete cascade,
+    titulo_candidato text not null,
+    url_candidato text not null,
+    score real not null,
+    status_aprovacao text not null default 'pendente', -- 'pendente' | 'aprovado' | 'reprovado'
+    criado_em timestamptz not null default now(),
+    unique (obra_id, url_candidato)
+);
+
+create index idx_conciliacao_pendentes_status on conciliacao_pendentes(status_aprovacao);
+
+-- Pares (obra, url) rejeitados na fila do Modo 3: não sugere de novo o mesmo
+-- candidato pra mesma obra numa importação futura.
+create table conciliacao_blacklist (
+    id uuid primary key default gen_random_uuid(),
+    obra_id uuid not null references obras(id) on delete cascade,
+    url text not null,
+    criado_em timestamptz not null default now(),
+    unique (obra_id, url)
+);
+
 create index idx_fontes_obra_id on fontes(obra_id);
 create index idx_fontes_status_aprovacao on fontes(status_aprovacao);
 create index idx_obras_titulo on obras(titulo);
@@ -175,4 +201,14 @@ create policy "authenticated_full_access_scraper_runs" on scraper_runs
 alter table novelupdates_pendentes enable row level security;
 
 create policy "authenticated_full_access_novelupdates_pendentes" on novelupdates_pendentes
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table conciliacao_pendentes enable row level security;
+
+create policy "authenticated_full_access_conciliacao_pendentes" on conciliacao_pendentes
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table conciliacao_blacklist enable row level security;
+
+create policy "authenticated_full_access_conciliacao_blacklist" on conciliacao_blacklist
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

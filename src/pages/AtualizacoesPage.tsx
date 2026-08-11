@@ -11,6 +11,7 @@ import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { AprovacaoDominios } from '../components/AprovacaoDominios';
 import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
 import { CsvBulkSection } from '../components/CsvBulkSection';
+import { ConciliacaoSitesSection } from '../components/ConciliacaoSitesSection';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
 import { SecaoNovelUpdates } from '../components/SecaoNovelUpdates';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
@@ -226,6 +227,7 @@ export function AtualizacoesPage() {
       </section>
 
       <CsvBulkSection />
+      <ConciliacaoSitesSection />
     </div>
   );
 }

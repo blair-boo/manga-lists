@@ -527,6 +527,21 @@
   white-space: nowrap;
 }
 
+/* Seletor de tipo(s) de obra do Modo 3 (Conciliação de sites relacionados) */
+.conciliacao-tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.conciliacao-tipo-opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Editor de limiares */
 .config-match p {
   font-size: 13px;
