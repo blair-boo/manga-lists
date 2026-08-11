@@ -89,31 +89,66 @@ export interface LinhaCsv {
 }
 
 /**
- * Monta o patch a partir de uma linha do CSV. Regra de presença:
+ * 'sobrescrever' é o comportamento histórico (Modo 1): célula vazia limpa o
+ * campo, `sources` reconcilia com remoção. 'complementar' (Modo 2) é
+ * não-destrutivo: célula vazia não mexe em nada, e tanto os campos array
+ * quanto `sources` só somam (união com o valor atual), nunca removem.
+ */
+export type ModoImportacaoCsv = 'sobrescrever' | 'complementar';
+
+/** Une dois arrays de string preservando a ordem (atual primeiro), sem duplicar. */
+export function unirArrays(atual: string[] | null | undefined, novos: string[]): string[] {
+  const vistos = new Set(atual ?? []);
+  const unidos = [...(atual ?? [])];
+  for (const v of novos) {
+    if (!vistos.has(v)) {
+      vistos.add(v);
+      unidos.push(v);
+    }
+  }
+  return unidos;
+}
+
+/**
+ * Monta o patch a partir de uma linha do CSV.
+ *
+ * Regra de presença em modo 'sobrescrever' (Modo 1, default):
  * - coluna AUSENTE do CSV (nem no cabeçalho) → não entra no payload (não mexe);
  * - coluna PRESENTE porém vazia → limpa o campo (null, ou false pros booleanos);
- * - coluna PRESENTE com valor → grava o valor convertido.
+ * - coluna PRESENTE com valor → grava o valor convertido (array/`titulos_alternativos`
+ *   substitui o valor inteiro).
  * Número inválido (ex.: "abc") é a única exceção: ignora a célula em vez de
  * limpar, pra não zerar um valor por causa de erro de digitação.
+ *
+ * Em modo 'complementar' (Modo 2): coluna presente porém vazia também não
+ * mexe em nada (em vez de limpar); campos array recebem união com o valor
+ * atual da obra (`obraAtual`) em vez de substituir.
  */
-export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
+export function buildUpdatePayload(
+  row: LinhaCsv,
+  modo: ModoImportacaoCsv = 'sobrescrever',
+  obraAtual?: Pick<Obra, (typeof CAMPOS_ARRAY)[number]> | null
+): Partial<NovaObra> {
   const payload: Partial<NovaObra> = {};
+  const complementar = modo === 'complementar';
 
   for (const campo of CAMPOS_TEXTO) {
     const rotulo = rotuloCsv(campo);
     if (!(rotulo in row)) continue;
     const v = (row[rotulo] ?? '').trim();
+    if (!v && complementar) continue;
     payload[campo] = (v || null) as never;
   }
-  // Coluna status_publicacao presente no CSV (mesmo vazia) é uma edição
-  // deliberada — trava contra sobrescrita do scraper, igual ao autosave da
-  // tela de detalhe (B4).
+  // Coluna status_publicacao presente no CSV (mesmo vazia, em modo
+  // sobrescrever) é uma edição deliberada — trava contra sobrescrita do
+  // scraper, igual ao autosave da tela de detalhe (B4).
   if ('status_publicacao' in payload) payload.status_publicacao_manual = true;
 
   for (const campo of CAMPOS_NUMERO) {
     if (!(campo in row)) continue;
     const v = (row[campo] ?? '').trim();
     if (!v) {
+      if (complementar) continue;
       payload[campo] = null as never;
       continue;
     }
@@ -124,6 +159,12 @@ export function buildUpdatePayload(row: LinhaCsv): Partial<NovaObra> {
   for (const campo of CAMPOS_ARRAY) {
     if (!(campo in row)) continue;
     const arr = parseArrayCampo(row[campo]);
+    if (complementar) {
+      if (arr.length === 0) continue;
+      const unidos = unirArrays(obraAtual?.[campo], arr);
+      payload[campo] = (unidos.length > 0 ? unidos : null) as never;
+      continue;
+    }
     payload[campo] = (arr.length > 0 ? arr : null) as never;
   }
 

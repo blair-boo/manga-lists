@@ -6,8 +6,30 @@ import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
-import { baixarCsv, buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha } from '../lib/csvBulkUpdate';
+import { useDialogos } from './Dialogo';
+import {
+  baixarCsv,
+  buildUpdatePayload,
+  obrasParaCsv,
+  parseCsvFile,
+  sourcesDaLinha,
+  type ModoImportacaoCsv,
+} from '../lib/csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
+
+const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] = [
+  {
+    valor: 'sobrescrever',
+    rotulo: 'Overwrite',
+    descricao: 'a blank cell clears the field; sources not listed in the "sources" column are removed.',
+  },
+  {
+    valor: 'complementar',
+    rotulo: 'Merge (non-destructive)',
+    descricao:
+      'a blank cell leaves the field untouched; genres/tags/alternative titles and sources only get new values added, nothing is ever removed.',
+  },
+];
 
 interface Resultado {
   atualizadas: number;
@@ -22,15 +44,21 @@ interface Resultado {
 
 /**
  * Reconcilia as fontes da obra contra a lista de URLs desejada (coluna
- * `sources`): cria as que faltam, apaga as que sobram, preserva sem tocar as
- * que já batem (mantém capítulo detectado, tipo, ordem etc. — só a URL casa).
+ * `sources`): cria as que faltam, preserva sem tocar as que já batem (mantém
+ * capítulo detectado, tipo, ordem etc. — só a URL casa). Em modo
+ * 'sobrescrever' também apaga as fontes que não estão mais na lista; em modo
+ * 'complementar' (Modo 2) nunca remove, só soma.
  */
-async function reconciliarFontes(obra: Obra, urlsDesejadas: string[]): Promise<{ criadas: number; removidas: number }> {
+async function reconciliarFontes(
+  obra: Obra,
+  urlsDesejadas: string[],
+  modo: ModoImportacaoCsv
+): Promise<{ criadas: number; removidas: number }> {
   const atuais = await db.fontes.where('obra_id').equals(obra.id).toArray();
   const desejadasSet = new Set(urlsDesejadas);
   const atuaisPorUrl = new Map(atuais.map((f) => [f.url, f]));
 
-  const paraRemover = atuais.filter((f) => !desejadasSet.has(f.url));
+  const paraRemover = modo === 'sobrescrever' ? atuais.filter((f) => !desejadasSet.has(f.url)) : [];
   const paraCriar = urlsDesejadas.filter((url) => !atuaisPorUrl.has(url));
 
   for (const f of paraRemover) await deleteFonte(f.id);
@@ -59,6 +87,8 @@ async function reconciliarFontes(obra: Obra, urlsDesejadas: string[]): Promise<{
 
 /** Seção "Bulk fill via CSV" da página de Updates: upload, download e resultado. */
 export function CsvBulkSection() {
+  const { confirmar } = useDialogos();
+  const [modo, setModo] = useState<ModoImportacaoCsv>('sobrescrever');
   const [processando, setProcessando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [baixando, setBaixando] = useState(false);
@@ -68,6 +98,20 @@ export function CsvBulkSection() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+
+    // Modo Overwrite é destrutivo (célula vazia limpa, sources fora da lista
+    // somem) — confirma antes de rodar. Merge é seguro por definição, sem
+    // confirmação (suave demais pra travar o fluxo comum).
+    if (modo === 'sobrescrever') {
+      const ok = await confirmar({
+        titulo: 'Overwrite import',
+        mensagem:
+          'Blank cells will clear fields, and any source not listed in the "sources" column will be removed. Continue?',
+        confirmarRotulo: 'Continue',
+        perigoso: true,
+      });
+      if (!ok) return;
+    }
 
     setProcessando(true);
     setResultado(null);
@@ -97,7 +141,7 @@ export function CsvBulkSection() {
 
       let mudou = false;
 
-      const payload = buildUpdatePayload(linha);
+      const payload = buildUpdatePayload(linha, modo, existente);
       if (Object.keys(payload).length > 0) {
         await updateObra(id, payload);
         mudou = true;
@@ -105,7 +149,7 @@ export function CsvBulkSection() {
 
       const urlsDesejadas = sourcesDaLinha(linha);
       if (urlsDesejadas !== undefined) {
-        const { criadas, removidas } = await reconciliarFontes(existente, urlsDesejadas);
+        const { criadas, removidas } = await reconciliarFontes(existente, urlsDesejadas, modo);
         fontesAdicionadas += criadas;
         fontesRemovidas += removidas;
         if (criadas > 0 || removidas > 0) mudou = true;
@@ -171,19 +215,27 @@ export function CsvBulkSection() {
       <p>
         Export the <code>obras</code> table (button below, or from the Supabase Table Editor), fill in whatever
         fields you want in Excel/Google Sheets and upload the file here. Do not change the <code>id</code> and{' '}
-        <code>titulo</code> columns. Every column present in the file is written back, so an empty cell{' '}
-        <strong>clears</strong> that field (a column left out of the file entirely is not touched); in{' '}
-        <code>generos</code>/<code>tags</code>, separate multiple values with <code>;</code>.{' '}
-        <code>criado_em</code>/<code>atualizado_em</code> (and any other column outside the ones above, like{' '}
-        <code>obra_vinculada_id</code>) are always ignored — but if you exported straight from the Table Editor,
-        deleting those two date columns before editing/saving is a good idea anyway: spreadsheet apps sometimes
-        reformat them with an unquoted comma, which shifts the rest of that row's columns and gets flagged below.
+        <code>titulo</code> columns. A column left out of the file entirely is never touched; in{' '}
+        <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>/<code>sources</code>, separate
+        multiple values with <code>;</code>. <code>criado_em</code>/<code>atualizado_em</code> (and any other column
+        outside the ones listed in the downloaded CSV, like <code>obra_vinculada_id</code>) are always ignored — but
+        if you exported straight from the Table Editor, deleting those two date columns before editing/saving is a
+        good idea anyway: spreadsheet apps sometimes reformat them with an unquoted comma, which shifts the rest of
+        that row's columns and gets flagged below.
       </p>
-      <p>
-        <code>sources</code> works the same way but edits the <code>fontes</code> table instead: list the work's
-        source URLs separated by <code>;</code> — URLs you remove from the cell get deleted, new ones get added,
-        and URLs you leave in place keep their detected chapter/type/order untouched. An <strong>empty</strong>{' '}
-        cell deletes <strong>all</strong> sources for that work, same "empty clears" rule as every other column.
+
+      <div className="conciliacao-tipos">
+        {MODOS.map((m) => (
+          <label key={m.valor} className="conciliacao-tipo-opcao">
+            <input type="radio" name="csv-modo" value={m.valor} checked={modo === m.valor} onChange={() => setModo(m.valor)} />
+            {m.rotulo}
+          </label>
+        ))}
+      </div>
+      <p className="atualizacao-subtitulo-nota">
+        {MODOS.find((m) => m.valor === modo)?.descricao} Same rule for the <code>sources</code> column
+        (edits the <code>fontes</code> table): URLs you leave in place always keep their detected chapter/type/order
+        untouched, only the URL itself is matched.
       </p>
 
       <div className="csv-acoes">

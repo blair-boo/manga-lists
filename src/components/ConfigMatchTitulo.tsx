@@ -11,6 +11,7 @@ import { useToast } from './Toast';
 const OPERACOES: { chave: keyof MatchConfig; rotulo: string }[] = [
   { chave: 'atualizar_obras', rotulo: 'Update works' },
   { chave: 'buscar_novas_fontes', rotulo: 'Find new sources' },
+  { chave: 'conciliacao_csv', rotulo: 'CSV reconciliation (Mode 3)' },
 ];
 
 export function ConfigMatchTitulo() {

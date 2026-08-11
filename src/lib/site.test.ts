@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveSite, dominioDeUrl, tituloNoSite } from './site';
+import { campoPorDominio, deriveSite, dominioDeUrl, tituloNoSite } from './site';
 
 describe('dominioDeUrl', () => {
   it('extrai o host de uma URL válida', () => {
@@ -46,5 +46,21 @@ describe('deriveSite', () => {
 
   it('retorna null para URL inválida', () => {
     expect(deriveSite('nope')).toBeNull();
+  });
+});
+
+describe('campoPorDominio', () => {
+  it('mapeia domínios de catálogo conhecidos pro campo dedicado da obra', () => {
+    expect(campoPorDominio('https://www.novelupdates.com/series/foo')).toBe('novelupdates_url');
+    expect(campoPorDominio('https://anilist.co/manga/123')).toBe('anilist_url');
+    expect(campoPorDominio('https://myanimelist.net/manga/123')).toBe('myanimelist_url');
+    expect(campoPorDominio('https://www.mangaupdates.com/series/abc')).toBe('mangaupdates_url');
+    expect(campoPorDominio('https://mangadex.org/title/abc')).toBe('mangadex_url');
+    expect(campoPorDominio('https://mangabaka.dev/series/abc')).toBe('mangabaka_url');
+  });
+
+  it('retorna null para um domínio de leitura comum (vira fonte genérica)', () => {
+    expect(campoPorDominio('https://ezmanga.org/series/foo')).toBeNull();
+    expect(campoPorDominio('https://coolscans.net/manga/bar')).toBeNull();
   });
 });

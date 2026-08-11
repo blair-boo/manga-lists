@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha } from './csvBulkUpdate';
+import { buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha, unirArrays } from './csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
 
 describe('sourcesDaLinha', () => {
@@ -131,6 +131,46 @@ describe('buildUpdatePayload', () => {
   it('arrays no formato JSON', () => {
     const payload = buildUpdatePayload({ titulos_alternativos: '["Na Honjaman Level Up", "俺だけレベルアップな件"]' });
     expect(payload.titulos_alternativos).toEqual(['Na Honjaman Level Up', '俺だけレベルアップな件']);
+  });
+});
+
+describe('unirArrays', () => {
+  it('soma valores novos sem duplicar, preservando a ordem do atual primeiro', () => {
+    expect(unirArrays(['a', 'b'], ['b', 'c'])).toEqual(['a', 'b', 'c']);
+  });
+
+  it('atual nulo/ausente vira só os valores novos', () => {
+    expect(unirArrays(null, ['x'])).toEqual(['x']);
+    expect(unirArrays(undefined, ['x'])).toEqual(['x']);
+  });
+});
+
+describe('buildUpdatePayload — modo complementar (Modo 2)', () => {
+  it('célula vazia não mexe no campo (em vez de limpar)', () => {
+    expect(buildUpdatePayload({ autor: '', score: '', tags: '' }, 'complementar')).toEqual({});
+  });
+
+  it('célula com valor sobrescreve campo texto/número normalmente', () => {
+    expect(buildUpdatePayload({ autor: 'Chugong', score: '5' }, 'complementar')).toEqual({ autor: 'Chugong', score: 5 });
+  });
+
+  it('campo array une com o valor atual da obra em vez de substituir', () => {
+    const obraAtual = { generos: ['Action'], tags: null, titulos_alternativos: null };
+    const payload = buildUpdatePayload({ generos: 'Fantasy; Action' }, 'complementar', obraAtual);
+    expect(payload.generos).toEqual(['Action', 'Fantasy']);
+  });
+
+  it('sem obraAtual, campo array vira só os valores novos', () => {
+    const payload = buildUpdatePayload({ tags: 'isekai' }, 'complementar');
+    expect(payload.tags).toEqual(['isekai']);
+  });
+
+  it('status_publicacao só trava a edição manual quando vem com valor (célula vazia não mexe em nada)', () => {
+    expect(buildUpdatePayload({ status_publicacao: '' }, 'complementar')).toEqual({});
+    expect(buildUpdatePayload({ status_publicacao: 'Hiatus' }, 'complementar')).toEqual({
+      status_publicacao: 'Hiatus',
+      status_publicacao_manual: true,
+    });
   });
 });
 
