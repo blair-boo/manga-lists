@@ -7,6 +7,14 @@ import { mensagemDeErro } from '../lib/erros';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
 import { useDialogos } from './Dialogo';
+import { StatusImportacaoView } from './StatusImportacaoView';
+import {
+  ROTULO_TIPO,
+  bloqueiaImportacao,
+  salvarStatusImportacao,
+  useStatusImportacao,
+  type StatusImportacao,
+} from '../lib/importStatus';
 import {
   baixarCsv,
   buildUpdatePayload,
@@ -103,10 +111,13 @@ export function CsvBulkSection() {
   const [baixando, setBaixando] = useState(false);
   const [erroDownload, setErroDownload] = useState<string | null>(null);
 
+  const statusImportacao = useStatusImportacao();
+  const bloqueio = bloqueiaImportacao(statusImportacao);
+
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
+    if (!file || bloqueio) return;
 
     // Modo Overwrite é destrutivo (célula vazia limpa, sources fora da lista
     // somem) — confirma antes de rodar. Merge é seguro por definição, sem
@@ -128,6 +139,20 @@ export function CsvBulkSection() {
     const texto = await file.text();
     const { linhas, linhasComProblema } = parseCsvFile(texto);
 
+    // Trava compartilhada com Reconciliation (StatusImportacaoView/bloqueiaImportacao
+    // lê o mesmo registro) — reduz o risco de as duas atualizarem obras/fontes ao
+    // mesmo tempo, seja da mesma aba ou de outra aberta neste dispositivo.
+    const statusBase: StatusImportacao = {
+      tipo: 'csv',
+      arquivo: file.name,
+      iniciadoEm: new Date().toISOString(),
+      total: linhas.length,
+      feito: 0,
+      concluidoEm: null,
+      erro: null,
+    };
+    await salvarStatusImportacao(statusBase);
+
     let atualizadas = 0;
     let semMudanca = 0;
     let semId = 0;
@@ -135,63 +160,78 @@ export function CsvBulkSection() {
     let fontesRemovidas = 0;
     const naoEncontradas: string[] = [];
 
-    for (const linha of linhas) {
-      const id = (linha.id ?? '').trim();
-      if (!id) {
-        semId++;
-        continue;
+    try {
+      for (let i = 0; i < linhas.length; i++) {
+        const linha = linhas[i];
+        const id = (linha.id ?? '').trim();
+        if (!id) {
+          semId++;
+        } else {
+          const existente = await db.obras.get(id);
+          if (!existente) {
+            naoEncontradas.push(linha.titulo || id);
+          } else {
+            let mudou = false;
+
+            const payload = buildUpdatePayload(linha, modo, existente);
+            if (Object.keys(payload).length > 0) {
+              await updateObra(id, payload);
+              mudou = true;
+            }
+
+            const urlsDesejadas = sourcesDaLinha(linha);
+            if (urlsDesejadas !== undefined) {
+              const { criadas, removidas } = await reconciliarFontes(existente, urlsDesejadas, modo);
+              fontesAdicionadas += criadas;
+              fontesRemovidas += removidas;
+              if (criadas > 0 || removidas > 0) mudou = true;
+            }
+
+            if (mudou) atualizadas++;
+            else semMudanca++;
+          }
+        }
+        await salvarStatusImportacao({ ...statusBase, feito: i + 1 });
       }
 
-      const existente = await db.obras.get(id);
-      if (!existente) {
-        naoEncontradas.push(linha.titulo || id);
-        continue;
+      // Espera o envio pro Supabase terminar (em vez de só confiar no disparo em
+      // segundo plano de cada updateObra) pra reportar um resultado que reflete
+      // o que realmente chegou no servidor, não só a escrita local. O sync
+      // disparado pela PRIMEIRA linha do loop pode já estar em andamento antes
+      // das linhas seguintes serem enfileiradas (corrida entre o disparo em
+      // segundo plano e o loop sequencial) — se ainda sobrar mutação na fila
+      // depois dessa espera, essa primeira sync só pegou parte do lote; roda de
+      // novo (agora garantido sem sync concorrente) pra pegar o resto.
+      let resultadoSync = atualizadas > 0 ? await syncNow() : { ok: true as const, error: undefined };
+      if (atualizadas > 0 && (await db.syncQueue.count()) > 0) {
+        resultadoSync = await syncNow();
       }
 
-      let mudou = false;
-
-      const payload = buildUpdatePayload(linha, modo, existente);
-      if (Object.keys(payload).length > 0) {
-        await updateObra(id, payload);
-        mudou = true;
-      }
-
-      const urlsDesejadas = sourcesDaLinha(linha);
-      if (urlsDesejadas !== undefined) {
-        const { criadas, removidas } = await reconciliarFontes(existente, urlsDesejadas, modo);
-        fontesAdicionadas += criadas;
-        fontesRemovidas += removidas;
-        if (criadas > 0 || removidas > 0) mudou = true;
-      }
-
-      if (mudou) atualizadas++;
-      else semMudanca++;
+      setResultado({
+        atualizadas,
+        semMudanca,
+        naoEncontradas,
+        semId,
+        linhasComProblema,
+        fontesAdicionadas,
+        fontesRemovidas,
+        erroSync: resultadoSync.ok ? null : mensagemDeErro(resultadoSync.error),
+      });
+      await salvarStatusImportacao({
+        ...statusBase,
+        feito: linhas.length,
+        concluidoEm: new Date().toISOString(),
+        erro: resultadoSync.ok ? null : mensagemDeErro(resultadoSync.error),
+      });
+    } catch (err) {
+      await salvarStatusImportacao({
+        ...statusBase,
+        concluidoEm: new Date().toISOString(),
+        erro: mensagemDeErro(err),
+      });
+    } finally {
+      setProcessando(false);
     }
-
-    // Espera o envio pro Supabase terminar (em vez de só confiar no disparo em
-    // segundo plano de cada updateObra) pra reportar um resultado que reflete
-    // o que realmente chegou no servidor, não só a escrita local. O sync
-    // disparado pela PRIMEIRA linha do loop pode já estar em andamento antes
-    // das linhas seguintes serem enfileiradas (corrida entre o disparo em
-    // segundo plano e o loop sequencial) — se ainda sobrar mutação na fila
-    // depois dessa espera, essa primeira sync só pegou parte do lote; roda de
-    // novo (agora garantido sem sync concorrente) pra pegar o resto.
-    let resultadoSync = atualizadas > 0 ? await syncNow() : { ok: true as const, error: undefined };
-    if (atualizadas > 0 && (await db.syncQueue.count()) > 0) {
-      resultadoSync = await syncNow();
-    }
-
-    setResultado({
-      atualizadas,
-      semMudanca,
-      naoEncontradas,
-      semId,
-      linhasComProblema,
-      fontesAdicionadas,
-      fontesRemovidas,
-      erroSync: resultadoSync.ok ? null : mensagemDeErro(resultadoSync.error),
-    });
-    setProcessando(false);
   }
 
   async function handleDownload() {
@@ -249,7 +289,7 @@ export function CsvBulkSection() {
 
       <div className="csv-acoes">
         <label className="upload-csv">
-          <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={processando} />
+          <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={processando || !!bloqueio} />
           {processando ? 'Processing…' : 'Choose CSV file'}
         </label>
         <button type="button" className="botao-secundario" onClick={handleDownload} disabled={baixando}>
@@ -257,6 +297,13 @@ export function CsvBulkSection() {
         </button>
       </div>
       {erroDownload && <p className="execucao-status execucao-erro">{erroDownload}</p>}
+      {bloqueio && (
+        <p className="execucao-status execucao-erro">
+          Another import ({ROTULO_TIPO[bloqueio.tipo]} — {bloqueio.arquivo}) is in progress. Wait for it to finish
+          before starting this one.
+        </p>
+      )}
+      <StatusImportacaoView status={statusImportacao} />
 
       {resultado && (
         <div className="atualizacao-massa-resultado">

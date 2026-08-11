@@ -14,6 +14,14 @@ import {
 } from '../lib/conciliacaoRepo';
 import { getMatchConfig, listarBlacklistConciliacao, removerBlacklistConciliacao } from '../lib/scraperConfig';
 import { mensagemDeErro } from '../lib/erros';
+import { StatusImportacaoView } from './StatusImportacaoView';
+import {
+  ROTULO_TIPO,
+  bloqueiaImportacao,
+  salvarStatusImportacao,
+  useStatusImportacao,
+  type StatusImportacao,
+} from '../lib/importStatus';
 import type { ConciliacaoBlacklistItem } from '../lib/scraperConfig';
 import type { Tipo } from '../types';
 
@@ -33,6 +41,10 @@ export function ConciliacaoSitesSection() {
   const [aplicando, setAplicando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoAplicacaoConciliacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [arquivoAtual, setArquivoAtual] = useState('');
+
+  const statusImportacao = useStatusImportacao();
+  const bloqueio = bloqueiaImportacao(statusImportacao);
 
   function alternarTipo(tipo: Tipo) {
     setTiposSelecionados((prev) => {
@@ -48,12 +60,13 @@ export function ConciliacaoSitesSection() {
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || tiposSelecionados.size === 0) return;
+    if (!file || tiposSelecionados.size === 0 || bloqueio) return;
 
     setAnalisando(true);
     setErro(null);
     setPlano(null);
     setResultado(null);
+    setArquivoAtual(file.name);
     try {
       const texto = await file.text();
       const { linhas, comCabecalho: detectouCabecalho } = parseCsvConciliacao(texto);
@@ -72,16 +85,40 @@ export function ConciliacaoSitesSection() {
   }
 
   async function handleAplicar() {
-    if (!plano) return;
+    if (!plano || bloqueio) return;
     setAplicando(true);
     setErro(null);
+
+    // Mesma trava compartilhada do Bulk fill (StatusImportacaoView/bloqueiaImportacao
+    // leem o mesmo registro) — Apply é o passo que de fato escreve em obras/
+    // conciliacao_pendentes, então é aqui (não no upload/Analyze) que a trava conta.
+    const statusBase: StatusImportacao = {
+      tipo: 'conciliacao',
+      arquivo: arquivoAtual,
+      iniciadoEm: new Date().toISOString(),
+      total: plano.autoAprovados.length + plano.pendentesNovos.length,
+      feito: 0,
+      concluidoEm: null,
+      erro: null,
+    };
+    await salvarStatusImportacao(statusBase);
+
     try {
-      const res = await aplicarPlanoConciliacao(plano);
+      const res = await aplicarPlanoConciliacao(plano, (feito) => {
+        void salvarStatusImportacao({ ...statusBase, feito });
+      });
       setResultado(res);
       setPlano(null);
       await recarregarFila();
+      await salvarStatusImportacao({
+        ...statusBase,
+        feito: statusBase.total,
+        concluidoEm: new Date().toISOString(),
+        erro: res.erros.length > 0 ? `${res.erros.length} failed: ${res.erros.join(' · ')}` : null,
+      });
     } catch (err) {
       setErro(mensagemDeErro(err));
+      await salvarStatusImportacao({ ...statusBase, concluidoEm: new Date().toISOString(), erro: mensagemDeErro(err) });
     } finally {
       setAplicando(false);
     }
@@ -241,7 +278,7 @@ export function ConciliacaoSitesSection() {
             type="file"
             accept=".csv,text/csv"
             onChange={handleFile}
-            disabled={analisando || tiposSelecionados.size === 0}
+            disabled={analisando || tiposSelecionados.size === 0 || !!bloqueio}
           />
           {analisando ? 'Analyzing…' : 'Choose CSV file'}
         </label>
@@ -250,6 +287,13 @@ export function ConciliacaoSitesSection() {
         <p className="execucao-status execucao-erro">Check at least one type before uploading.</p>
       )}
       {erro && <p className="execucao-status execucao-erro">{erro}</p>}
+      {bloqueio && (
+        <p className="execucao-status execucao-erro">
+          Another import ({ROTULO_TIPO[bloqueio.tipo]} — {bloqueio.arquivo}) is in progress. Wait for it to finish
+          before starting this one.
+        </p>
+      )}
+      <StatusImportacaoView status={statusImportacao} />
 
       {plano && (
         <div className="atualizacao-massa-resultado">
@@ -263,7 +307,7 @@ export function ConciliacaoSitesSection() {
           {plano.puladosBlacklist > 0 && <p>{plano.puladosBlacklist} skipped (already blacklisted).</p>}
           <p>{plano.descartados} row(s) discarded (below the review threshold).</p>
           <div className="scraper-controles">
-            <button type="button" onClick={handleAplicar} disabled={aplicando}>
+            <button type="button" onClick={handleAplicar} disabled={aplicando || !!bloqueio}>
               {aplicando ? 'Applying…' : 'Apply'}
             </button>
             <button type="button" className="botao-secundario" onClick={() => setPlano(null)} disabled={aplicando}>

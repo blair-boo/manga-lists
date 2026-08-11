@@ -77,8 +77,18 @@ export interface ResultadoAplicacaoConciliacao {
   erros: string[];
 }
 
-/** Executa o plano montado por `montarPlanoConciliacao`: grava os auto-aprovados e registra os pendentes na fila. */
-export async function aplicarPlanoConciliacao(plano: PlanoConciliacao): Promise<ResultadoAplicacaoConciliacao> {
+/**
+ * Executa o plano montado por `montarPlanoConciliacao`: grava os auto-aprovados
+ * e registra os pendentes na fila. `onProgresso`, se informado, é chamado a
+ * cada item processado (das duas listas somadas), pra quem chama acompanhar
+ * andamento sem precisar duplicar os dois loops.
+ */
+export async function aplicarPlanoConciliacao(
+  plano: PlanoConciliacao,
+  onProgresso?: (feito: number, total: number) => void
+): Promise<ResultadoAplicacaoConciliacao> {
+  const total = plano.autoAprovados.length + plano.pendentesNovos.length;
+  let feito = 0;
   let autoAplicados = 0;
   const erros: string[] = [];
 
@@ -89,6 +99,7 @@ export async function aplicarPlanoConciliacao(plano: PlanoConciliacao): Promise<
     } catch (err) {
       erros.push(mensagemDeErro(err));
     }
+    onProgresso?.(++feito, total);
   }
 
   let pendentesGravados = 0;
@@ -109,6 +120,7 @@ export async function aplicarPlanoConciliacao(plano: PlanoConciliacao): Promise<
     } catch (err) {
       erros.push(mensagemDeErro(err));
     }
+    onProgresso?.(++feito, total);
   }
 
   return { autoAplicados, pendentesGravados, erros };

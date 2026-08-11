@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { db } from '../db/localDb';
 import { updateObra } from '../db/repo';
 import { mensagemDeErro, mensagemErroAcao } from '../lib/erros';
-import { controlarScraper } from '../lib/scraperControl';
+import { controlarScraper, pararScraperManualmente } from '../lib/scraperControl';
 import { enriquecerTitulosAlternativos } from '../lib/novelupdates';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { useAsyncAction } from '../hooks/useAsyncAction';
@@ -28,8 +28,7 @@ interface PendenteComObra {
  * marca como reprovado (o scraper não reinsere a mesma URL — E5).
  */
 export function SecaoNovelUpdates() {
-  const { run, carregando, erro, recarregar } = useScraperRun('novelupdates');
-  const rodando = run?.status === 'rodando';
+  const { run, rodando, travada, carregando, erro, recarregar } = useScraperRun('novelupdates');
 
   const [pendentes, setPendentes] = useState<PendenteComObra[]>([]);
   const [carregandoFila, setCarregandoFila] = useState(true);
@@ -59,12 +58,17 @@ export function SecaoNovelUpdates() {
   const { executar: handleAcao, executando: acionando, erro: erroAcao } = useAsyncAction(
     useCallback(async () => {
       try {
-        await controlarScraper('novelupdates', rodando ? 'stop' : 'start');
+        if (rodando && run) {
+          await pararScraperManualmente('novelupdates', run.id);
+        } else {
+          if (travada && run) await pararScraperManualmente('novelupdates', run.id).catch(() => {});
+          await controlarScraper('novelupdates', 'start');
+        }
         await recarregar();
       } catch (err) {
         throw new Error(mensagemErroAcao(err));
       }
-    }, [rodando, recarregar])
+    }, [rodando, travada, run, recarregar])
   );
 
   async function handleAprovar(p: PendenteComObra) {
