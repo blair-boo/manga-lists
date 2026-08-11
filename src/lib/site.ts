@@ -52,6 +52,11 @@ export function tituloNoSite(url: string): string {
   }
 }
 
+/** Compara URLs ignorando barra final e caixa, pra recusar a mesma fonte duas vezes. */
+export function urlNormalizada(url: string): string {
+  return url.trim().toLowerCase().replace(/\/+$/, '');
+}
+
 /**
  * Deriva o slug de `site` a partir do host da URL, pra bater com `sites_suportados.nome`.
  * Para domínios sem mapeamento conhecido, usa o host completo (ex.: 'coolscans.net'),

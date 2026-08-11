@@ -193,18 +193,35 @@ async function reconciliarObrasDeletadas(): Promise<void> {
  * (só `criado_em`), e o scraper atualiza `ultimo_capitulo_detectado` in-place
  * sem mudar essa data — então não dá pra fazer pull incremental confiável.
  * Como o volume é pequeno (dezenas/centenas de linhas), full refresh a cada
- * sync é simples e correto.
+ * sync é simples.
+ *
+ * GUARDA (mesmo raciocínio de pullObras): fontes com insert/update pendente na
+ * syncQueue mantêm a versão LOCAL em vez de serem sobrescritas pela varredura
+ * do servidor. Sem isso, uma fonte recém-criada cujo push ainda não completou
+ * neste ciclo (ex.: esta chamada de sync coincidiu com outra já em andamento,
+ * cujo pushPending() rodou ANTES dessa fonte ser enfileirada — ver
+ * reSyncPendente abaixo) desaparecia da tela assim que este pull "limpa e
+ * repõe" a tabela inteira com a versão do servidor, que ainda não tem a fonte
+ * nova — e como ela nunca chegou a ser salva de verdade, nem um F5 trazia de
+ * volta.
  */
 async function pullFontes(): Promise<void> {
   const { data, error } = await supabase.from('fontes').select('*');
   if (error) throw error;
   const rows = (data ?? []) as Fonte[];
+
+  const pendentes = await db.syncQueue.where('entity').equals('fontes').toArray();
+  const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
+
   // Transação: sem isso, uma useLiveQuery que rode bem entre o clear() e o
-  // bulkPut() (duas operações separadas) veria a tabela momentaneamente vazia
-  // — ex.: a seção Sources da obra piscando "No sources yet." no meio de um sync.
+  // bulkPut() (operações separadas) veria a tabela momentaneamente vazia — ex.:
+  // a seção Sources da obra piscando "No sources yet." no meio de um sync.
   await db.transaction('rw', db.fontes, async () => {
+    const aManter = protegidos.size > 0 ? await db.fontes.where('id').anyOf([...protegidos]).toArray() : [];
     await db.fontes.clear();
-    if (rows.length > 0) await db.fontes.bulkPut(rows);
+    const aAplicar = rows.filter((r) => !protegidos.has(r.id));
+    if (aAplicar.length > 0) await db.fontes.bulkPut(aAplicar);
+    if (aManter.length > 0) await db.fontes.bulkPut(aManter);
   });
 }
 

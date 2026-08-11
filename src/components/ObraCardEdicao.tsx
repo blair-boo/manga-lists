@@ -10,7 +10,7 @@ import { adicionarFonteNaObra } from '../lib/adicionarFonte';
 import { deletarCapa } from '../lib/capaStorage';
 import { mensagemDeErro } from '../lib/erros';
 import { salvarCamposObra } from '../lib/salvarObra';
-import { dominioDeUrl } from '../lib/site';
+import { dominioDeUrl, urlNormalizada } from '../lib/site';
 import { ModalBase } from './ModalBase';
 import { TagPicker } from './TagPicker';
 import { useToast } from './Toast';
@@ -602,11 +602,6 @@ export function EstrelasEditaveis({ obra }: { obra: Obra }) {
 }
 
 // --- Sources ----------------------------------------------------------------
-
-/** Compara URLs ignorando barra final e caixa, pra recusar a mesma fonte duas vezes. */
-function urlNormalizada(url: string): string {
-  return url.trim().toLowerCase().replace(/\/+$/, '');
-}
 
 function ModalSources({ obra, onFechar }: { obra: Obra; onFechar: () => void }) {
   useFixarObraEnquantoAberto(obra.id);
