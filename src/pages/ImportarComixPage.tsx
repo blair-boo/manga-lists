@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/localDb';
@@ -163,6 +163,32 @@ export function ImportarComixPage() {
   const [aceitarFonte, setAceitarFonte] = useState(false);
   const [mostrarTodosAltTitulos, setMostrarTodosAltTitulos] = useState(false);
 
+  // Fallback manual de capa (Bloco H): static.comix.to bloqueia fetch() por
+  // CORP mesmo dentro do próprio comix.to (não é só Referer — confirmado por
+  // net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin), então nem o bookmarklet nem
+  // a página conseguem ler os bytes da capa sozinhos. Quando o <img> automático
+  // falha, oferece escolher um arquivo salvo manualmente pela usuária.
+  const [capaManual, setCapaManual] = useState<File | null>(null);
+  const [capaAutoFalhou, setCapaAutoFalhou] = useState(false);
+  const [capaManualPreviewUrl, setCapaManualPreviewUrl] = useState<string | null>(null);
+  const capaManualInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!capaManual) {
+      setCapaManualPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(capaManual);
+    setCapaManualPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [capaManual]);
+
+  function selecionarCapaManual(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = '';
+    if (file) setCapaManual(file);
+  }
+
   // Recalcula todos os defaults quando o alvo (ou o próprio comixObra) muda.
   useEffect(() => {
     if (!comixObra || !alvoResolvido) return;
@@ -176,6 +202,8 @@ export function ImportarComixPage() {
     setAceitarAutor(comixObra.autores.length > 0 && (criandoNova || !obraAlvo?.autor));
     setAceitarArtistas(comixObra.artistas.length > 0 && (criandoNova || !obraAlvo?.artistas));
     setAceitarCapa(!!(comixObra.capaBase64 || comixObra.capaUrl) && (criandoNova || !obraAlvo?.capa_url));
+    setCapaManual(null);
+    setCapaAutoFalhou(false);
     setClassificacaoEscolhida(criandoNova ? null : (obraAlvo?.classificacao ?? null));
 
     const { conhecidos: generosConhecidosMatch } = classificarValoresLista(comixObra.generos, generosConhecidos);
@@ -348,22 +376,30 @@ export function ImportarComixPage() {
 
     // 3. Capa — depois do patch/criação de propósito: salvarCamposObra já rodou
     // o rename com o slug novo, então o upload usa o slug certo (E6).
-    if (aceitarCapa && (comixObra.capaBase64 || comixObra.capaUrl)) {
+    if (aceitarCapa && (capaManual || comixObra.capaBase64 || comixObra.capaUrl)) {
       try {
-        // capaBase64 (pré-buscada pelo bookmarklet ainda em comix.to) é preferida:
-        // fetch de uma data: URL é decodificação local, sem rede — dribla a proteção
-        // de hotlink de static.comix.to, que bloqueia fetch(capaUrl) feito daqui.
-        const resp = comixObra.capaBase64 ? await fetch(comixObra.capaBase64) : await fetch(comixObra.capaUrl!);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const blob = await resp.blob();
-        const contentType = resp.headers.get('content-type') ?? blob.type ?? 'image/jpeg';
-        const ext = contentType.split('/').pop()?.split(';')[0] || 'jpg';
-        const file = new File([blob], `capa.${ext}`, { type: contentType });
+        // capaManual (escolhida à mão quando o auto-fetch falha, ver Cover section)
+        // tem prioridade — é um File local, sem fetch nenhum envolvido. Senão,
+        // tenta capaBase64/capaUrl como antes, embora static.comix.to bloqueie
+        // fetch() por CORP mesmo vindo de dentro do próprio comix.to, então isso
+        // tende a cair no catch abaixo e sobrar só o caminho manual mesmo.
+        let file: File;
+        if (capaManual) {
+          file = capaManual;
+        } else {
+          const resp = comixObra.capaBase64 ? await fetch(comixObra.capaBase64) : await fetch(comixObra.capaUrl!);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const blob = await resp.blob();
+          const contentType = resp.headers.get('content-type') ?? blob.type ?? 'image/jpeg';
+          const ext = contentType.split('/').pop()?.split(';')[0] || 'jpg';
+          file = new File([blob], `capa.${ext}`, { type: contentType });
+        }
         const novaCapaUrl = await uploadCapa(file, tituloFinal, tipoFinal);
         await updateObra(obraId, { capa_url: novaCapaUrl });
         await deletarCapaAntigaSeDiferente(capaAntiga, novaCapaUrl);
       } catch (err) {
-        mostrarToast(`Could not download comix.to cover: ${mensagemDeErro(err)}`, 'erro');
+        const contexto = capaManual ? 'Could not upload cover' : 'Could not download comix.to cover';
+        mostrarToast(`${contexto}: ${mensagemDeErro(err)}`, 'erro');
       }
     }
 
@@ -610,9 +646,44 @@ export function ImportarComixPage() {
                     <input type="checkbox" checked={aceitarCapa} onChange={(e) => setAceitarCapa(e.target.checked)} />
                     <div className="importar-capas">
                       {!criandoNova && obraAlvo!.capa_url && <img src={obraAlvo!.capa_url} alt="Current cover" />}
-                      <img src={comixObra.capaBase64 ?? comixObra.capaUrl ?? undefined} alt="comix.to cover" />
+                      {capaManualPreviewUrl ? (
+                        <img
+                          src={capaManualPreviewUrl}
+                          alt="Manually selected cover"
+                          className="capa-preview"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            capaManualInputRef.current?.click();
+                          }}
+                        />
+                      ) : capaAutoFalhou ? (
+                        <div
+                          className="capa-preview-vazia"
+                          role="button"
+                          aria-label="Choose cover file"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            capaManualInputRef.current?.click();
+                          }}
+                        >
+                          +
+                        </div>
+                      ) : (
+                        <img
+                          src={comixObra.capaBase64 ?? comixObra.capaUrl ?? undefined}
+                          alt="comix.to cover"
+                          onError={() => setCapaAutoFalhou(true)}
+                        />
+                      )}
                     </div>
                   </label>
+                  {capaAutoFalhou && (
+                    <p className="importar-alvo-motivo">
+                      comix.to blocks automatic cover fetching — save the image from comix.to and click the
+                      placeholder above to upload it manually.
+                    </p>
+                  )}
+                  <input ref={capaManualInputRef} type="file" accept="image/*" hidden onChange={selecionarCapaManual} />
                 </section>
               )}
 
