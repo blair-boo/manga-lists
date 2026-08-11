@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { mensagemErroAcao } from '../lib/erros';
-import { controlarScraper } from '../lib/scraperControl';
+import { controlarScraper, pararScraperManualmente } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useNomesSitesAtivos } from '../hooks/useSitesAtivos';
@@ -29,24 +29,32 @@ function SecaoScraperApprovals({ sitesSuportados }: { sitesSuportados: string[] 
 }
 
 function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) {
-  const { run, carregando, erro, recarregar } = useScraperRun('fontes');
+  const { run, rodando, travada, carregando, erro, recarregar } = useScraperRun('fontes');
 
-  const rodando = run?.status === 'rodando';
-
+  // Só inicia/para manualmente por este botão (o workflow no GitHub não tem
+  // agendamento — dispara só via 'workflow_dispatch'). Se a última run ficou
+  // travada (o processo morreu sem gravar o status final — ver useScraperRun),
+  // ela nunca conta como "rodando" pra UI, e clicar Find de novo marca a run
+  // velha como encerrada antes de disparar a nova.
   const { executar: handleAcao, executando: acionando, erro: erroAcao } = useAsyncAction(
     useCallback(async () => {
       try {
-        await controlarScraper('fontes', rodando ? 'stop' : 'start');
+        if (rodando && run) {
+          await pararScraperManualmente('fontes', run.id);
+        } else {
+          if (travada && run) await pararScraperManualmente('fontes', run.id).catch(() => {});
+          await controlarScraper('fontes', 'start');
+        }
         await recarregar();
       } catch (err) {
         throw new Error(mensagemErroAcao(err));
       }
-    }, [rodando, recarregar])
+    }, [rodando, travada, run, recarregar])
   );
 
   return (
     <section className="atualizacao-secao">
-      <h3>Search Sources</h3>
+      <h3>Search New Sources</h3>
       <p>
         Search for brand-new sources (outside your supported sites) for works that don't have any yet. Web results go
         through a stricter title-match threshold and land in the approvals queue below.
@@ -58,6 +66,11 @@ function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) 
         </button>
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
+      {travada && (
+        <p className="execucao-status execucao-erro">
+          The previous run looks stuck (never finished) — starting a new search will mark it as stopped.
+        </p>
+      )}
 
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
 
