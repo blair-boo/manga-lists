@@ -17,6 +17,15 @@ import {
 } from '../lib/csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
 
+/** "obras_2026-08-11_14-32.csv" — data/hora local no nome, sem `:` (inválido em nomes de arquivo no Windows). */
+function nomeArquivoComDataHora(base: string): string {
+  const agora = new Date();
+  const par = (n: number) => String(n).padStart(2, '0');
+  const data = `${agora.getFullYear()}-${par(agora.getMonth() + 1)}-${par(agora.getDate())}`;
+  const hora = `${par(agora.getHours())}-${par(agora.getMinutes())}`;
+  return `${base}_${data}_${hora}.csv`;
+}
+
 const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] = [
   {
     valor: 'sobrescrever',
@@ -201,7 +210,7 @@ export function CsvBulkSection() {
         lista.push(f);
         fontesPorObra.set(f.obra_id, lista);
       }
-      baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), 'obras.csv');
+      baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), nomeArquivoComDataHora('obras'));
     } catch (err) {
       setErroDownload(mensagemDeErro(err));
     } finally {
