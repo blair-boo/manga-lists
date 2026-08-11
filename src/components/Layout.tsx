@@ -98,7 +98,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   </NavLink>
                   <NavLink to="/atualizacoes">Updates</NavLink>
                   <NavLink to="/cadastrar">Add</NavLink>
-                  <NavLink to="/testes">Tests</NavLink>
+                  <NavLink to="/settings">Settings</NavLink>
                 </nav>
                 <BotaoModoEdicao />
               </div>
