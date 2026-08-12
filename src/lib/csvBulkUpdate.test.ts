@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { buildUpdatePayload, obrasParaCsv, parseCsvFile, sourcesDaLinha, unirArrays } from './csvBulkUpdate';
+import {
+  buildUpdatePayload,
+  obrasParaCsv,
+  parseArquivoObras,
+  parseCsvFile,
+  sourcesDaLinha,
+  unirArrays,
+} from './csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
 
 describe('sourcesDaLinha', () => {
-  it('coluna ausente retorna undefined (não mexe nas fontes)', () => {
+  it('nenhuma das três colunas presente retorna undefined (não mexe nas fontes)', () => {
     expect(sourcesDaLinha({ id: '1' })).toBeUndefined();
   });
 
-  it('coluna presente e vazia retorna array vazio (limpa todas as fontes)', () => {
+  it('coluna sources presente e vazia retorna array vazio (limpa)', () => {
     expect(sourcesDaLinha({ id: '1', sources: '' })).toEqual([]);
   });
 
@@ -18,8 +25,26 @@ describe('sourcesDaLinha', () => {
     ]);
   });
 
-  it('colapsa URLs duplicadas', () => {
+  it('colapsa URLs duplicadas dentro da mesma coluna', () => {
     expect(sourcesDaLinha({ sources: 'https://a.com/x; https://a.com/x' })).toEqual(['https://a.com/x']);
+  });
+
+  it('une as três colunas (sources, comix, official_sources) numa lista só', () => {
+    expect(
+      sourcesDaLinha({
+        sources: 'https://a.com/x',
+        comix: 'https://comix.to/y',
+        official_sources: 'https://manta.net/z',
+      })
+    ).toEqual(['https://a.com/x', 'https://comix.to/y', 'https://manta.net/z']);
+  });
+
+  it('colapsa URL duplicada entre colunas diferentes', () => {
+    expect(sourcesDaLinha({ sources: 'https://a.com/x', comix: 'https://a.com/x' })).toEqual(['https://a.com/x']);
+  });
+
+  it('só comix presente no cabeçalho já ativa a reconciliação (as outras contam como vazias)', () => {
+    expect(sourcesDaLinha({ comix: 'https://comix.to/y' })).toEqual(['https://comix.to/y']);
   });
 });
 
@@ -232,7 +257,7 @@ describe('obrasParaCsv', () => {
     expect(payload.tags).toBeNull();
   });
 
-  it('coluna sources lista as URLs das fontes da obra, separadas por ;', () => {
+  it('coluna sources lista as URLs de fontes genéricas, separadas por ;', () => {
     const fontesPorObra = new Map<string, Fonte[]>([
       [
         'abc-123',
@@ -245,11 +270,86 @@ describe('obrasParaCsv', () => {
     const csv = obrasParaCsv([obra], fontesPorObra);
     const { linhas } = parseCsvFile(csv);
     expect(linhas[0].sources).toBe('https://ezmanga.org/solo-leveling; https://nyxscans.com/solo-leveling');
+    expect(linhas[0].comix).toBe('');
+    expect(linhas[0].official_sources).toBe('');
   });
 
-  it('sem fontesPorObra, a coluna sources sai vazia', () => {
+  it('separa comix.to na coluna comix e os sites licenciados em official_sources', () => {
+    const fontesPorObra = new Map<string, Fonte[]>([
+      [
+        'abc-123',
+        [
+          { url: 'https://comix.to/solo-leveling' } as Fonte,
+          { url: 'https://ezmanga.org/solo-leveling' } as Fonte,
+          { url: 'https://manta.net/solo-leveling' } as Fonte,
+          { url: 'https://www.webtoons.com/en/action/solo-leveling' } as Fonte,
+          { url: 'https://tappytoon.com/solo-leveling' } as Fonte,
+          { url: 'https://tapas.io/solo-leveling' } as Fonte,
+          { url: 'https://www.lezhinus.com/en/solo-leveling' } as Fonte,
+        ],
+      ],
+    ]);
+    const csv = obrasParaCsv([obra], fontesPorObra);
+    const { linhas } = parseCsvFile(csv);
+    expect(linhas[0].comix).toBe('https://comix.to/solo-leveling');
+    expect(linhas[0].sources).toBe('https://ezmanga.org/solo-leveling');
+    expect(linhas[0].official_sources).toBe(
+      'https://manta.net/solo-leveling; https://www.webtoons.com/en/action/solo-leveling; ' +
+        'https://tappytoon.com/solo-leveling; https://tapas.io/solo-leveling; https://www.lezhinus.com/en/solo-leveling'
+    );
+  });
+
+  it('sem fontesPorObra, as três colunas de fontes saem vazias', () => {
     const csv = obrasParaCsv([obra]);
     const { linhas } = parseCsvFile(csv);
     expect(linhas[0].sources).toBe('');
+    expect(linhas[0].comix).toBe('');
+    expect(linhas[0].official_sources).toBe('');
+  });
+});
+
+describe('parseArquivoObras (CSV)', () => {
+  it('cai no mesmo parser que parseCsvFile pra arquivo .csv', async () => {
+    const file = new File(['id,titulo\n1,Solo Leveling\n'], 'obras.csv', { type: 'text/csv' });
+    const resultado = await parseArquivoObras(file);
+    expect(resultado.linhas).toEqual([{ id: '1', titulo: 'Solo Leveling' }]);
+    expect(resultado.linhasComProblema).toBe(0);
+  });
+});
+
+describe('parseArquivoObras (XLSX)', () => {
+  it('lê a primeira aba com o mesmo casamento de cabeçalho do CSV, incluindo as três colunas de fontes', async () => {
+    const XLSX = await import('xlsx');
+    const planilha = XLSX.utils.aoa_to_sheet([
+      ['id', 'titulo', 'score', 'sources', 'comix', 'official_sources'],
+      ['abc-123', 'Solo Leveling', 5, 'https://ezmanga.org/x', 'https://comix.to/x', 'https://manta.net/x'],
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, planilha, 'obras');
+    const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+    const file = new File([buffer], 'obras.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    const resultado = await parseArquivoObras(file);
+    expect(resultado.linhas).toEqual([
+      {
+        id: 'abc-123',
+        titulo: 'Solo Leveling',
+        score: '5',
+        sources: 'https://ezmanga.org/x',
+        comix: 'https://comix.to/x',
+        official_sources: 'https://manta.net/x',
+      },
+    ]);
+    expect(resultado.linhasComProblema).toBe(0);
+
+    const payload = buildUpdatePayload(resultado.linhas[0]);
+    expect(payload.score).toBe(5);
+    expect(sourcesDaLinha(resultado.linhas[0])).toEqual([
+      'https://ezmanga.org/x',
+      'https://comix.to/x',
+      'https://manta.net/x',
+    ]);
   });
 });
