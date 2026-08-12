@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 
-/** Aba Settings: sub-nav (Tests, Genres/Tags, Sources) + conteúdo da sub-aba ativa. */
+/** Aba Settings: sub-nav (Tests, Genres/Tags, Sources, Images) + conteúdo da sub-aba ativa. */
 export function SettingsPage() {
   return (
     <div className="settings-pagina">
@@ -8,6 +8,7 @@ export function SettingsPage() {
         <NavLink to="testes">Tests</NavLink>
         <NavLink to="generos-tags">Genres/Tags</NavLink>
         <NavLink to="sources">Sources</NavLink>
+        <NavLink to="images">Images</NavLink>
       </nav>
       <Outlet />
     </div>

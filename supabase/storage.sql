@@ -33,3 +33,26 @@ on conflict (id) do nothing;
 
 create policy "icons_leitura_publica" on storage.objects
     for select using (bucket_id = 'icons');
+
+-- Bucket de imagens importadas (Supabase Storage) — aba Images (Settings)
+--
+-- Mesmo padrão de "capas": leitura pública, escrita/update/delete só pra
+-- usuária autenticada. "Pastas" são só prefixos de path (mesma convenção do
+-- bucket "icons"), criadas via um objeto `.keep` dentro delas (Storage não
+-- tem "criar pasta vazia" própria — ver src/lib/imagensSupabase.ts).
+
+insert into storage.buckets (id, name, public)
+values ('imagens-importadas', 'imagens-importadas', true)
+on conflict (id) do nothing;
+
+create policy "imagens_importadas_leitura_publica" on storage.objects
+    for select using (bucket_id = 'imagens-importadas');
+
+create policy "imagens_importadas_escrita_autenticada" on storage.objects
+    for insert with check (bucket_id = 'imagens-importadas' and auth.role() = 'authenticated');
+
+create policy "imagens_importadas_update_autenticada" on storage.objects
+    for update using (bucket_id = 'imagens-importadas' and auth.role() = 'authenticated');
+
+create policy "imagens_importadas_delete_autenticada" on storage.objects
+    for delete using (bucket_id = 'imagens-importadas' and auth.role() = 'authenticated');

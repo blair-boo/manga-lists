@@ -9,6 +9,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TestesPage } from './pages/TestesPage';
 import { GenerosTagsPage } from './pages/GenerosTagsPage';
 import { SourcesPage } from './pages/SourcesPage';
+import { ImagesPage } from './pages/ImagesPage';
 
 export const router = createBrowserRouter(
   [
@@ -28,6 +29,7 @@ export const router = createBrowserRouter(
             { path: 'testes', element: <TestesPage /> },
             { path: 'generos-tags', element: <GenerosTagsPage /> },
             { path: 'sources', element: <SourcesPage /> },
+            { path: 'images', element: <ImagesPage /> },
           ],
         },
         // A aba Tests virou sub-aba de Settings — link antigo continua funcionando.

@@ -33,7 +33,25 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // O chunk do xlsx (aba Images > upload de .xlsx, import dinâmico em
+        // src/lib/imagensArquivo.ts) fica de fora do precache de propósito:
+        // sem isso, globPatterns pega TODO .js gerado, inclusive chunks só
+        // importados dinamicamente — o precache baixaria os ~140KB do xlsx
+        // pra usuárias que nunca abrem a aba Images. Fica disponível via
+        // rede normal na primeira vez que alguém sobe um .xlsx (precisa de
+        // conexão nesse momento específico; CacheFirst abaixo cacheia depois
+        // do primeiro uso, então funciona offline dali em diante).
+        globIgnores: ['**/assets/xlsx-*.js'],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\/assets\/xlsx-.*\.js$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'xlsx-chunk-cache',
+              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Capas de obras hospedadas no Supabase Storage: cache-first para funcionar offline
             urlPattern: ({ url }) => url.pathname.includes('/storage/v1/object/public/capas/'),
