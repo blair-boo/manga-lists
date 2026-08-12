@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { campoPorDominio, deriveSite, dominioDeUrl, tituloNoSite } from './site';
+import { campoPorDominio, colunaCsvDaFonte, deriveSite, dominioDeUrl, tituloNoSite } from './site';
 
 describe('dominioDeUrl', () => {
   it('extrai o host de uma URL válida', () => {
@@ -62,5 +62,30 @@ describe('campoPorDominio', () => {
   it('retorna null para um domínio de leitura comum (vira fonte genérica)', () => {
     expect(campoPorDominio('https://ezmanga.org/series/foo')).toBeNull();
     expect(campoPorDominio('https://coolscans.net/manga/bar')).toBeNull();
+  });
+});
+
+describe('colunaCsvDaFonte', () => {
+  it('comix.to cai na coluna comix', () => {
+    expect(colunaCsvDaFonte('https://comix.to/series/foo')).toBe('comix');
+  });
+
+  it('sites licenciados (Manta, WebToon, Tappytoon, Tapas, Lezhin) caem em official_sources', () => {
+    expect(colunaCsvDaFonte('https://manta.net/series/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://www.webtoons.com/en/action/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://m.webtoons.com/en/action/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://tappytoon.com/series/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://tapas.io/series/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://m.tapas.io/series/foo')).toBe('official_sources');
+    expect(colunaCsvDaFonte('https://www.lezhinus.com/en/foo')).toBe('official_sources');
+  });
+
+  it('demais domínios (scanlations genéricas) caem em sources', () => {
+    expect(colunaCsvDaFonte('https://ezmanga.org/series/foo')).toBe('sources');
+    expect(colunaCsvDaFonte('https://coolscans.net/manga/bar')).toBe('sources');
+  });
+
+  it('não confunde subdomínio de terceiro com o domínio oficial (só sufixo exato bate)', () => {
+    expect(colunaCsvDaFonte('https://notmanta.net/series/foo')).toBe('sources');
   });
 });

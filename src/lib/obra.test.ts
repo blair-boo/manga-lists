@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitulosAtrasados, familiaDeTipo, temNovoCapitulo } from './obra';
+import { capitulosAtrasados, familiaDeTipo, percentualLido, temNovoCapitulo } from './obra';
 import type { Obra } from '../types';
 
 function obraFake(parcial: Partial<Obra>): Obra {
@@ -82,5 +82,30 @@ describe('capitulosAtrasados', () => {
     expect(capitulosAtrasados(obraFake({ ultimo_capitulo_lancado: 15, capitulo_atual: 10 }))).toBe(5);
     expect(capitulosAtrasados(obraFake({ ultimo_capitulo_lancado: 10, capitulo_atual: 15 }))).toBe(0);
     expect(capitulosAtrasados(obraFake({ ultimo_capitulo_lancado: null, capitulo_atual: 10 }))).toBe(0);
+  });
+});
+
+describe('percentualLido', () => {
+  it('null quando não há ultimo_capitulo_lancado (a barra não aparece)', () => {
+    expect(percentualLido(obraFake({ ultimo_capitulo_lancado: null, capitulo_atual: 10 }))).toBeNull();
+    expect(percentualLido(obraFake({ ultimo_capitulo_lancado: 0, capitulo_atual: 10 }))).toBeNull();
+  });
+
+  it('calcula o percentual normal pra status_leitura diferente de Finished', () => {
+    expect(percentualLido(obraFake({ status_leitura: 'Reading', ultimo_capitulo_lancado: 20, capitulo_atual: 10 }))).toBe(50);
+    expect(percentualLido(obraFake({ status_leitura: 'Reading', ultimo_capitulo_lancado: 20, capitulo_atual: null }))).toBe(0);
+  });
+
+  it('Finished sempre fica em 100%, mesmo com capitulo_atual bem abaixo do último lançado', () => {
+    expect(percentualLido(obraFake({ status_leitura: 'Finished', ultimo_capitulo_lancado: 179, capitulo_atual: 1 }))).toBe(100);
+    expect(percentualLido(obraFake({ status_leitura: 'Finished', ultimo_capitulo_lancado: 179, capitulo_atual: null }))).toBe(100);
+  });
+
+  it('Finished não passa de 100% mesmo se capitulo_atual for maior que o último lançado', () => {
+    expect(percentualLido(obraFake({ status_leitura: 'Finished', ultimo_capitulo_lancado: 100, capitulo_atual: 500 }))).toBe(100);
+  });
+
+  it('sem Finished, ainda respeita o teto de 100% (não passa de 100 mesmo lendo além do último detectado)', () => {
+    expect(percentualLido(obraFake({ status_leitura: 'Reading', ultimo_capitulo_lancado: 100, capitulo_atual: 500 }))).toBe(100);
   });
 });

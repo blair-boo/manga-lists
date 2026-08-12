@@ -13,7 +13,7 @@ import {
   TituloEditavel,
 } from './ObraCardEdicao';
 import { updateObra } from '../db/repo';
-import { temNovoCapitulo } from '../lib/obra';
+import { percentualLido, temNovoCapitulo } from '../lib/obra';
 import { dominioDeUrl } from '../lib/scraperConfig';
 import type { Fonte, Obra } from '../types';
 
@@ -23,9 +23,11 @@ function Estrelas({ score }: { score: number | null }) {
 }
 
 function ProgressoBarra({ obra }: { obra: Obra }) {
-  if (obra.ultimo_capitulo_lancado == null || obra.ultimo_capitulo_lancado <= 0) return null;
-  const atual = obra.capitulo_atual ?? 0;
-  const pct = Math.min(100, Math.max(0, (atual / obra.ultimo_capitulo_lancado) * 100));
+  const pct = percentualLido(obra);
+  if (pct == null || obra.ultimo_capitulo_lancado == null) return null;
+  // Mesmo critério de percentualLido pro valor exposto a leitores de tela:
+  // Finished sempre "cheio", mesmo se capitulo_atual estiver desatualizado.
+  const atual = obra.status_leitura === 'Finished' ? obra.ultimo_capitulo_lancado : (obra.capitulo_atual ?? 0);
   return (
     <div
       className="obra-card-barra"

@@ -42,6 +42,36 @@ export function campoPorDominio(url: string): (typeof CAMPO_OBRA_POR_DOMINIO)[st
   return CAMPO_OBRA_POR_DOMINIO[dominioDeUrl(url)] ?? null;
 }
 
+/** Domínio do comix.to — ganha coluna própria no CSV de bulk fill (Bulk fill via CSV). */
+const DOMINIO_COMIX = 'comix.to';
+
+/**
+ * Domínios de leitura oficial (licenciados) — agrupados na coluna
+ * `official_sources` do CSV de bulk fill, separados das fontes genéricas
+ * (scanlations). Lista fechada de propósito: só os sites pedidos.
+ */
+const DOMINIOS_OFICIAIS = ['manta.net', 'webtoons.com', 'tappytoon.com', 'tapas.io', 'lezhinus.com'];
+
+function dominioBate(dominio: string, base: string): boolean {
+  return dominio === base || dominio.endsWith(`.${base}`);
+}
+
+export type ColunaCsvFonte = 'comix' | 'official_sources' | 'sources';
+
+/**
+ * Em qual coluna do CSV de bulk fill (Handout de organização das tabelas) a
+ * URL de uma fonte cai: `comix` (comix.to), `official_sources` (sites
+ * licenciados oficiais) ou `sources` (todo o resto — scanlations genéricas).
+ * Puramente organizacional: não muda nada na exibição do app, só como as
+ * fontes aparecem agrupadas no CSV/XLSX baixado e no re-upload.
+ */
+export function colunaCsvDaFonte(url: string): ColunaCsvFonte {
+  const dominio = dominioDeUrl(url);
+  if (dominioBate(dominio, DOMINIO_COMIX)) return 'comix';
+  if (DOMINIOS_OFICIAIS.some((base) => dominioBate(dominio, base))) return 'official_sources';
+  return 'sources';
+}
+
 /** Título aproximado da obra no site, derivado do slug da URL (para conferência). */
 export function tituloNoSite(url: string): string {
   try {

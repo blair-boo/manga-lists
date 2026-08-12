@@ -17,21 +17,22 @@ import {
 } from '../lib/importStatus';
 import {
   baixarCsv,
+  baixarObrasXlsx,
   buildUpdatePayload,
   obrasParaCsv,
-  parseCsvFile,
+  parseArquivoObras,
   sourcesDaLinha,
   type ModoImportacaoCsv,
 } from '../lib/csvBulkUpdate';
 import type { Fonte, Obra } from '../types';
 
 /** "obras_2026-08-11_14-32.csv" — data/hora local no nome, sem `:` (inválido em nomes de arquivo no Windows). */
-function nomeArquivoComDataHora(base: string): string {
+function nomeArquivoComDataHora(base: string, extensao: 'csv' | 'xlsx'): string {
   const agora = new Date();
   const par = (n: number) => String(n).padStart(2, '0');
   const data = `${agora.getFullYear()}-${par(agora.getMonth() + 1)}-${par(agora.getDate())}`;
   const hora = `${par(agora.getHours())}-${par(agora.getMinutes())}`;
-  return `${base}_${data}_${hora}.csv`;
+  return `${base}_${data}_${hora}.${extensao}`;
 }
 
 const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] = [
@@ -136,8 +137,7 @@ export function CsvBulkSection() {
     setProcessando(true);
     setResultado(null);
 
-    const texto = await file.text();
-    const { linhas, linhasComProblema } = parseCsvFile(texto);
+    const { linhas, linhasComProblema } = await parseArquivoObras(file);
 
     // Trava compartilhada com Reconciliation (StatusImportacaoView/bloqueiaImportacao
     // lê o mesmo registro) — reduz o risco de as duas atualizarem obras/fontes ao
@@ -234,7 +234,7 @@ export function CsvBulkSection() {
     }
   }
 
-  async function handleDownload() {
+  async function handleDownload(formato: 'csv' | 'xlsx') {
     setBaixando(true);
     setErroDownload(null);
     try {
@@ -250,7 +250,11 @@ export function CsvBulkSection() {
         lista.push(f);
         fontesPorObra.set(f.obra_id, lista);
       }
-      baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), nomeArquivoComDataHora('obras'));
+      if (formato === 'csv') {
+        baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), nomeArquivoComDataHora('obras', 'csv'));
+      } else {
+        await baixarObrasXlsx((obras ?? []) as Obra[], fontesPorObra, nomeArquivoComDataHora('obras', 'xlsx'));
+      }
     } catch (err) {
       setErroDownload(mensagemDeErro(err));
     } finally {
@@ -262,15 +266,22 @@ export function CsvBulkSection() {
     <section className="atualizacao-secao">
       <h3>Bulk fill via CSV</h3>
       <p>
-        Export the <code>obras</code> table (button below, or from the Supabase Table Editor), fill in whatever
-        fields you want in Excel/Google Sheets and upload the file here. Do not change the <code>id</code> and{' '}
-        <code>titulo</code> columns. A column left out of the file entirely is never touched; in{' '}
-        <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>/<code>sources</code>, separate
-        multiple values with <code>;</code>. <code>criado_em</code>/<code>atualizado_em</code> (and any other column
-        outside the ones listed in the downloaded CSV, like <code>obra_vinculada_id</code>) are always ignored — but
-        if you exported straight from the Table Editor, deleting those two date columns before editing/saving is a
-        good idea anyway: spreadsheet apps sometimes reformat them with an unquoted comma, which shifts the rest of
-        that row's columns and gets flagged below.
+        Export the <code>obras</code> table (buttons below, or from the Supabase Table Editor), fill in whatever
+        fields you want in Excel/Google Sheets and upload the file here — CSV and XLSX are both accepted, either
+        way round. Do not change the <code>id</code> and <code>titulo</code> columns. A column left out of the file
+        entirely is never touched; in <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>,
+        separate multiple values with <code>;</code>. <code>criado_em</code>/<code>atualizado_em</code> (and any
+        other column outside the ones listed in the downloaded file, like <code>obra_vinculada_id</code>) are always
+        ignored — but if you exported straight from the Table Editor, deleting those two date columns before
+        editing/saving is a good idea anyway: spreadsheet apps sometimes reformat them with an unquoted comma, which
+        shifts the rest of that row's columns and gets flagged below (CSV only).
+      </p>
+      <p>
+        Sources (<code>fontes</code> table) come split across three columns, purely to keep the sheet organized —
+        the app's display doesn't change. <code>comix</code> holds comix.to links, <code>official_sources</code>
+        holds the licensed readers (Manta, WebToon, Tappytoon, Tapas, Lezhin), and <code>sources</code> holds
+        everything else. Same <code>;</code>-separated format in all three; a URL is matched by column presence, not
+        by which column it's in.
       </p>
 
       <div className="conciliacao-tipos">
@@ -282,18 +293,26 @@ export function CsvBulkSection() {
         ))}
       </div>
       <p className="atualizacao-subtitulo-nota">
-        {MODOS.find((m) => m.valor === modo)?.descricao} Same rule for the <code>sources</code> column
-        (edits the <code>fontes</code> table): URLs you leave in place always keep their detected chapter/type/order
-        untouched, only the URL itself is matched.
+        {MODOS.find((m) => m.valor === modo)?.descricao} Same rule for the <code>sources</code>/<code>comix</code>/
+        <code>official_sources</code> columns (edits the <code>fontes</code> table): URLs you leave in place always
+        keep their detected chapter/type/order untouched, only the URL itself is matched.
       </p>
 
       <div className="csv-acoes">
         <label className="upload-csv">
-          <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={processando || !!bloqueio} />
-          {processando ? 'Processing…' : 'Choose CSV file'}
+          <input
+            type="file"
+            accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={handleFile}
+            disabled={processando || !!bloqueio}
+          />
+          {processando ? 'Processing…' : 'Choose CSV/XLSX file'}
         </label>
-        <button type="button" className="botao-secundario" onClick={handleDownload} disabled={baixando}>
+        <button type="button" className="botao-secundario" onClick={() => handleDownload('csv')} disabled={baixando}>
           {baixando ? 'Please wait…' : 'Download current CSV'}
+        </button>
+        <button type="button" className="botao-secundario" onClick={() => handleDownload('xlsx')} disabled={baixando}>
+          {baixando ? 'Please wait…' : 'Download current XLSX'}
         </button>
       </div>
       {erroDownload && <p className="execucao-status execucao-erro">{erroDownload}</p>}

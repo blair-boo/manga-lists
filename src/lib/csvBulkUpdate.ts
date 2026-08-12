@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import type { NovaObra } from '../db/repo';
+import { colunaCsvDaFonte } from './site';
 import type { Fonte, Obra } from '../types';
 
 /**
@@ -45,10 +46,19 @@ function rotuloCsv(campo: (typeof CAMPOS_TEXTO)[number]): string {
   return ROTULOS_CSV[campo] ?? campo;
 }
 
+/** As três colunas de fontes do CSV — nenhuma é um campo de `obras` (moram na
+ * tabela `fontes`), então não passam por buildUpdatePayload; CsvBulkSection lê
+ * essas colunas à parte com `sourcesDaLinha` e reconcilia direto contra as
+ * fontes da obra. A divisão em três é só organizacional (`colunaCsvDaFonte`
+ * decide pela URL): `comix` (comix.to) e `official_sources` (sites
+ * licenciados — manta/WebToon/Tappytoon/Tapas/Lezhin) ganham coluna própria
+ * pra facilitar de bater o olho na planilha; `sources` continua com o resto
+ * (scanlations genéricas). Não muda nada na exibição do app — as três
+ * colunas viram a mesma tabela `fontes` de sempre. */
+const COLUNAS_FONTES = ['sources', 'comix', 'official_sources'] as const;
+
 /** Ordem/colunas exatas do CSV baixado (id/titulo + os quatro grupos acima +
- * `sources`). `sources` não é um campo de `obras` — mora na tabela `fontes` —
- * então não passa por buildUpdatePayload; CsvBulkSection lê essa coluna à
- * parte com `sourcesDaLinha` e reconcilia direto contra as fontes da obra. */
+ * as três colunas de fontes). */
 const COLUNAS_CSV = [
   'id',
   'titulo',
@@ -56,7 +66,7 @@ const COLUNAS_CSV = [
   ...CAMPOS_NUMERO,
   ...CAMPOS_ARRAY,
   ...CAMPOS_BOOL,
-  'sources',
+  ...COLUNAS_FONTES,
 ];
 
 const VALORES_BOOL_VERDADEIRO = new Set(['true', 't', '1', 'yes', 'y', 'sim', 's', 'x', 'verdadeiro']);
@@ -178,23 +188,28 @@ export function buildUpdatePayload(
 }
 
 /**
- * Lê a coluna `sources` de uma linha do CSV: lista de URLs desejada pra obra,
- * na mesma regra de presença das demais colunas — `undefined` se a coluna
- * nem está no cabeçalho (não mexe nas fontes), array (possivelmente vazio)
- * se está presente. Vazio limpa TODAS as fontes da obra — mesma convenção de
- * "célula vazia limpa o campo" usada em `buildUpdatePayload`. URLs duplicadas
- * na célula colapsam numa só. Quem reconcilia contra as fontes existentes
- * (criar as que faltam, apagar as que sobram, preservar as que batem) é
- * CsvBulkSection — aqui só faz o parse.
+ * Lê as três colunas de fontes (`sources`, `comix`, `official_sources`) de
+ * uma linha do CSV e devolve a lista de URLs desejada pra obra (união das
+ * três, sem duplicar) — mesma regra de presença das demais colunas:
+ * `undefined` se NENHUMA das três está no cabeçalho (não mexe nas fontes);
+ * array (possivelmente vazio) se ao menos uma está presente. Vazias limpam
+ * as fontes correspondentes — mesma convenção de "célula vazia limpa o
+ * campo" usada em `buildUpdatePayload`. A divisão em três colunas é só pra
+ * organizar a planilha; quem reconcilia contra as fontes existentes (criar
+ * as que faltam, apagar as que sobram, preservar as que batem) é
+ * CsvBulkSection — aqui só faz o parse, já achatado numa lista só.
  */
 export function sourcesDaLinha(row: LinhaCsv): string[] | undefined {
-  if (!('sources' in row)) return undefined;
+  const colunasPresentes = COLUNAS_FONTES.filter((coluna) => coluna in row);
+  if (colunasPresentes.length === 0) return undefined;
   const vistas = new Set<string>();
   const urls: string[] = [];
-  for (const url of parseArrayCampo(row.sources)) {
-    if (!vistas.has(url)) {
-      vistas.add(url);
-      urls.push(url);
+  for (const coluna of colunasPresentes) {
+    for (const url of parseArrayCampo(row[coluna])) {
+      if (!vistas.has(url)) {
+        vistas.add(url);
+        urls.push(url);
+      }
     }
   }
   return urls;
@@ -218,27 +233,99 @@ export function parseCsvFile(texto: string): ResultadoParseCsv {
 }
 
 /**
- * Gera o CSV da tabela `obras` no mesmo formato que a atualização em massa
- * espera de volta (mesmas colunas/ordem; arrays com `;`, booleanos como
- * true/false) — download → editar → re-upload sem conversão manual.
- * `fontesPorObra` (opcional) preenche a coluna `sources` com as URLs de cada
- * obra, separadas por `;`; sem ela a coluna sai vazia.
+ * Lê um arquivo de bulk fill (Handout de organização das tabelas): aceita
+ * .csv e .xlsx/.xls pela extensão (fallback pro MIME type quando o navegador
+ * não preenche a extensão), convertendo os dois pro mesmo formato de linhas
+ * que `buildUpdatePayload`/`sourcesDaLinha` leem. XLSX usa a primeira aba e a
+ * primeira linha como cabeçalho; células numéricas/booleanas viram string
+ * (mesma representação que o CSV usa), então o resto do pipeline não precisa
+ * saber de onde a linha veio.
  */
-export function obrasParaCsv(obras: Obra[], fontesPorObra?: Map<string, Fonte[]>): string {
-  const linhas = obras.map((o) => {
+export async function parseArquivoObras(file: File): Promise<ResultadoParseCsv> {
+  const nome = file.name.toLowerCase();
+  const ehXlsx =
+    nome.endsWith('.xlsx') ||
+    nome.endsWith('.xls') ||
+    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  if (!ehXlsx) {
+    const texto = await file.text();
+    return parseCsvFile(texto);
+  }
+
+  // Import dinâmico: só carrega a lib (pesada) quando a usuária efetivamente
+  // sobe um .xlsx — mesmo truque de src/lib/imagensArquivo.ts (fora do bundle
+  // inicial e do precache do PWA, ver vite.config.ts).
+  const XLSX = await import('xlsx');
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const primeiraAba = workbook.SheetNames[0];
+  if (!primeiraAba) return { linhas: [], linhasComProblema: 0 };
+  const brutas = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[primeiraAba], { defval: '' });
+  const linhas: LinhaCsv[] = brutas.map((linha) => {
+    const convertida: LinhaCsv = {};
+    for (const [chave, valor] of Object.entries(linha)) convertida[chave] = valor == null ? '' : String(valor);
+    return convertida;
+  });
+  return { linhas, linhasComProblema: 0 };
+}
+
+/**
+ * Monta as linhas da tabela `obras` no mesmo formato que a atualização em
+ * massa espera de volta (mesmas colunas/ordem; arrays com `;`, booleanos como
+ * true/false) — usado tanto pelo CSV quanto pelo XLSX, pra download → editar
+ * → re-upload sem conversão manual. `fontesPorObra` (opcional) preenche as
+ * três colunas de fontes (`sources`/`comix`/`official_sources`, ver
+ * `COLUNAS_FONTES`) com as URLs de cada obra, separadas por `;`, agrupadas
+ * pela URL via `colunaCsvDaFonte`; sem `fontesPorObra` as três saem vazias.
+ */
+function obrasParaLinhas(obras: Obra[], fontesPorObra?: Map<string, Fonte[]>): Record<string, string>[] {
+  return obras.map((o) => {
     const linha: Record<string, string> = { id: o.id, titulo: o.titulo };
     for (const campo of CAMPOS_TEXTO) linha[rotuloCsv(campo)] = (o[campo] as string | null) ?? '';
     for (const campo of CAMPOS_NUMERO) linha[campo] = o[campo] != null ? String(o[campo]) : '';
     for (const campo of CAMPOS_ARRAY) linha[campo] = (o[campo] ?? []).join('; ');
     for (const campo of CAMPOS_BOOL) linha[campo] = o[campo] ? 'true' : 'false';
-    linha.sources = (fontesPorObra?.get(o.id) ?? []).map((f) => f.url).join('; ');
+
+    const porColuna: Record<(typeof COLUNAS_FONTES)[number], string[]> = { sources: [], comix: [], official_sources: [] };
+    for (const f of fontesPorObra?.get(o.id) ?? []) porColuna[colunaCsvDaFonte(f.url)].push(f.url);
+    for (const coluna of COLUNAS_FONTES) linha[coluna] = porColuna[coluna].join('; ');
+
     return linha;
   });
-  return Papa.unparse({ fields: [...COLUNAS_CSV], data: linhas });
+}
+
+export function obrasParaCsv(obras: Obra[], fontesPorObra?: Map<string, Fonte[]>): string {
+  return Papa.unparse({ fields: [...COLUNAS_CSV], data: obrasParaLinhas(obras, fontesPorObra) });
 }
 
 export function baixarCsv(conteudo: string, nomeArquivo: string): void {
   const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Mesmo conteúdo de `obrasParaCsv`, num arquivo .xlsx em vez de .csv — pra
+ * quem prefere editar em Excel direto (evita o tropeço de campos com `;` ou
+ * aspas sendo mal interpretados por algumas versões do Excel ao abrir CSV).
+ * Import dinâmico da lib `xlsx`, mesmo motivo de `parseArquivoObras`.
+ */
+export async function baixarObrasXlsx(
+  obras: Obra[],
+  fontesPorObra: Map<string, Fonte[]> | undefined,
+  nomeArquivo: string
+): Promise<void> {
+  const XLSX = await import('xlsx');
+  const planilha = XLSX.utils.json_to_sheet(obrasParaLinhas(obras, fontesPorObra), { header: [...COLUNAS_CSV] });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, planilha, 'obras');
+  const buffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

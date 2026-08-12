@@ -32,3 +32,17 @@ export function capitulosAtrasados(obra: Obra): number {
   if (obra.ultimo_capitulo_lancado == null || obra.capitulo_atual == null) return 0;
   return Math.max(0, obra.ultimo_capitulo_lancado - obra.capitulo_atual);
 }
+
+/**
+ * Percentual (0-100) da barra de andamento no card da lista, ou `null` quando
+ * não há `ultimo_capitulo_lancado` pra calcular contra (a barra não aparece).
+ * Com status_leitura 'Finished' a barra sempre fica em 100%, mesmo que
+ * `capitulo_atual` esteja desatualizado ou abaixo do último lançado — reler
+ * do zero ou ainda não ter marcado o capítulo final não deveria fazer a obra
+ * parecer "não terminada" na lista.
+ */
+export function percentualLido(obra: Obra): number | null {
+  if (obra.ultimo_capitulo_lancado == null || obra.ultimo_capitulo_lancado <= 0) return null;
+  const atual = obra.status_leitura === 'Finished' ? obra.ultimo_capitulo_lancado : (obra.capitulo_atual ?? 0);
+  return Math.min(100, Math.max(0, (atual / obra.ultimo_capitulo_lancado) * 100));
+}
