@@ -1,0 +1,217 @@
+/* Aba Images: colar links / subir CSV-XLSX, revisar numa tabela editável, importar pro destino escolhido. */
+
+.images-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+  padding-bottom: 24px;
+}
+
+.images-cabecalho h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.images-subtitulo {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+.images-secao {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.images-secao h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.images-textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.images-secao-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.images-upload-label {
+  display: inline-flex;
+}
+
+.images-upload-botao {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.images-upload-botao:hover {
+  border-color: var(--accent-border);
+}
+
+.images-destino {
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+}
+
+.images-destino-opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.images-pasta-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.images-pasta-picker select,
+.images-pasta-picker input[type='text'] {
+  min-width: 160px;
+}
+
+.images-pasta-dica {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+.images-vazio {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+.images-tabela-wrap {
+  overflow-x: auto;
+}
+
+.images-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.images-tabela th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  opacity: 0.7;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.images-tabela td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.images-celula-url {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.images-tabela input {
+  width: 100%;
+  min-width: 140px;
+}
+
+.images-celula-acoes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.images-linha-colisao td {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.images-badge-status {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.images-badge-pendente {
+  background: var(--bg-raised);
+  opacity: 0.8;
+}
+
+.images-badge-baixando {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.images-badge-sucesso {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.images-badge-erro {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.images-erro-linha {
+  display: block;
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 2px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.images-aviso {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 0;
+}
+
+.images-erro-geral {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+.images-acoes-finais {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+@media (max-width: 700px) {
+  .images-celula-url {
+    max-width: 140px;
+  }
+}
