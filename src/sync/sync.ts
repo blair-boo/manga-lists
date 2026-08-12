@@ -71,6 +71,36 @@ function sanitizarPayload(entity: 'obras' | 'fontes', payload: Record<string, un
   return Object.fromEntries(Object.entries(payload).filter(([chave]) => colunas.has(chave)));
 }
 
+const TAMANHO_PAGINA = 1000;
+
+/**
+ * Busca TODAS as linhas de uma tabela, paginando em lotes de TAMANHO_PAGINA.
+ * Uma query sem paginação (`select('*')` puro) é truncada silenciosamente
+ * pelo limite padrão de linhas do PostgREST/Supabase quando a tabela passa
+ * de ~1000 linhas — sem erro, só devolve menos linhas do que existem. Foi a
+ * causa real de fontes "desaparecidas": `fontes` passou de 1000 linhas e
+ * pullFontes() parou de enxergar as mais recentes em toda sincronização,
+ * mesmo numa sessão nova (nada a ver com cache do PWA). `query` PRECISA vir
+ * com `.order(...)` numa coluna estável (ver chamadas) — `.range()` é só
+ * offset/limit, sem ORDER BY as páginas não são deterministicamente
+ * complementares.
+ */
+async function buscarTudoPaginado<T>(
+  query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const todas: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await query(from, from + TAMANHO_PAGINA - 1);
+    if (error) throw error;
+    const linhas = data ?? [];
+    todas.push(...linhas);
+    if (linhas.length < TAMANHO_PAGINA) break;
+    from += TAMANHO_PAGINA;
+  }
+  return todas;
+}
+
 async function applyMutation(item: SyncQueueItem): Promise<void> {
   const table = item.entity;
   if (item.op === 'delete') {
@@ -115,11 +145,11 @@ export async function pushPending(): Promise<{ falhas: number }> {
 /** Puxa obras alteradas no servidor desde a última sync (incremental via atualizado_em). */
 async function pullObras(): Promise<void> {
   const since = await getLastSyncedAt('obras');
-  let query = supabase.from('obras').select('*').order('atualizado_em', { ascending: true });
-  if (since) query = query.gt('atualizado_em', since);
-  const { data, error } = await query;
-  if (error) throw error;
-  const rows = (data ?? []) as Obra[];
+  const rows = await buscarTudoPaginado<Obra>((from, to) => {
+    let query = supabase.from('obras').select('*').order('atualizado_em', { ascending: true }).range(from, to);
+    if (since) query = query.gt('atualizado_em', since);
+    return query;
+  });
   if (rows.length > 0) {
     // GUARDA: não sobrescrever obras com edição local ainda não sincronizada
     // (insert/update pendente na syncQueue). Sem isso, um pull que traz a versão
@@ -144,7 +174,8 @@ async function pullObras(): Promise<void> {
  * Reconcilia deleções remotas de obras. O pull incremental (via atualizado_em)
  * nunca enxerga linhas apagadas no servidor, então uma obra deletada em outro
  * dispositivo (ou direto no Supabase) ficaria para sempre no IndexedDB local.
- * Busca só os ids do servidor e remove localmente o que não existe mais lá.
+ * Busca só os ids do servidor (paginado — ver buscarTudoPaginado) e remove
+ * localmente o que não existe mais lá.
  *
  * GUARDA CRÍTICA: ids com mutação insert/update pendente na syncQueue são
  * excluídos da remoção — são obras criadas/alteradas localmente cujo push ainda
@@ -152,18 +183,16 @@ async function pullObras(): Promise<void> {
  * destruiria dados da usuária. A checagem é feita AQUI, na hora de deletar (não
  * antes), para cobrir mutações enfileiradas no meio do próprio ciclo de sync.
  *
- * Qualquer falha ou resposta parcial aborta a reconciliação silenciosamente:
- * nunca deletar com base em erro ou lista incompleta de ids.
+ * Qualquer falha aborta a reconciliação silenciosamente: nunca deletar com
+ * base numa lista de ids que pode estar incompleta.
  */
 async function reconciliarObrasDeletadas(): Promise<void> {
   let idsServidor: Set<string>;
   try {
-    const { data, error, count } = await supabase.from('obras').select('id', { count: 'exact' });
-    if (error || !data) return;
-    // Resposta parcial (ex.: limite de linhas do PostgREST): reconciliar com uma
-    // lista truncada apagaria obras que existem no servidor. Pula.
-    if (count !== null && data.length < count) return;
-    idsServidor = new Set(data.map((r) => r.id as string));
+    const linhas = await buscarTudoPaginado<{ id: string }>((from, to) =>
+      supabase.from('obras').select('id').order('id', { ascending: true }).range(from, to)
+    );
+    idsServidor = new Set(linhas.map((r) => r.id));
   } catch {
     return;
   }
@@ -192,8 +221,10 @@ async function reconciliarObrasDeletadas(): Promise<void> {
  * Puxa fontes do servidor. A tabela `fontes` não tem coluna de atualização
  * (só `criado_em`), e o scraper atualiza `ultimo_capitulo_detectado` in-place
  * sem mudar essa data — então não dá pra fazer pull incremental confiável.
- * Como o volume é pequeno (dezenas/centenas de linhas), full refresh a cada
- * sync é simples.
+ * Full refresh a cada sync, paginado (ver buscarTudoPaginado — acima de ~1000
+ * linhas uma busca sem paginação é truncada silenciosamente pelo Supabase, e
+ * foi exatamente isso que fazia fontes recentes "sumirem": a tabela passou de
+ * 1000 linhas e as mais novas ficavam de fora de toda sincronização).
  *
  * GUARDA (mesmo raciocínio de pullObras): fontes com insert/update pendente na
  * syncQueue mantêm a versão LOCAL em vez de serem sobrescritas pela varredura
@@ -206,9 +237,9 @@ async function reconciliarObrasDeletadas(): Promise<void> {
  * volta.
  */
 async function pullFontes(): Promise<void> {
-  const { data, error } = await supabase.from('fontes').select('*');
-  if (error) throw error;
-  const rows = (data ?? []) as Fonte[];
+  const rows = await buscarTudoPaginado<Fonte>((from, to) =>
+    supabase.from('fontes').select('*').order('id', { ascending: true }).range(from, to)
+  );
 
   const pendentes = await db.syncQueue.where('entity').equals('fontes').toArray();
   const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
@@ -226,9 +257,9 @@ async function pullFontes(): Promise<void> {
 }
 
 async function pullListas(): Promise<void> {
-  const { data, error } = await supabase.from('listas').select('*');
-  if (error) throw error;
-  const rows = (data ?? []) as ListaItem[];
+  const rows = await buscarTudoPaginado<ListaItem>((from, to) =>
+    supabase.from('listas').select('*').order('id', { ascending: true }).range(from, to)
+  );
   await db.transaction('rw', db.listas, async () => {
     await db.listas.clear();
     if (rows.length > 0) await db.listas.bulkPut(rows);
