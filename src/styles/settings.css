@@ -109,7 +109,6 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding-top: 4px;
   max-height: 55vh;
   overflow-y: auto;
 }
@@ -120,12 +119,13 @@
    sem os dois títulos ocupando tela ao mesmo tempo. */
 .generos-tags-secao h2 {
   position: sticky;
-  top: 0;
+  top: -1px;
   z-index: 3;
   background: var(--bg);
   font-size: 15px;
-  margin: 0;
-  padding: 8px 0 10px;
+  margin-top: -1px;
+  margin-bottom: 0;
+  padding: 9px 0 10px;
 }
 
 .generos-tags-secao-contagem {
@@ -141,7 +141,7 @@
 
 .generos-tags-acoes-massa {
   position: sticky;
-  top: 40px; /* logo abaixo do título fixo da seção (.generos-tags-secao h2), sem sobrepor */
+  top: 39px; /* logo abaixo do título fixo da seção (.generos-tags-secao h2), sem sobrepor */
   z-index: 2;
   display: flex;
   align-items: center;
