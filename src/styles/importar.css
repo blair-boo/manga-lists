@@ -112,6 +112,62 @@
   border-radius: 6px;
 }
 
+.importar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 16px;
+}
+
+@media (max-width: 640px) {
+  .importar-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.importar-secao-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+
+.importar-secao-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.importar-subsecao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.importar-subsecao h4 {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.importar-capa-comix-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.importar-capa-comix-link img {
+  width: 24px;
+  height: 24px;
+}
+
 .importar-resumo {
   padding: 10px 12px;
   border-radius: 6px;
