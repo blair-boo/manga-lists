@@ -573,77 +573,73 @@ export function ImportarComixPage() {
               {/* 3. Type / Publication status */}
               <section className="importar-secao">
                 <h3>Type &amp; Publication status</h3>
-                <div className="importar-grid">
-                  <label className="importar-linha">
-                    <input
-                      type="checkbox"
-                      checked={aceitarTipo}
-                      disabled={comixObra.tipo == null}
-                      onChange={(e) => setAceitarTipo(e.target.checked)}
-                    />
-                    {comixObra.tipo ? (
-                      <>
-                        {!criandoNova && (
-                          <span className="importar-valor-atual">
-                            <strong>Current:</strong> {obraAlvo!.tipo ?? '—'}
-                          </span>
-                        )}
-                        <span className="importar-valor-novo">{comixObra.tipo}</span>
-                      </>
-                    ) : (
-                      <span>Type not recognized (raw value: "{comixObra.tipoBruto ?? '?'}")</span>
-                    )}
-                  </label>
-                  <label className="importar-linha">
-                    <input
-                      type="checkbox"
-                      checked={aceitarStatus}
-                      disabled={comixObra.statusPublicacao == null}
-                      onChange={(e) => setAceitarStatus(e.target.checked)}
-                    />
-                    {comixObra.statusPublicacao ? (
-                      <>
-                        {!criandoNova && (
-                          <span className="importar-valor-atual">
-                            <strong>Current:</strong> {obraAlvo!.status_publicacao ?? '—'}
-                          </span>
-                        )}
-                        <span className="importar-valor-novo">{comixObra.statusPublicacao}</span>
-                      </>
-                    ) : (
-                      <span>Publication status not recognized (raw value: "{comixObra.statusPublicacaoBruto ?? '?'}")</span>
-                    )}
-                  </label>
-                </div>
+                <label className="importar-linha">
+                  <input
+                    type="checkbox"
+                    checked={aceitarTipo}
+                    disabled={comixObra.tipo == null}
+                    onChange={(e) => setAceitarTipo(e.target.checked)}
+                  />
+                  {comixObra.tipo ? (
+                    <>
+                      {!criandoNova && (
+                        <span className="importar-valor-atual">
+                          <strong>Current:</strong> {obraAlvo!.tipo ?? '—'}
+                        </span>
+                      )}
+                      <span className="importar-valor-novo">{comixObra.tipo}</span>
+                    </>
+                  ) : (
+                    <span>Type not recognized (raw value: "{comixObra.tipoBruto ?? '?'}")</span>
+                  )}
+                </label>
+                <label className="importar-linha">
+                  <input
+                    type="checkbox"
+                    checked={aceitarStatus}
+                    disabled={comixObra.statusPublicacao == null}
+                    onChange={(e) => setAceitarStatus(e.target.checked)}
+                  />
+                  {comixObra.statusPublicacao ? (
+                    <>
+                      {!criandoNova && (
+                        <span className="importar-valor-atual">
+                          <strong>Current:</strong> {obraAlvo!.status_publicacao ?? '—'}
+                        </span>
+                      )}
+                      <span className="importar-valor-novo">{comixObra.statusPublicacao}</span>
+                    </>
+                  ) : (
+                    <span>Publication status not recognized (raw value: "{comixObra.statusPublicacaoBruto ?? '?'}")</span>
+                  )}
+                </label>
               </section>
 
               {/* 4. Author / Artists */}
               <section className="importar-secao">
                 <h3>Author &amp; Artists</h3>
-                <div className="importar-grid">
-                  {comixObra.autores.length > 0 && (
-                    <label className="importar-linha">
-                      <input type="checkbox" checked={aceitarAutor} onChange={(e) => setAceitarAutor(e.target.checked)} />
-                      {!criandoNova && obraAlvo!.autor && (
-                        <span className="importar-valor-atual">
-                          <strong>Current:</strong> {obraAlvo!.autor}
-                        </span>
-                      )}
-                      <span className="importar-valor-novo">{comixObra.autores.join(', ')}</span>
-                    </label>
-                  )}
-                  {comixObra.artistas.length > 0 && (
-                    <label className="importar-linha">
-                      <input type="checkbox" checked={aceitarArtistas} onChange={(e) => setAceitarArtistas(e.target.checked)} />
-                      {!criandoNova && obraAlvo!.artistas && (
-                        <span className="importar-valor-atual">
-                          <strong>Current:</strong> {obraAlvo!.artistas}
-                        </span>
-                      )}
-                      <span className="importar-valor-novo">{comixObra.artistas.join(', ')}</span>
-                    </label>
-                  )}
-                </div>
+                {comixObra.autores.length > 0 && (
+                  <label className="importar-linha">
+                    <input type="checkbox" checked={aceitarAutor} onChange={(e) => setAceitarAutor(e.target.checked)} />
+                    {!criandoNova && obraAlvo!.autor && (
+                      <span className="importar-valor-atual">
+                        <strong>Current:</strong> {obraAlvo!.autor}
+                      </span>
+                    )}
+                    <span className="importar-valor-novo">{comixObra.autores.join(', ')}</span>
+                  </label>
+                )}
+                {comixObra.artistas.length > 0 && (
+                  <label className="importar-linha">
+                    <input type="checkbox" checked={aceitarArtistas} onChange={(e) => setAceitarArtistas(e.target.checked)} />
+                    {!criandoNova && obraAlvo!.artistas && (
+                      <span className="importar-valor-atual">
+                        <strong>Current:</strong> {obraAlvo!.artistas}
+                      </span>
+                    )}
+                    <span className="importar-valor-novo">{comixObra.artistas.join(', ')}</span>
+                  </label>
+                )}
               </section>
 
               {/* 5. Cover */}
