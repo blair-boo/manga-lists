@@ -162,6 +162,8 @@ export function ImportarComixPage() {
   const [aceitarLinks, setAceitarLinks] = useState<AceitarLinks>({ al: false, mal: false, mu: false, md: false, mb: false });
   const [aceitarFonte, setAceitarFonte] = useState(false);
   const [mostrarTodosAltTitulos, setMostrarTodosAltTitulos] = useState(false);
+  const [novosValoresAbertos, setNovosValoresAbertos] = useState(false);
+  const [linksAbertos, setLinksAbertos] = useState(false);
 
   // Fallback manual de capa (Bloco H): static.comix.to bloqueia fetch() por
   // CORP mesmo dentro do próprio comix.to (não é só Referer — confirmado por
@@ -212,17 +214,19 @@ export function ImportarComixPage() {
     setTagsSelecionados(new Set(tagsConhecidosMatch.filter((t) => !(obraAlvo?.tags ?? []).includes(t))));
 
     setAceitarLinks({
-      al: !!comixObra.links.anilist_url && (criandoNova || !obraAlvo?.anilist_url),
-      mal: !!comixObra.links.myanimelist_url && (criandoNova || !obraAlvo?.myanimelist_url),
-      mu: !!comixObra.links.mangaupdates_url && (criandoNova || !obraAlvo?.mangaupdates_url),
-      md: !!comixObra.links.mangadex_url && (criandoNova || !obraAlvo?.mangadex_url),
-      mb: !!comixObra.links.mangabaka_url && (criandoNova || !obraAlvo?.mangabaka_url),
+      al: !!comixObra.links.anilist_url,
+      mal: !!comixObra.links.myanimelist_url,
+      mu: !!comixObra.links.mangaupdates_url,
+      md: !!comixObra.links.mangadex_url,
+      mb: !!comixObra.links.mangabaka_url,
     });
 
     const fontesDoAlvo = obraAlvo ? (fontesRaw ?? []).filter((f) => f.obra_id === obraAlvo.id) : [];
     const fonteComix = fontesDoAlvo.find((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
     setAceitarFonte(criandoNova || !fonteComix || fonteComix.ultimo_capitulo_detectado !== comixObra.ultimoCapitulo);
     setMostrarTodosAltTitulos(false);
+    setNovosValoresAbertos(false);
+    setLinksAbertos(false);
     // obraAlvo muda de identidade a cada render (novo objeto do array); usamos
     // o id como dependência estável pra não recalcular defaults a cada digitação.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -569,73 +573,77 @@ export function ImportarComixPage() {
               {/* 3. Type / Publication status */}
               <section className="importar-secao">
                 <h3>Type &amp; Publication status</h3>
-                <label className="importar-linha">
-                  <input
-                    type="checkbox"
-                    checked={aceitarTipo}
-                    disabled={comixObra.tipo == null}
-                    onChange={(e) => setAceitarTipo(e.target.checked)}
-                  />
-                  {comixObra.tipo ? (
-                    <>
-                      {!criandoNova && (
-                        <span className="importar-valor-atual">
-                          <strong>Current:</strong> {obraAlvo!.tipo ?? '—'}
-                        </span>
-                      )}
-                      <span className="importar-valor-novo">comix.to: {comixObra.tipo}</span>
-                    </>
-                  ) : (
-                    <span>Type not recognized (raw value: "{comixObra.tipoBruto ?? '?'}")</span>
-                  )}
-                </label>
-                <label className="importar-linha">
-                  <input
-                    type="checkbox"
-                    checked={aceitarStatus}
-                    disabled={comixObra.statusPublicacao == null}
-                    onChange={(e) => setAceitarStatus(e.target.checked)}
-                  />
-                  {comixObra.statusPublicacao ? (
-                    <>
-                      {!criandoNova && (
-                        <span className="importar-valor-atual">
-                          <strong>Current:</strong> {obraAlvo!.status_publicacao ?? '—'}
-                        </span>
-                      )}
-                      <span className="importar-valor-novo">comix.to: {comixObra.statusPublicacao}</span>
-                    </>
-                  ) : (
-                    <span>Publication status not recognized (raw value: "{comixObra.statusPublicacaoBruto ?? '?'}")</span>
-                  )}
-                </label>
+                <div className="importar-grid">
+                  <label className="importar-linha">
+                    <input
+                      type="checkbox"
+                      checked={aceitarTipo}
+                      disabled={comixObra.tipo == null}
+                      onChange={(e) => setAceitarTipo(e.target.checked)}
+                    />
+                    {comixObra.tipo ? (
+                      <>
+                        {!criandoNova && (
+                          <span className="importar-valor-atual">
+                            <strong>Current:</strong> {obraAlvo!.tipo ?? '—'}
+                          </span>
+                        )}
+                        <span className="importar-valor-novo">comix.to: {comixObra.tipo}</span>
+                      </>
+                    ) : (
+                      <span>Type not recognized (raw value: "{comixObra.tipoBruto ?? '?'}")</span>
+                    )}
+                  </label>
+                  <label className="importar-linha">
+                    <input
+                      type="checkbox"
+                      checked={aceitarStatus}
+                      disabled={comixObra.statusPublicacao == null}
+                      onChange={(e) => setAceitarStatus(e.target.checked)}
+                    />
+                    {comixObra.statusPublicacao ? (
+                      <>
+                        {!criandoNova && (
+                          <span className="importar-valor-atual">
+                            <strong>Current:</strong> {obraAlvo!.status_publicacao ?? '—'}
+                          </span>
+                        )}
+                        <span className="importar-valor-novo">comix.to: {comixObra.statusPublicacao}</span>
+                      </>
+                    ) : (
+                      <span>Publication status not recognized (raw value: "{comixObra.statusPublicacaoBruto ?? '?'}")</span>
+                    )}
+                  </label>
+                </div>
               </section>
 
               {/* 4. Author / Artists */}
               <section className="importar-secao">
                 <h3>Author &amp; Artists</h3>
-                {comixObra.autores.length > 0 && (
-                  <label className="importar-linha">
-                    <input type="checkbox" checked={aceitarAutor} onChange={(e) => setAceitarAutor(e.target.checked)} />
-                    {!criandoNova && obraAlvo!.autor && (
-                      <span className="importar-valor-atual">
-                        <strong>Current:</strong> {obraAlvo!.autor}
-                      </span>
-                    )}
-                    <span className="importar-valor-novo">comix.to: {comixObra.autores.join(', ')}</span>
-                  </label>
-                )}
-                {comixObra.artistas.length > 0 && (
-                  <label className="importar-linha">
-                    <input type="checkbox" checked={aceitarArtistas} onChange={(e) => setAceitarArtistas(e.target.checked)} />
-                    {!criandoNova && obraAlvo!.artistas && (
-                      <span className="importar-valor-atual">
-                        <strong>Current:</strong> {obraAlvo!.artistas}
-                      </span>
-                    )}
-                    <span className="importar-valor-novo">comix.to: {comixObra.artistas.join(', ')}</span>
-                  </label>
-                )}
+                <div className="importar-grid">
+                  {comixObra.autores.length > 0 && (
+                    <label className="importar-linha">
+                      <input type="checkbox" checked={aceitarAutor} onChange={(e) => setAceitarAutor(e.target.checked)} />
+                      {!criandoNova && obraAlvo!.autor && (
+                        <span className="importar-valor-atual">
+                          <strong>Current:</strong> {obraAlvo!.autor}
+                        </span>
+                      )}
+                      <span className="importar-valor-novo">comix.to: {comixObra.autores.join(', ')}</span>
+                    </label>
+                  )}
+                  {comixObra.artistas.length > 0 && (
+                    <label className="importar-linha">
+                      <input type="checkbox" checked={aceitarArtistas} onChange={(e) => setAceitarArtistas(e.target.checked)} />
+                      {!criandoNova && obraAlvo!.artistas && (
+                        <span className="importar-valor-atual">
+                          <strong>Current:</strong> {obraAlvo!.artistas}
+                        </span>
+                      )}
+                      <span className="importar-valor-novo">comix.to: {comixObra.artistas.join(', ')}</span>
+                    </label>
+                  )}
+                </div>
               </section>
 
               {/* 5. Cover */}
@@ -678,10 +686,15 @@ export function ImportarComixPage() {
                     </div>
                   </label>
                   {capaAutoFalhou && (
-                    <p className="importar-alvo-motivo">
-                      comix.to blocks automatic cover fetching — save the image from comix.to and click the
-                      placeholder above to upload it manually.
-                    </p>
+                    <a
+                      href={comixObra.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="importar-capa-comix-link"
+                      title="Open on comix.to to save the cover image"
+                    >
+                      <img src="/icons/comix.svg" alt="comix.to" />
+                    </a>
                   )}
                   <input ref={capaManualInputRef} type="file" accept="image/*" hidden onChange={selecionarCapaManual} />
                 </section>
@@ -690,8 +703,8 @@ export function ImportarComixPage() {
               {/* 6. Content rating */}
               <section className="importar-secao">
                 <h3>Content rating</h3>
-                <p className="importar-linha">comix.to rating: {comixObra.contentRating ?? '—'}</p>
-                <div className="classificacao-caixas">
+                <div className="importar-grid">
+                  <p className="importar-linha">comix.to rating: {comixObra.contentRating ?? '—'}</p>
                   {(['R-15', 'R-18'] as Classificacao[]).map((c) => (
                     <label key={c} className="check-inline">
                       <input
@@ -705,12 +718,11 @@ export function ImportarComixPage() {
                 </div>
               </section>
 
-              {/* 7. Genres / Tags */}
+              {/* 7. Genres / Tags (only values already in the app's vocabulary) */}
               <section className="importar-secao">
                 <h3>Genres</h3>
-                {generosClassificados.conhecidos.length > 0 && (
-                  <>
-                    <p>Already in your lists</p>
+                {generosClassificados.conhecidos.length > 0 ? (
+                  <div className="importar-grid">
                     {generosClassificados.conhecidos.map((g) => (
                       <label key={g} className="importar-linha">
                         <input
@@ -721,30 +733,16 @@ export function ImportarComixPage() {
                         {g}
                       </label>
                     ))}
-                  </>
-                )}
-                {generosClassificados.novos.length > 0 && (
-                  <>
-                    <p>New values (creates the value in your app's vocabulary)</p>
-                    {generosClassificados.novos.map((g) => (
-                      <label key={g} className="importar-linha">
-                        <input
-                          type="checkbox"
-                          checked={generosSelecionados.has(g)}
-                          onChange={() => alternarValor(generosSelecionados, setGenerosSelecionados, g)}
-                        />
-                        {g}
-                      </label>
-                    ))}
-                  </>
+                  </div>
+                ) : (
+                  <p className="importar-ja-existe">No matching genres.</p>
                 )}
               </section>
 
               <section className="importar-secao">
                 <h3>Tags</h3>
-                {tagsClassificados.conhecidos.length > 0 && (
-                  <>
-                    <p>Already in your lists</p>
+                {tagsClassificados.conhecidos.length > 0 ? (
+                  <div className="importar-grid">
                     {tagsClassificados.conhecidos.map((t) => (
                       <label key={t} className="importar-linha">
                         <input
@@ -755,38 +753,88 @@ export function ImportarComixPage() {
                         {t}
                       </label>
                     ))}
-                  </>
-                )}
-                {tagsClassificados.novos.length > 0 && (
-                  <>
-                    <p>New values (creates the value in your app's vocabulary)</p>
-                    {tagsClassificados.novos.map((t) => (
-                      <label key={t} className="importar-linha">
-                        <input
-                          type="checkbox"
-                          checked={tagsSelecionados.has(t)}
-                          onChange={() => alternarValor(tagsSelecionados, setTagsSelecionados, t)}
-                        />
-                        {t}
-                      </label>
-                    ))}
-                  </>
+                  </div>
+                ) : (
+                  <p className="importar-ja-existe">No matching tags.</p>
                 )}
               </section>
 
+              {/* 7b. New Values (genres/tags with no match in the app's vocabulary) */}
+              {(generosClassificados.novos.length > 0 || tagsClassificados.novos.length > 0) && (
+                <section className="importar-secao">
+                  <button
+                    type="button"
+                    className="importar-secao-toggle"
+                    onClick={() => setNovosValoresAbertos((v) => !v)}
+                    aria-expanded={novosValoresAbertos}
+                  >
+                    {novosValoresAbertos ? '▾' : '▸'} New Values
+                  </button>
+                  {novosValoresAbertos && (
+                    <div className="importar-secao-corpo">
+                      {generosClassificados.novos.length > 0 && (
+                        <div className="importar-subsecao">
+                          <h4>Genres</h4>
+                          <div className="importar-grid">
+                            {generosClassificados.novos.map((g) => (
+                              <label key={g} className="importar-linha">
+                                <input
+                                  type="checkbox"
+                                  checked={generosSelecionados.has(g)}
+                                  onChange={() => alternarValor(generosSelecionados, setGenerosSelecionados, g)}
+                                />
+                                {g}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {tagsClassificados.novos.length > 0 && (
+                        <div className="importar-subsecao">
+                          <h4>Tags</h4>
+                          <div className="importar-grid">
+                            {tagsClassificados.novos.map((t) => (
+                              <label key={t} className="importar-linha">
+                                <input
+                                  type="checkbox"
+                                  checked={tagsSelecionados.has(t)}
+                                  onChange={() => alternarValor(tagsSelecionados, setTagsSelecionados, t)}
+                                />
+                                {t}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )}
+
               {/* 8. External links */}
               <section className="importar-secao">
-                <h3>External links</h3>
-                {LINKS_INFO.filter((info) => comixObra.links[info.campo]).map((info) => (
-                  <label key={info.chave} className="importar-linha">
-                    <input
-                      type="checkbox"
-                      checked={aceitarLinks[info.chave]}
-                      onChange={(e) => setAceitarLinks((atual) => ({ ...atual, [info.chave]: e.target.checked }))}
-                    />
-                    {info.rotulo}: <span className="importar-valor-novo">{comixObra.links[info.campo]}</span>
-                  </label>
-                ))}
+                <button
+                  type="button"
+                  className="importar-secao-toggle"
+                  onClick={() => setLinksAbertos((v) => !v)}
+                  aria-expanded={linksAbertos}
+                >
+                  {linksAbertos ? '▾' : '▸'} External links
+                </button>
+                {linksAbertos && (
+                  <div className="importar-secao-corpo">
+                    {LINKS_INFO.filter((info) => comixObra.links[info.campo]).map((info) => (
+                      <label key={info.chave} className="importar-linha">
+                        <input
+                          type="checkbox"
+                          checked={aceitarLinks[info.chave]}
+                          onChange={(e) => setAceitarLinks((atual) => ({ ...atual, [info.chave]: e.target.checked }))}
+                        />
+                        {info.rotulo}: <span className="importar-valor-novo">{comixObra.links[info.campo]}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </section>
 
               {/* 9. Source */}
