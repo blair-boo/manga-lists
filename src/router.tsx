@@ -10,6 +10,7 @@ import { TestesPage } from './pages/TestesPage';
 import { GenerosTagsPage } from './pages/GenerosTagsPage';
 import { SourcesPage } from './pages/SourcesPage';
 import { ImagesPage } from './pages/ImagesPage';
+import { ReaderPage } from './pages/ReaderPage';
 
 export const router = createBrowserRouter(
   [
@@ -20,6 +21,7 @@ export const router = createBrowserRouter(
         { index: true, element: <ListaPrincipalPage /> },
         { path: 'obra/:id', element: <DetalheObraPage /> },
         { path: 'cadastrar', element: <CadastrarPage /> },
+        { path: 'reader', element: <ReaderPage /> },
         { path: 'importar', element: <ImportarComixPage /> },
         {
           path: 'settings',

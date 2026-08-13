@@ -1,6 +1,15 @@
 import { supabase } from '../lib/supabaseClient';
 import { db, getLastSyncedAt, setLastSyncedAt } from '../db/localDb';
-import type { Fonte, ListaItem, Obra, SyncQueueItem } from '../types';
+import type {
+  Fonte,
+  ListaItem,
+  Obra,
+  ReaderCapitulo,
+  ReaderFonte,
+  ReaderObra,
+  SyncEntity,
+  SyncQueueItem,
+} from '../types';
 
 export function isOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
@@ -66,8 +75,88 @@ const COLUNAS_FONTES = new Set<keyof Fonte>([
   'ordem',
 ]);
 
-function sanitizarPayload(entity: 'obras' | 'fontes', payload: Record<string, unknown>): Record<string, unknown> {
-  const colunas: ReadonlySet<string> = entity === 'obras' ? COLUNAS_OBRAS : COLUNAS_FONTES;
+const COLUNAS_READER_OBRAS = new Set<keyof ReaderObra>([
+  'id',
+  'obra_id',
+  'concluido',
+  'busca_manual',
+  'estado',
+  'estado_em',
+  'ultima_busca_em',
+  'ultima_busca_ok',
+  'ultima_busca_mensagem',
+  'total_capitulos_site',
+  'total_side_stories_site',
+  'info_titulo',
+  'info_autor',
+  'info_score',
+  'info_status',
+  'info_link',
+  'info_sinopse',
+  'info_generos',
+  'info_tags',
+  'espelhar',
+  'pasta_storage',
+  'capa_path',
+  'epub_path',
+  'epub_gerado_em',
+  'epub_parcial_path',
+  'epub_parcial_gerado_em',
+  'pdf_path',
+  'pdf_gerado_em',
+  'criado_em',
+  'atualizado_em',
+]);
+
+const COLUNAS_READER_FONTES = new Set<keyof ReaderFonte>([
+  'id',
+  'reader_obra_id',
+  'grupo',
+  'url_indice',
+  'url_base',
+  'de',
+  'ate',
+  'adaptador',
+  'preferida',
+  'ordem',
+  'ativa',
+  'criado_em',
+  'atualizado_em',
+]);
+
+const COLUNAS_READER_CAPITULOS = new Set<keyof ReaderCapitulo>([
+  'id',
+  'reader_obra_id',
+  'obra_id',
+  'reader_fonte_id',
+  'numero',
+  'numero_texto',
+  'titulo',
+  'side_story',
+  'ordem',
+  'estado',
+  'estado_em',
+  'disponivel_em',
+  'url',
+  'path_md',
+  'baixado_em',
+  'formatado_em',
+  'erro',
+  'erro_em',
+  'criado_em',
+  'atualizado_em',
+]);
+
+const COLUNAS_POR_ENTIDADE: Record<SyncEntity, ReadonlySet<string>> = {
+  obras: COLUNAS_OBRAS as ReadonlySet<string>,
+  fontes: COLUNAS_FONTES as ReadonlySet<string>,
+  reader_obras: COLUNAS_READER_OBRAS as ReadonlySet<string>,
+  reader_fontes: COLUNAS_READER_FONTES as ReadonlySet<string>,
+  reader_capitulos: COLUNAS_READER_CAPITULOS as ReadonlySet<string>,
+};
+
+function sanitizarPayload(entity: SyncEntity, payload: Record<string, unknown>): Record<string, unknown> {
+  const colunas = COLUNAS_POR_ENTIDADE[entity];
   return Object.fromEntries(Object.entries(payload).filter(([chave]) => colunas.has(chave)));
 }
 
@@ -142,32 +231,58 @@ export async function pushPending(): Promise<{ falhas: number }> {
   return { falhas: registrosComFalha.size };
 }
 
-/** Puxa obras alteradas no servidor desde a última sync (incremental via atualizado_em). */
-async function pullObras(): Promise<void> {
-  const since = await getLastSyncedAt('obras');
-  const rows = await buscarTudoPaginado<Obra>((from, to) => {
-    let query = supabase.from('obras').select('*').order('atualizado_em', { ascending: true }).range(from, to);
+/**
+ * Puxa de uma tabela as linhas alteradas no servidor desde a última sync
+ * (incremental via `atualizado_em`). Só serve para tabelas que mantêm essa
+ * coluna atualizada — em `obras` e nas três do Reader é um trigger no Postgres
+ * (`set_atualizado_em`) que garante isso. `fontes` NÃO entra aqui: não tem a
+ * coluna e o scraper a atualiza in-place, por isso tem o full refresh próprio.
+ */
+async function pullIncremental<T extends { id: string; atualizado_em: string }>(
+  entity: SyncEntity,
+  tabela: { bulkPut: (rows: T[]) => PromiseLike<unknown> }
+): Promise<void> {
+  const since = await getLastSyncedAt(entity);
+  const rows = await buscarTudoPaginado<T>((from, to) => {
+    let query = supabase.from(entity).select('*').order('atualizado_em', { ascending: true }).range(from, to);
     if (since) query = query.gt('atualizado_em', since);
-    return query;
+    return query as PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
   });
   if (rows.length > 0) {
-    // GUARDA: não sobrescrever obras com edição local ainda não sincronizada
+    // GUARDA: não sobrescrever linhas com edição local ainda não sincronizada
     // (insert/update pendente na syncQueue). Sem isso, um pull que traz a versão
     // velha do servidor engoliria uma edição que a usuária acabou de fazer e cujo
     // push ainda não completou (offline, rede lenta) — a edição "sumiria". Mesmo
     // raciocínio da guarda em reconciliarObrasDeletadas. O push envia a versão
     // local depois, e o próximo pull a traz de volta com o timestamp novo.
-    const pendentes = await db.syncQueue.where('entity').equals('obras').toArray();
+    const pendentes = await db.syncQueue.where('entity').equals(entity).toArray();
     const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
     const aAplicar = rows.filter((r) => !protegidos.has(r.id));
-    if (aAplicar.length > 0) await db.obras.bulkPut(aAplicar);
+    if (aAplicar.length > 0) await tabela.bulkPut(aAplicar);
     // Avança o watermark pelo maior atualizado_em de TODAS as linhas (inclusive as
     // puladas — a ordenação é asc), pra não re-buscá-las em loop. A linha protegida
     // se reconcilia quando o push dela passar e o pull seguinte a trouxer.
-    await setLastSyncedAt('obras', rows[rows.length - 1].atualizado_em);
+    await setLastSyncedAt(entity, rows[rows.length - 1].atualizado_em);
   } else if (!since) {
-    await setLastSyncedAt('obras', new Date(0).toISOString());
+    await setLastSyncedAt(entity, new Date(0).toISOString());
   }
+}
+
+/** Puxa obras alteradas no servidor desde a última sync (incremental via atualizado_em). */
+async function pullObras(): Promise<void> {
+  await pullIncremental<Obra>('obras', db.obras);
+}
+
+/**
+ * Puxa as três tabelas do Reader. Incrementais (e não full refresh como
+ * `fontes`) por causa do volume: `reader_capitulos` passa de 1000 linhas com
+ * poucas obras, e é exatamente aí que o padrão de limpar-e-repovoar começou a
+ * truncar silenciosamente — ver o comentário de buscarTudoPaginado.
+ */
+async function pullReader(): Promise<void> {
+  await pullIncremental<ReaderObra>('reader_obras', db.reader_obras);
+  await pullIncremental<ReaderFonte>('reader_fontes', db.reader_fontes);
+  await pullIncremental<ReaderCapitulo>('reader_capitulos', db.reader_capitulos);
 }
 
 /**
@@ -215,6 +330,15 @@ async function reconciliarObrasDeletadas(): Promise<void> {
 
   await db.obras.bulkDelete(remover);
   await db.fontes.where('obra_id').anyOf(remover).delete();
+  // As tabelas do Reader penduram na obra por cascade no Postgres; localmente a
+  // limpeza é explícita. reader_fontes não tem obra_id (pendura em
+  // reader_obras), então é removida pelos ids das reader_obras que caíram.
+  const readerObrasRemovidas = await db.reader_obras.where('obra_id').anyOf(remover).primaryKeys();
+  await db.reader_obras.where('obra_id').anyOf(remover).delete();
+  await db.reader_capitulos.where('obra_id').anyOf(remover).delete();
+  if (readerObrasRemovidas.length > 0) {
+    await db.reader_fontes.where('reader_obra_id').anyOf(readerObrasRemovidas as string[]).delete();
+  }
 }
 
 /**
@@ -284,6 +408,7 @@ async function executarCicloSync(): Promise<{ ok: boolean; error?: unknown }> {
     await reconciliarObrasDeletadas();
     await pullFontes();
     await pullListas();
+    await pullReader();
     return falhas > 0
       ? { ok: false, error: `${falhas} alteração(ões) local(is) não sincronizaram, tentando de novo mais tarde` }
       : { ok: true };

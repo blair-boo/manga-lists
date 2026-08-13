@@ -153,6 +153,44 @@ supabase functions deploy scraper-control   # dispara/cancela os workflows do Gi
 supabase functions deploy comix-fetch       # busca páginas de título do comix.to (sem secrets — ver supabase/functions/comix-fetch/README.md)
 ```
 
+## 9. Aba Reader (download/leitura de novels)
+
+Painel das novels que são baixadas pra ler offline no celular. A divisão que
+guia todo o desenho: **detectar é automático, baixar é sempre decisão sua** — a
+varredura (fase seguinte) só descobre capítulos novos e datas de liberação de
+paywall; nada é baixado sem você escolher a fonte.
+
+Rode `supabase/migrations/0021_reader.sql` e o bloco `reader` do
+`supabase/storage.sql` no SQL Editor antes de usar.
+
+**O que já funciona:** as duas listas (In progress / Completed), o cadastro de
+obras e de grupos de tradução com faixas de capítulo, a lista de capítulos com
+seus estados, e o preview editável (capa / informações / capítulos).
+
+**O que ainda não:** os botões *Download*, *Generate EPUB/PDF* e *Send to
+Kindle* estão desabilitados — dependem do downloader, que é a próxima fase.
+
+Detalhes do modelo:
+
+- `reader_fontes` é grupo de tradução **e** origem de download ao mesmo tempo —
+  são o mesmo dado visto de dois ângulos. O campo "Translation" da página de
+  informações (`1-150 Eternalune / 151-X Novelupdates`) é derivado dela. Faixas
+  sobrepostas são permitidas de propósito: é o caso em que você escolhe de qual
+  grupo baixar; `preferida` só define o default.
+- `reader_capitulos` é uma máquina de estados (`descoberto → bloqueado →
+  baixado → formatado → publicado`). `descoberto` é estado de **espera pela sua
+  decisão**, não fila de trabalho. O painel é derivado desses estados por
+  `resumirReader` (`src/lib/reader.ts`), que ganha do `reader_obras.estado`
+  gravado — assim um job que morreu no meio não deixa a obra "baixando" pra
+  sempre.
+- Paywall vive em `disponivel_em` (data). Um capítulo `bloqueado` cuja data já
+  passou aparece como liberado sem precisar que alguém reescreva o estado — o
+  que importa porque a varredura é quinzenal.
+- Página de informações: campos vazios **herdam** de `obras`. O checkbox "also
+  save to the work" por campo decide se a edição também grava no cadastro (e aí
+  o espelhamento manga↔novel existente acontece de graça). Mão única: editar a
+  obra pela tela dela não volta pro Reader.
+
 ## Estrutura do repositório
 
 ```
@@ -160,6 +198,7 @@ src/            frontend (React + TS)
 supabase/       schema.sql, storage.sql
 data/           CSVs originais da planilha (listas, obras, fontes)
 scripts/        import-data.mjs / update-from-csv.mjs (dados), migrate_capas.py (capas) — rodam localmente
+src/lib/reader.ts   lógica derivada da aba Reader (estado do pipeline, faixas de fonte) — pura, testada
 scraper/        update_fontes.py, discover_fontes.py — rodam via cron no GitHub Actions
 .github/workflows/  deploy.yml (GitHub Pages), scraper.yml (cron)
 ```

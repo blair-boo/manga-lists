@@ -3,7 +3,14 @@ import { newId } from '../lib/id';
 import { deriveSite } from '../lib/site';
 import { escolherDuplicata, type ObraDuplicada } from '../lib/duplicatas';
 import { syncNow } from '../sync/sync';
-import type { Fonte, Obra, StatusAprovacao } from '../types';
+import type {
+  Fonte,
+  Obra,
+  ReaderCapitulo,
+  ReaderFonte,
+  ReaderObra,
+  StatusAprovacao,
+} from '../types';
 
 function triggerBackgroundSync(): void {
   void syncNow();
@@ -98,6 +105,15 @@ export async function criarObraVinculada(obraOrigemId: string, dadosNovaObra: No
 export async function deleteObra(id: string): Promise<void> {
   await db.obras.delete(id);
   await db.fontes.where('obra_id').equals(id).delete();
+  // As linhas do Reader caem por cascade no Postgres; aqui a limpeza local é
+  // explícita, no mesmo espírito da limpeza de fontes acima. Não enfileira
+  // delete de cada uma: o cascade do servidor já cuida do lado remoto.
+  const readerObras = (await db.reader_obras.where('obra_id').equals(id).primaryKeys()) as string[];
+  await db.reader_obras.where('obra_id').equals(id).delete();
+  await db.reader_capitulos.where('obra_id').equals(id).delete();
+  if (readerObras.length > 0) {
+    await db.reader_fontes.where('reader_obra_id').anyOf(readerObras).delete();
+  }
   await enqueueMutation({ entity: 'obras', op: 'delete', recordId: id, payload: null });
   triggerBackgroundSync();
 }
@@ -236,4 +252,140 @@ export async function criarObraComFontes(
 
   triggerBackgroundSync();
   return { obra: criada, jaExistia: false };
+}
+
+// ---------------------------------------------------------------------------
+// Reader
+//
+// Mesmo padrão de createFonte/updateFonte: grava no Dexie, enfileira a mutação
+// e dispara o sync em background. Nada aqui acessa a rede diretamente.
+// ---------------------------------------------------------------------------
+
+export type NovaReaderObra = Omit<ReaderObra, 'id' | 'criado_em' | 'atualizado_em'>;
+export type NovaReaderFonte = Omit<ReaderFonte, 'id' | 'criado_em' | 'atualizado_em'>;
+export type NovoReaderCapitulo = Omit<ReaderCapitulo, 'id' | 'criado_em' | 'atualizado_em'>;
+
+/** Valores iniciais de uma obra recém-inscrita no Reader. */
+export function readerObraPadrao(obraId: string): NovaReaderObra {
+  return {
+    obra_id: obraId,
+    concluido: false,
+    busca_manual: false,
+    estado: 'aguardando',
+    estado_em: new Date().toISOString(),
+    ultima_busca_em: null,
+    ultima_busca_ok: null,
+    ultima_busca_mensagem: null,
+    total_capitulos_site: null,
+    total_side_stories_site: null,
+    info_titulo: null,
+    info_autor: null,
+    info_score: null,
+    info_status: null,
+    info_link: null,
+    info_sinopse: null,
+    info_generos: null,
+    info_tags: null,
+    espelhar: {},
+    pasta_storage: null,
+    capa_path: null,
+    epub_path: null,
+    epub_gerado_em: null,
+    epub_parcial_path: null,
+    epub_parcial_gerado_em: null,
+    pdf_path: null,
+    pdf_gerado_em: null,
+  };
+}
+
+export async function criarReaderObra(input: NovaReaderObra, dispararSync = true): Promise<ReaderObra> {
+  const now = new Date().toISOString();
+  const readerObra: ReaderObra = { ...input, id: newId(), criado_em: now, atualizado_em: now };
+  await db.reader_obras.put(readerObra);
+  await enqueueMutation({ entity: 'reader_obras', op: 'insert', recordId: readerObra.id, payload: readerObra });
+  if (dispararSync) triggerBackgroundSync();
+  return readerObra;
+}
+
+export async function updateReaderObra(id: string, changes: Partial<NovaReaderObra>): Promise<void> {
+  await db.reader_obras.update(id, { ...changes, atualizado_em: new Date().toISOString() });
+  const full = await db.reader_obras.get(id);
+  if (!full) return;
+  await enqueueMutation({ entity: 'reader_obras', op: 'update', recordId: id, payload: full });
+  triggerBackgroundSync();
+}
+
+/** Remove a obra do Reader. As fontes e capítulos caem por cascade no servidor. */
+export async function deleteReaderObra(id: string): Promise<void> {
+  await db.reader_obras.delete(id);
+  await db.reader_fontes.where('reader_obra_id').equals(id).delete();
+  await db.reader_capitulos.where('reader_obra_id').equals(id).delete();
+  await enqueueMutation({ entity: 'reader_obras', op: 'delete', recordId: id, payload: null });
+  triggerBackgroundSync();
+}
+
+export async function criarReaderFonte(input: NovaReaderFonte, dispararSync = true): Promise<ReaderFonte> {
+  const now = new Date().toISOString();
+  const fonte: ReaderFonte = { ...input, id: newId(), criado_em: now, atualizado_em: now };
+  await db.reader_fontes.put(fonte);
+  await enqueueMutation({ entity: 'reader_fontes', op: 'insert', recordId: fonte.id, payload: fonte });
+  if (dispararSync) triggerBackgroundSync();
+  return fonte;
+}
+
+export async function updateReaderFonte(id: string, changes: Partial<NovaReaderFonte>): Promise<void> {
+  await db.reader_fontes.update(id, { ...changes, atualizado_em: new Date().toISOString() });
+  const full = await db.reader_fontes.get(id);
+  if (!full) return;
+  await enqueueMutation({ entity: 'reader_fontes', op: 'update', recordId: id, payload: full });
+  triggerBackgroundSync();
+}
+
+export async function deleteReaderFonte(id: string): Promise<void> {
+  await db.reader_fontes.delete(id);
+  await enqueueMutation({ entity: 'reader_fontes', op: 'delete', recordId: id, payload: null });
+  triggerBackgroundSync();
+}
+
+/**
+ * Marca uma fonte como preferida, desmarcando as outras da mesma obra —
+ * "preferida" é o default da tela de download, então só uma faz sentido.
+ */
+export async function definirFontePreferida(readerObraId: string, fonteId: string): Promise<void> {
+  const fontes = await db.reader_fontes.where('reader_obra_id').equals(readerObraId).toArray();
+  for (const fonte of fontes) {
+    const deveSer = fonte.id === fonteId;
+    if (fonte.preferida !== deveSer) await updateReaderFonte(fonte.id, { preferida: deveSer });
+  }
+}
+
+export async function criarReaderCapitulo(
+  input: NovoReaderCapitulo,
+  dispararSync = true
+): Promise<ReaderCapitulo> {
+  const now = new Date().toISOString();
+  const capitulo: ReaderCapitulo = { ...input, id: newId(), criado_em: now, atualizado_em: now };
+  await db.reader_capitulos.put(capitulo);
+  await enqueueMutation({ entity: 'reader_capitulos', op: 'insert', recordId: capitulo.id, payload: capitulo });
+  if (dispararSync) triggerBackgroundSync();
+  return capitulo;
+}
+
+export async function updateReaderCapitulo(id: string, changes: Partial<NovoReaderCapitulo>): Promise<void> {
+  // Toda troca de estado carimba estado_em: é o que a lista mostra como
+  // "data/hora do status" sem precisar de um campo separado por estágio.
+  const merged: Partial<NovoReaderCapitulo> = { ...changes };
+  if ('estado' in changes) merged.estado_em = new Date().toISOString();
+
+  await db.reader_capitulos.update(id, { ...merged, atualizado_em: new Date().toISOString() });
+  const full = await db.reader_capitulos.get(id);
+  if (!full) return;
+  await enqueueMutation({ entity: 'reader_capitulos', op: 'update', recordId: id, payload: full });
+  triggerBackgroundSync();
+}
+
+export async function deleteReaderCapitulo(id: string): Promise<void> {
+  await db.reader_capitulos.delete(id);
+  await enqueueMutation({ entity: 'reader_capitulos', op: 'delete', recordId: id, payload: null });
+  triggerBackgroundSync();
 }

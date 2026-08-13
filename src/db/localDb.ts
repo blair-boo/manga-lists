@@ -1,5 +1,13 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Fonte, ListaItem, Obra, SyncQueueItem } from '../types';
+import type {
+  Fonte,
+  ListaItem,
+  Obra,
+  ReaderCapitulo,
+  ReaderFonte,
+  ReaderObra,
+  SyncQueueItem,
+} from '../types';
 
 interface MetaItem {
   key: string;
@@ -12,6 +20,11 @@ class LocalDb extends Dexie {
   listas!: EntityTable<ListaItem, 'id'>;
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
   meta!: EntityTable<MetaItem, 'key'>;
+  // Os nomes destas tabelas TÊM que ser iguais aos do Supabase: applyMutation
+  // (sync.ts) faz `supabase.from(item.entity)` direto com o nome da entidade.
+  reader_obras!: EntityTable<ReaderObra, 'id'>;
+  reader_fontes!: EntityTable<ReaderFonte, 'id'>;
+  reader_capitulos!: EntityTable<ReaderCapitulo, 'id'>;
 
   constructor() {
     super('manga-lists');
@@ -21,6 +34,13 @@ class LocalDb extends Dexie {
       listas: 'id, categoria',
       syncQueue: '++id, entity, recordId, createdAt',
       meta: 'key',
+    });
+    // v2 declara SÓ as tabelas novas — o Dexie funde este bloco sobre o v1, que
+    // precisa continuar aqui: apagá-lo zeraria as instalações existentes.
+    this.version(2).stores({
+      reader_obras: 'id, obra_id, concluido, estado, atualizado_em',
+      reader_fontes: 'id, reader_obra_id, ordem',
+      reader_capitulos: 'id, reader_obra_id, obra_id, estado, disponivel_em',
     });
   }
 }
