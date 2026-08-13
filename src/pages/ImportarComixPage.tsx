@@ -588,7 +588,7 @@ export function ImportarComixPage() {
                             <strong>Current:</strong> {obraAlvo!.tipo ?? '—'}
                           </span>
                         )}
-                        <span className="importar-valor-novo">comix.to: {comixObra.tipo}</span>
+                        <span className="importar-valor-novo">{comixObra.tipo}</span>
                       </>
                     ) : (
                       <span>Type not recognized (raw value: "{comixObra.tipoBruto ?? '?'}")</span>
@@ -608,7 +608,7 @@ export function ImportarComixPage() {
                             <strong>Current:</strong> {obraAlvo!.status_publicacao ?? '—'}
                           </span>
                         )}
-                        <span className="importar-valor-novo">comix.to: {comixObra.statusPublicacao}</span>
+                        <span className="importar-valor-novo">{comixObra.statusPublicacao}</span>
                       </>
                     ) : (
                       <span>Publication status not recognized (raw value: "{comixObra.statusPublicacaoBruto ?? '?'}")</span>
@@ -629,7 +629,7 @@ export function ImportarComixPage() {
                           <strong>Current:</strong> {obraAlvo!.autor}
                         </span>
                       )}
-                      <span className="importar-valor-novo">comix.to: {comixObra.autores.join(', ')}</span>
+                      <span className="importar-valor-novo">{comixObra.autores.join(', ')}</span>
                     </label>
                   )}
                   {comixObra.artistas.length > 0 && (
@@ -640,7 +640,7 @@ export function ImportarComixPage() {
                           <strong>Current:</strong> {obraAlvo!.artistas}
                         </span>
                       )}
-                      <span className="importar-valor-novo">comix.to: {comixObra.artistas.join(', ')}</span>
+                      <span className="importar-valor-novo">{comixObra.artistas.join(', ')}</span>
                     </label>
                   )}
                 </div>
@@ -703,8 +703,8 @@ export function ImportarComixPage() {
               {/* 6. Content rating */}
               <section className="importar-secao">
                 <h3>Content rating</h3>
-                <div className="importar-grid">
-                  <p className="importar-linha">comix.to rating: {comixObra.contentRating ?? '—'}</p>
+                <p className="importar-linha">rating: {comixObra.contentRating ?? '—'}</p>
+                <div className="importar-grid-2">
                   {(['R-15', 'R-18'] as Classificacao[]).map((c) => (
                     <label key={c} className="check-inline">
                       <input
