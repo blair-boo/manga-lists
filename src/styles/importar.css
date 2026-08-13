@@ -58,6 +58,7 @@
 
 .importar-linha {
   display: flex;
+  flex-direction: row;
   gap: 8px;
   align-items: flex-start;
 }
@@ -122,6 +123,12 @@
   .importar-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.importar-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
 }
 
 .importar-secao-toggle {
