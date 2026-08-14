@@ -1,6 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import iro from '@jaames/iro';
-import { IconeMais } from './Icones';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { IconeGrip, IconeMais } from './Icones';
+import { useToast } from './Toast';
 import '../styles/seletor-cor.css';
 
 const COR_INICIAL = '#f3f4f6';
@@ -34,9 +53,9 @@ function lerCssVar(cssVar: string): string {
 }
 
 export function SeletorCor(props: SeletorCorProps) {
+  const { mostrarToast } = useToast();
   const [aberto, setAberto] = useState(false);
   const [corHex, setCorHex] = useState(COR_INICIAL);
-  const [adicionarRapidoAberto, setAdicionarRapidoAberto] = useState(false);
   const [painelAberto, setPainelAberto] = useState(false);
   const [grupoAppAberto, setGrupoAppAberto] = useState(false);
   const [grupoCustomAberto, setGrupoCustomAberto] = useState(false);
@@ -49,6 +68,14 @@ export function SeletorCor(props: SeletorCorProps) {
   });
   const [labelNovo, setLabelNovo] = useState('');
   const [swatchInfo, setSwatchInfo] = useState<{ hex: string; label: string } | null>(null);
+  const [editandoLabelId, setEditandoLabelId] = useState<string | null>(null);
+  const [labelEditValue, setLabelEditValue] = useState('');
+  const [reordenandoCustom, setReordenandoCustom] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const pickerContainerRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<iro.ColorPicker | null>(null);
@@ -127,6 +154,40 @@ export function SeletorCor(props: SeletorCorProps) {
     salvarSwatches(swatchesCustom.filter((s) => s.id !== id));
   }
 
+  function adicionarSwatchRapido() {
+    const novo: SwatchCustom = { id: crypto.randomUUID(), hex: corHex, label: '' };
+    salvarSwatches([...swatchesCustom, novo]);
+    mostrarToast('Cor adicionada ✓');
+  }
+
+  function iniciarEdicaoLabel(sw: SwatchCustom) {
+    setEditandoLabelId(sw.id);
+    setLabelEditValue(sw.label);
+  }
+
+  function salvarLabel() {
+    const id = editandoLabelId;
+    if (id) {
+      salvarSwatches(swatchesCustom.map((s) => (s.id === id ? { ...s, label: labelEditValue.trim() } : s)));
+    }
+    setEditandoLabelId(null);
+  }
+
+  function cancelarEdicaoLabel() {
+    setEditandoLabelId(null);
+  }
+
+  function handleDragEndCustom(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const de = swatchesCustom.findIndex((s) => s.id === active.id);
+      const para = swatchesCustom.findIndex((s) => s.id === over.id);
+      if (de !== -1 && para !== -1) {
+        salvarSwatches(arrayMove(swatchesCustom, de, para));
+      }
+    }
+  }
+
   return (
     <div className="seletor-cor">
       <div className="seletor-cor-linha">
@@ -152,9 +213,8 @@ export function SeletorCor(props: SeletorCorProps) {
         <button
           type="button"
           className="btn-icone seletor-cor-add-rapido"
-          onClick={() => setAdicionarRapidoAberto((v) => !v)}
+          onClick={adicionarSwatchRapido}
           title="Add to my colors"
-          aria-expanded={adicionarRapidoAberto}
         >
           <IconeMais />
         </button>
@@ -171,32 +231,19 @@ export function SeletorCor(props: SeletorCorProps) {
         >
           <IconeEngrenagem />
         </button>
-      </div>
 
-      {adicionarRapidoAberto && (
-        <div className="seletor-cor-adicionar">
-          <span className="seletor-cor-swatch" style={{ background: corHex }} />
-          <span className="seletor-cor-adicionar-hex">{corHex}</span>
-          <input
-            type="text"
-            className="seletor-cor-adicionar-label"
-            placeholder="Label (optional)"
-            value={labelNovo}
-            onChange={(e) => setLabelNovo(e.target.value)}
-            maxLength={40}
-            autoFocus
-          />
+        {swatchesCustom.length > 1 && (
           <button
             type="button"
-            onClick={() => {
-              adicionarSwatch();
-              setAdicionarRapidoAberto(false);
-            }}
+            className="btn-icone seletor-cor-reordenar"
+            onClick={() => setReordenandoCustom((v) => !v)}
+            title="Reorder my colors"
+            aria-pressed={reordenandoCustom}
           >
-            Add
+            <IconeGrip />
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {swatchInfo && (
         <div className="seletor-cor-swatch-info">
@@ -226,16 +273,26 @@ export function SeletorCor(props: SeletorCorProps) {
             />
           );
         })}
-        {swatchesCustom.map((sw) => (
-          <button
-            key={sw.id}
-            type="button"
-            className="seletor-cor-swatch seletor-cor-swatch-custom"
-            style={{ background: sw.hex }}
-            onClick={() => onSwatchClick(sw.hex, sw.label || sw.hex)}
-            title={sw.label || sw.hex}
-          />
-        ))}
+        {reordenandoCustom ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCustom}>
+            <SortableContext items={swatchesCustom.map((s) => s.id)} strategy={rectSortingStrategy}>
+              {swatchesCustom.map((sw) => (
+                <SwatchCustomSortable key={sw.id} sw={sw} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          swatchesCustom.map((sw) => (
+            <button
+              key={sw.id}
+              type="button"
+              className="seletor-cor-swatch seletor-cor-swatch-custom"
+              style={{ background: sw.hex }}
+              onClick={() => onSwatchClick(sw.hex, sw.label || sw.hex)}
+              title={sw.label || sw.hex}
+            />
+          ))
+        )}
       </div>
 
       {aberto && (
@@ -296,29 +353,60 @@ export function SeletorCor(props: SeletorCorProps) {
                   {swatchesCustom.length === 0 && (
                     <li className="seletor-cor-painel-vazio">No saved colors yet.</li>
                   )}
-                  {swatchesCustom.map((sw) => (
-                    <li key={sw.id} className="seletor-cor-painel-item">
-                      <span className="seletor-cor-swatch seletor-cor-swatch-custom" style={{ background: sw.hex }} />
-                      <span className="seletor-cor-painel-hex">{sw.hex}</span>
-                      <span className="seletor-cor-painel-label">{sw.label}</span>
-                      <button
-                        type="button"
-                        className="btn-icone"
-                        title="Copy hex"
-                        onClick={() => void navigator.clipboard.writeText(sw.hex)}
-                      >
-                        <IconeCopiar />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-icone btn-icone-perigo"
-                        title="Remove"
-                        onClick={() => removerSwatch(sw.id)}
-                      >
-                        <IconeX />
-                      </button>
-                    </li>
-                  ))}
+                  {reordenandoCustom ? (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCustom}>
+                      <SortableContext items={swatchesCustom.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                        {swatchesCustom.map((sw) => (
+                          <SwatchPainelSortable key={sw.id} sw={sw} />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  ) : (
+                    swatchesCustom.map((sw) => (
+                      <li key={sw.id} className="seletor-cor-painel-item">
+                        <span className="seletor-cor-swatch seletor-cor-swatch-custom" style={{ background: sw.hex }} />
+                        <span className="seletor-cor-painel-hex">{sw.hex}</span>
+                        {editandoLabelId === sw.id ? (
+                          <input
+                            type="text"
+                            className="seletor-cor-label-edit-input"
+                            value={labelEditValue}
+                            onChange={(e) => setLabelEditValue(e.target.value)}
+                            onBlur={salvarLabel}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') salvarLabel();
+                              if (e.key === 'Escape') cancelarEdicaoLabel();
+                            }}
+                            maxLength={40}
+                            autoFocus
+                          />
+                        ) : (
+                          <span
+                            className={`seletor-cor-painel-label ${!sw.label ? 'seletor-cor-painel-label-vazio' : ''}`}
+                            onClick={() => iniciarEdicaoLabel(sw)}
+                          >
+                            {sw.label || sw.hex}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-icone"
+                          title="Copy hex"
+                          onClick={() => void navigator.clipboard.writeText(sw.hex)}
+                        >
+                          <IconeCopiar />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-icone btn-icone-perigo"
+                          title="Remove"
+                          onClick={() => removerSwatch(sw.id)}
+                        >
+                          <IconeX />
+                        </button>
+                      </li>
+                    ))
+                  )}
                 </ul>
 
                 <div className="seletor-cor-adicionar">
@@ -342,6 +430,43 @@ export function SeletorCor(props: SeletorCorProps) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Swatch custom na fileira principal, em modo de reordenação (F4). */
+function SwatchCustomSortable({ sw }: { sw: SwatchCustom }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sw.id });
+  const style = { background: sw.hex, transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className={`seletor-cor-swatch seletor-cor-swatch-custom ${isDragging ? 'arrastando' : ''}`}
+      style={style}
+      title={sw.label || sw.hex}
+      {...attributes}
+      {...listeners}
+    />
+  );
+}
+
+/** Item do painel "My colors", em modo de reordenação (F4): só alça + hex + label. */
+function SwatchPainelSortable({ sw }: { sw: SwatchCustom }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sw.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <li ref={setNodeRef} style={style} className={`seletor-cor-painel-item ${isDragging ? 'arrastando' : ''}`}>
+      <span className="seletor-cor-painel-handle" {...attributes} {...listeners} aria-label="Drag to reorder">
+        <IconeGrip />
+      </span>
+      <span className="seletor-cor-swatch seletor-cor-swatch-custom" style={{ background: sw.hex }} />
+      <span className="seletor-cor-painel-hex">{sw.hex}</span>
+      <span className={`seletor-cor-painel-label ${!sw.label ? 'seletor-cor-painel-label-vazio' : ''}`}>
+        {sw.label || sw.hex}
+      </span>
+    </li>
   );
 }
 

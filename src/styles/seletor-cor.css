@@ -68,6 +68,20 @@
   border-style: dashed;
 }
 
+.seletor-cor-swatch.arrastando {
+  opacity: 0.5;
+}
+
+.seletor-cor-reordenar {
+  cursor: grab;
+  touch-action: none;
+}
+
+.seletor-cor-reordenar[aria-pressed='true'] {
+  background: var(--bg);
+  color: var(--accent);
+}
+
 /* Picker iro.js */
 .seletor-cor-picker-wrap {
   display: flex;
@@ -120,6 +134,19 @@
   font-size: 12px;
 }
 
+.seletor-cor-painel-item.arrastando {
+  opacity: 0.5;
+}
+
+.seletor-cor-painel-handle {
+  cursor: grab;
+  touch-action: none;
+  display: inline-flex;
+  color: var(--text);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
 .seletor-cor-painel-item .seletor-cor-swatch {
   width: 18px;
   height: 18px;
@@ -140,6 +167,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.8;
+  cursor: pointer;
+}
+
+.seletor-cor-painel-label:hover {
+  text-decoration: underline;
+}
+
+.seletor-cor-painel-label-vazio {
+  font-style: italic;
+  opacity: 0.55;
+}
+
+.seletor-cor-label-edit-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 6px;
 }
 
 .seletor-cor-painel-vazio {
