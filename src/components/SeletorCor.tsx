@@ -231,6 +231,18 @@ export function SeletorCor(props: SeletorCorProps) {
         >
           <IconeEngrenagem />
         </button>
+
+        {swatchesCustom.length > 1 && (
+          <button
+            type="button"
+            className="btn-icone seletor-cor-reordenar"
+            onClick={() => setReordenandoCustom((v) => !v)}
+            title="Reorder my colors"
+            aria-pressed={reordenandoCustom}
+          >
+            <IconeGrip />
+          </button>
+        )}
       </div>
 
       {swatchInfo && (
@@ -281,17 +293,6 @@ export function SeletorCor(props: SeletorCorProps) {
             />
           ))
         )}
-        {swatchesCustom.length > 1 && (
-          <button
-            type="button"
-            className="btn-icone seletor-cor-reordenar"
-            onClick={() => setReordenandoCustom((v) => !v)}
-            title="Reorder my colors"
-            aria-pressed={reordenandoCustom}
-          >
-            <IconeGrip />
-          </button>
-        )}
       </div>
 
       {aberto && (
@@ -337,28 +338,15 @@ export function SeletorCor(props: SeletorCorProps) {
           </div>
 
           <div className="seletor-cor-grupo">
-            <div className="seletor-cor-grupo-header-linha">
-              <button
-                type="button"
-                className="seletor-cor-grupo-header"
-                onClick={() => setGrupoCustomAberto((v) => !v)}
-                aria-expanded={grupoCustomAberto}
-              >
-                <IconeChevron aberto={grupoCustomAberto} />
-                My colors
-              </button>
-              {grupoCustomAberto && swatchesCustom.length > 1 && (
-                <button
-                  type="button"
-                  className="btn-icone"
-                  onClick={() => setReordenandoCustom((v) => !v)}
-                  title="Reorder my colors"
-                  aria-pressed={reordenandoCustom}
-                >
-                  <IconeGrip />
-                </button>
-              )}
-            </div>
+            <button
+              type="button"
+              className="seletor-cor-grupo-header"
+              onClick={() => setGrupoCustomAberto((v) => !v)}
+              aria-expanded={grupoCustomAberto}
+            >
+              <IconeChevron aberto={grupoCustomAberto} />
+              My colors
+            </button>
             {grupoCustomAberto && (
               <>
                 <ul className="seletor-cor-grupo-lista">

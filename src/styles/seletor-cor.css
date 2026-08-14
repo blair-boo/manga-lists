@@ -104,26 +104,15 @@
   overflow: hidden;
 }
 
-.seletor-cor-grupo-header-linha {
-  display: flex;
-  align-items: center;
-  background: var(--bg);
-}
-
-.seletor-cor-grupo-header-linha .btn-icone {
-  margin-right: 8px;
-}
-
 .seletor-cor-grupo-header {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
-  background: transparent;
+  background: var(--bg);
   border: none;
   border-radius: 0;
   text-align: left;
