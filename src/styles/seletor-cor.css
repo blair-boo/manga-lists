@@ -68,6 +68,20 @@
   border-style: dashed;
 }
 
+.seletor-cor-swatch.arrastando {
+  opacity: 0.5;
+}
+
+.seletor-cor-reordenar {
+  cursor: grab;
+  touch-action: none;
+}
+
+.seletor-cor-reordenar[aria-pressed='true'] {
+  background: var(--bg);
+  color: var(--accent);
+}
+
 /* Picker iro.js */
 .seletor-cor-picker-wrap {
   display: flex;
@@ -90,15 +104,26 @@
   overflow: hidden;
 }
 
+.seletor-cor-grupo-header-linha {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+}
+
+.seletor-cor-grupo-header-linha .btn-icone {
+  margin-right: 8px;
+}
+
 .seletor-cor-grupo-header {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
-  background: var(--bg);
+  background: transparent;
   border: none;
   border-radius: 0;
   text-align: left;
@@ -118,6 +143,19 @@
   padding: 6px 10px;
   border-top: 1px solid var(--border);
   font-size: 12px;
+}
+
+.seletor-cor-painel-item.arrastando {
+  opacity: 0.5;
+}
+
+.seletor-cor-painel-handle {
+  cursor: grab;
+  touch-action: none;
+  display: inline-flex;
+  color: var(--text);
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .seletor-cor-painel-item .seletor-cor-swatch {
@@ -140,6 +178,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.8;
+  cursor: pointer;
+}
+
+.seletor-cor-painel-label:hover {
+  text-decoration: underline;
+}
+
+.seletor-cor-painel-label-vazio {
+  font-style: italic;
+  opacity: 0.55;
+}
+
+.seletor-cor-label-edit-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 3px 6px;
 }
 
 .seletor-cor-painel-vazio {
