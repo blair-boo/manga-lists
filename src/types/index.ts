@@ -219,6 +219,14 @@ export interface ReaderCapitulo {
   obra_id: string;
   /** De qual fonte veio; null enquanto só foi detectado. */
   reader_fonte_id: string | null;
+  /**
+   * Identidade do capítulo dentro da obra — número normalizado ('143.2',
+   * 'ss-3'). NÃO é a URL: capítulo atrás de paywall vem sem URL e só ganha uma
+   * quando o paywall cai (ver migration 0022). Derivada por `chaveCapitulo`.
+   */
+  chave: string;
+  /** Id do capítulo no site, quando ele expõe um (Madara: data-chapter-N). */
+  id_externo: string | null;
   numero: number | null;
   /** Rótulo cru do site, ex. "Side Story 3" — preserva o que a numeração perde. */
   numero_texto: string | null;

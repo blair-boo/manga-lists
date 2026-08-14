@@ -160,8 +160,10 @@ guia todo o desenho: **detectar é automático, baixar é sempre decisão sua** 
 varredura (fase seguinte) só descobre capítulos novos e datas de liberação de
 paywall; nada é baixado sem você escolher a fonte.
 
-Rode `supabase/migrations/0021_reader.sql` e o bloco `reader` do
-`supabase/storage.sql` no SQL Editor antes de usar.
+Rode `supabase/migrations/0021_reader.sql`, `0022_reader_chave_capitulo.sql` e
+o bloco `reader` do `supabase/storage.sql` antes de usar. (O projeto tem
+histórico de migrations rastreadas — dá pra aplicar por `apply_migration` em vez
+de colar no SQL Editor; foi assim que a 0021 subiu.)
 
 **O que já funciona:** as duas listas (In progress / Completed), o cadastro de
 obras e de grupos de tradução com faixas de capítulo, a lista de capítulos com
@@ -190,6 +192,77 @@ Detalhes do modelo:
   save to the work" por campo decide se a edição também grava no cadastro (e aí
   o espelhamento manga↔novel existente acontece de graça). Mão única: editar a
   obra pela tela dela não volta pro Reader.
+- Identidade do capítulo é `reader_capitulos.chave` (número normalizado:
+  `143.2`, `ss-3`), **não** a URL. Motivo concreto na seção de sites abaixo.
+
+### Sites: quem já tem adaptador
+
+Investigação feita ao vivo em 2026-08. A boa notícia é que o registry de
+`scraper/adapters.py` casa por **fingerprint de conteúdo**, não por domínio —
+então um site novo de uma família conhecida se encaixa sozinho, sem código.
+
+| Site | Plataforma | Adaptador |
+|---|---|---|
+| bellerepository.com | WordPress + tema Madara | `madara` (por fingerprint) |
+| hazelnade.com | WordPress + Madara (+ plugins de capítulo premium) | `madara` |
+| eternalune.com | WordPress + Madara | `madara` (por fingerprint) |
+| nyxscans.com | Next.js (payload RSC) | `cms-generico` |
+| sakuraze.vercel.app | SPA React; API Supabase pública própria | `sakuraze` |
+| readhive.org | HTML server-side | `readhive` |
+
+Os três primeiros são o mesmo tema, então **um adaptador cobre metade da
+lista**. Pra cadastrar um site novo: insira o domínio em `sites_suportados` e
+rode `designar_adaptadores.py` — ele casa sozinho e, se não casar, guarda o
+diagnóstico de qual família chegou mais perto.
+
+**Madara (`scraper/adapters_novos.py`)** — a lista de capítulos não vem no HTML
+inicial; é um **POST** para `<url-da-obra>/ajax/chapters/?t=1` que devolve tudo
+numa resposta só (confirmado: 148 capítulos no eternalune, 284 no
+bellerepository, com `curl` simples e sem anti-bot).
+
+Cada capítulo vem assim, e é daqui que sai o paywall:
+
+```html
+<li class="wp-manga-chapter to_be_free premium coin-10 data-chapter-14124 premium-block">
+  <a href="#"> Chapter 143.2 <i class="fas fa-lock"></i></a>
+  <span class="chapter-release-date"><i>Mar 11, 2026</i></span>
+  <span class="soon_free">Unlocked on Aug 15, 2026</span>
+</li>
+```
+
+Duas consequências que valem lembrar antes de mexer nisso:
+
+- `soon_free` traz **a data de liberação já calculada** — é a origem do
+  `disponivel_em`, sem heurística de "em N dias".
+- Capítulo bloqueado tem `href="#"`, ou seja **não tem URL**, e ganha uma
+  quando o paywall cai. Por isso a identidade do capítulo é a `chave`
+  normalizada e não a URL: com URL, os bloqueados colidiriam entre si e um
+  capítulo liberado viraria linha nova.
+
+`MadaraAdapter.parse()` continua devolvendo só o último capítulo (é o que o
+`update_fontes.py` precisa) e **ignora os bloqueados de propósito**. Quem lê a
+lista inteira, com bloqueio e data, é `listar_capitulos()`.
+
+**lncrawl** — o [lightnovel-crawler](https://github.com/lncrawl/lightnovel-crawler)
+foi avaliado e **não cobre nenhum** dos seis sites acima (procurado no índice de
+fontes dele). Não vale como dependência; vale como referência de limpeza de
+corpo de capítulo. Registrado aqui pra ninguém reinvestigar.
+
+### Varredura
+
+`scraper/reader_varredura.py` lê a **lista** de capítulos (rótulo, data,
+bloqueado ou não) e grava em `reader_capitulos` como `descoberto`/`bloqueado`.
+Não lê nem baixa texto de capítulo — isso é a fase seguinte, e é sempre
+disparado por você.
+
+```bash
+python scraper/reader_varredura.py                # todas as obras do Reader
+python scraper/reader_varredura.py --obra <uuid>  # só uma (útil pra estrear)
+```
+
+É idempotente: rodar duas vezes atualiza as linhas existentes em vez de
+duplicar. O workflow `.github/workflows/reader-varredura.yml` existe só com
+disparo manual — o cron quinzenal está comentado, pra ligar quando quiser.
 
 ## Estrutura do repositório
 

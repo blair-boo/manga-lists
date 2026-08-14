@@ -1,0 +1,46 @@
+name: Reader - Varredura de capítulos
+
+# Descobre capítulos novos e datas de liberação de paywall das obras inscritas
+# na aba Reader. NÃO baixa nada: lê só a lista (rótulo, data, se está
+# bloqueado). O download é sempre disparado pela usuária, com a fonte escolhida
+# por ela.
+#
+# O agendamento quinzenal está COMENTADO de propósito, até a varredura ser
+# validada em produção com uma obra. Pra ligar, descomente o bloco `schedule`:
+# `0 12 1,16 * *` é dia 1 e 16 de cada mês (cron não tem "a cada 15 dias").
+on:
+  workflow_dispatch:
+    inputs:
+      obra:
+        description: 'UUID de uma obra específica (vazio = todas as inscritas em andamento)'
+        required: false
+        default: ''
+  # schedule:
+  #   - cron: '0 12 1,16 * *'
+
+concurrency:
+  group: reader-varredura
+  cancel-in-progress: false
+
+jobs:
+  varredura:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: Instalar dependências
+        run: pip install -r scraper/requirements.txt
+
+      - name: Varrer capítulos das obras do Reader
+        working-directory: scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          READER_OBRA_ID: ${{ github.event.inputs.obra }}
+        run: python reader_varredura.py

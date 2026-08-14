@@ -65,7 +65,7 @@ create table listas (
 
 create table scraper_runs (
     id uuid primary key default gen_random_uuid(),
-    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes', 'designar', 'novelupdates')),
+    tipo text not null check (tipo in ('capitulos', 'obras', 'fontes', 'designar', 'novelupdates', 'reader')),
     status text not null default 'rodando', -- 'rodando' | 'concluido' | 'erro'
     site_dominio text, -- nulo p/ 'capitulos'/'fontes' (globais); preenchido por 'obras'
     iniciado_em timestamptz not null default now(),
@@ -219,6 +219,15 @@ create table reader_capitulos (
     -- por obra sem precisar de join.
     obra_id uuid not null references obras(id) on delete cascade,
     reader_fonte_id uuid references reader_fontes(id) on delete set null,
+    -- Identidade do capítulo dentro da obra: o número normalizado a partir do
+    -- rótulo do site ("Chapter 143.2" -> '143.2', "Side Story 3" -> 'ss-3').
+    -- NÃO é a URL: nos temas Madara o capítulo atrás de paywall vem com
+    -- href="#" e só ganha URL quando o paywall cai, então usar URL duplicaria
+    -- os bloqueados e perderia o vínculo na liberação (ver migration 0022).
+    chave text not null,
+    -- Id do capítulo no site quando existir (Madara: data-chapter-14124).
+    -- Não é chave — só os bloqueados o expõem —, serve pra casar e depurar.
+    id_externo text,
     numero numeric(10, 2),  -- numeric e não integer: capítulos .5 existem
     numero_texto text,      -- rótulo cru do site, ex. "Side Story 3"
     titulo text,
@@ -238,9 +247,9 @@ create table reader_capitulos (
     erro_em timestamptz,
     criado_em timestamptz not null default now(),
     atualizado_em timestamptz not null default now(),
-    -- Mesma regra de identidade que `fontes` usa: a numeração dos sites é
-    -- confiável de menos pra ser chave, a URL identifica.
-    unique (reader_obra_id, url)
+    -- É esta constraint que torna a varredura idempotente: revarrer atualiza a
+    -- linha existente (upsert por chave) em vez de duplicar.
+    unique (reader_obra_id, chave)
 );
 
 create index idx_fontes_obra_id on fontes(obra_id);

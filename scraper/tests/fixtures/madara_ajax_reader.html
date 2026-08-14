@@ -1,0 +1,55 @@
+<!-- Fixture SINTÉTICO da resposta do POST {serie}/ajax/chapters/?t=1 de um tema
+     Madara, montado para exercitar `MadaraAdapter.listar_capitulos` (aba
+     Reader). Difere de madara_ajax_chapters.html (que só cobre o parse() do
+     "último capítulo") por incluir os casos que quebram implementações
+     ingênuas, todos observados ao vivo em bellerepository/hazelnade em 2026-08:
+
+       - capítulo BLOQUEADO: classe `premium-block`, `href="#"` (sem URL!),
+         `data-chapter-N` na classe e um <span class="soon_free"> com a data de
+         liberação já calculada — é dela que sai o disponivel_em;
+       - <i class="fas fa-lock"> DENTRO da âncora, sujando o rótulo;
+       - sufixo " - END" no rótulo do último capítulo;
+       - capítulo .5 (numeração fracionária);
+       - side story, que corre num eixo de numeração próprio (existe "Side
+         Story 1" numa obra que também tem "Chapter 1");
+       - DOIS capítulos com o mesmo rótulo em URLs diferentes (o `_1` é o
+         WordPress desempatando slug numa republicação) — caso real, e o que
+         exige o desempate por URL.
+
+     A ordem é do mais recente pro mais antigo, como o tema serve de verdade. -->
+<div class="listing-chapters_wrap cols-1 show-more-2">
+  <ul class="main version-chap no-volumn">
+    <li class="wp-manga-chapter to_be_free premium coin-10 data-chapter-14124 premium-block ">
+      <span class="coin"><i class="fas fa-coins"></i>10</span>
+      <a href="#"> Chapter 12.2 <i class="fas fa-lock"></i> - END </a>
+      <span class="chapter-release-date"> <i>Mar 11, 2026</i> </span>
+      <span class='soon_free'><i class='fas fa-calendar'></i> Unlocked on Aug 15, 2026</span>
+    </li>
+    <li class="wp-manga-chapter to_be_free premium coin-10 data-chapter-14123 premium-block ">
+      <span class="coin"><i class="fas fa-coins"></i>10</span>
+      <a href="#"> Chapter 12.1 <i class="fas fa-lock"></i> </a>
+      <span class="chapter-release-date"> <i>Mar 11, 2026</i> </span>
+      <span class='soon_free'><i class='fas fa-calendar'></i> Unlocked on Aug 14, 2026</span>
+    </li>
+    <li class="wp-manga-chapter free-chap ">
+      <span class="coin free">Free</span>
+      <a href="https://example.com/novel/blade-of-dawn/side-story-1/"> Side Story 1 </a>
+      <span class="chapter-release-date"> <i>Aug 10, 2026</i> </span>
+    </li>
+    <li class="wp-manga-chapter free-chap ">
+      <span class="coin free">Free</span>
+      <a href="https://example.com/novel/blade-of-dawn/chapter-11-1_1/"> Chapter 11.1 </a>
+      <span class="chapter-release-date"> <i>Aug 9, 2026</i> </span>
+    </li>
+    <li class="wp-manga-chapter free-chap ">
+      <span class="coin free">Free</span>
+      <a href="https://example.com/novel/blade-of-dawn/chapter-11-1/"> Chapter 11.1 </a>
+      <span class="chapter-release-date"> <i>Aug 8, 2026</i> </span>
+    </li>
+    <li class="wp-manga-chapter free-chap ">
+      <span class="coin free">Free</span>
+      <a href="https://example.com/novel/blade-of-dawn/chapter-1/"> Chapter 1 </a>
+      <span class="chapter-release-date"> <i>Jan 2, 2026</i> </span>
+    </li>
+  </ul>
+</div>
