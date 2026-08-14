@@ -33,6 +33,7 @@ from adapter_base import (
     ACCESS_HTTP,
     ACCESS_PLAYWRIGHT,
     FETCHERS,
+    CapituloDetectado,
     ParseResult,
     RawContent,
     STATUS_BLOQUEADO,
@@ -41,6 +42,7 @@ from adapter_base import (
     STATUS_OK,
     STATUS_VAZIA,
     SourceAdapter,
+    chave_capitulo,
     fetch_flaresolverr,
     fetch_http,
     fetch_playwright,
@@ -109,6 +111,74 @@ class CmsGenericoAdapter(SourceAdapter):
         maior = max(numeros)
         maior = int(maior) if float(maior).is_integer() else float(maior)
         return ParseResult(STATUS_OK, ultimo_capitulo=maior, link_capitulo=raw.url, tipo_detectado=tipo_detectado)
+
+    def listar_capitulos(self, raw: RawContent) -> list[CapituloDetectado] | None:
+        """
+        Lista completa pra aba Reader. O payload RSC deste CMS é bem mais
+        generoso que o HTML do Madara: cada capítulo já vem com número, slug,
+        título, data e flags de bloqueio explícitas.
+
+        Sobre o bloqueio (confirmado ao vivo no nyxscans, 2026-08): os travados
+        vêm `isLockedByCoins` + `isPermanentlyLocked` e `isTimeLocked: False` —
+        ou seja, são pagos e NÃO caem sozinhos com o tempo, ao contrário do
+        `soon_free` do Madara. Viram 'bloqueado' sem `disponivel_em`, e o painel
+        mostra isso honestamente: preso, sem data prevista.
+        """
+        if raw.status != "ok" or not raw.text:
+            return None
+
+        bruto = _extrair_array_balanceado(raw.text, r'\"chapters\":[')
+        if bruto is None:
+            return None
+        try:
+            itens = json.loads(bruto.encode("utf-8", "backslashreplace").decode("unicode_escape"))
+        except (ValueError, UnicodeDecodeError):
+            return None
+        if not isinstance(itens, list) or not itens:
+            return None
+
+        base = raw.url.split("?")[0].rstrip("/")
+        capitulos: list[CapituloDetectado] = []
+        for item in itens:
+            if not isinstance(item, dict):
+                continue
+            numero = item.get("number")
+            numero = float(numero) if isinstance(numero, (int, float)) else None
+            rotulo = (item.get("title") or "").strip() or (f"Chapter {numero}" if numero is not None else "")
+            side_story = bool(re.search(r"\b(side story|extra|special)\b", rotulo, re.I))
+
+            chave = chave_capitulo(numero, side_story, rotulo)
+            if not chave:
+                continue
+
+            # isAccessible é o sinal mais direto ("eu, anônimo, consigo ler?").
+            # isLocked cobre o caso de o site marcar sem refletir em isAccessible.
+            bloqueado = item.get("isAccessible") is False or bool(item.get("isLocked"))
+            slug = item.get("slug")
+            capitulos.append(
+                CapituloDetectado(
+                    chave=chave,
+                    numero=numero,
+                    numero_texto=rotulo,
+                    titulo=rotulo,
+                    side_story=side_story,
+                    # A URL existe mesmo travada (a página abre e mostra o
+                    # paywall), mas guardamos None quando bloqueado pra manter o
+                    # mesmo contrato do Madara: url preenchida = dá pra baixar.
+                    url=None if bloqueado or not slug else f"{base}/{slug}",
+                    bloqueado=bloqueado,
+                    disponivel_em=None,
+                    id_externo=str(item["id"]) if item.get("id") is not None else None,
+                )
+            )
+
+        if not capitulos:
+            return None
+
+        capitulos.sort(key=lambda c: (c.numero if c.numero is not None else 0.0, c.chave))
+        for i, cap in enumerate(capitulos, start=1):
+            cap.ordem = float(i)
+        return capitulos
 
     # Reuso das funções do common para catálogo/busca (usadas por update_obras/discover).
     def listar_catalogo(self, url: str) -> list[tuple[str, str]]:

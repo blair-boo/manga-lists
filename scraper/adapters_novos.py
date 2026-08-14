@@ -163,6 +163,49 @@ class ReadhiveAdapter(SourceAdapter):
         link = f"{p.scheme}://{p.netloc}/series/{series_id}/{maior}"
         return ParseResult(STATUS_OK, ultimo_capitulo=maior, link_capitulo=link, tipo_detectado=detectar_tipo(raw.url, raw.text))
 
+    def listar_capitulos(self, raw: RawContent) -> list[CapituloDetectado] | None:
+        """
+        Lista pra aba Reader, a partir da página overview — a mesma fonte que o
+        bookmarklet da usuária usa (links `/series/<id>/<n>`, ordenados pelo
+        número). Confirmado ao vivo: 295 capítulos numa página só.
+
+        Sem paywall: a página não traz nenhum marcador de bloqueio/moeda/lock,
+        então todo capítulo entra como livre. Se o site passar a ter, isto aqui
+        precisa mudar — hoje seria invenção.
+
+        O número sai da URL, não do texto do link: o rótulo renderizado vem
+        sujo (contador de likes e tempo relativo em volta do nome), enquanto a
+        URL é limpa e estável.
+        """
+        if raw.status != "ok" or not raw.text:
+            return None
+
+        m = self._SERIES_ID_RE.search(urlparse(raw.url).path)
+        if not m:
+            return None
+        series_id = m.group(1)
+
+        numeros = sorted({int(n) for n in re.findall(rf'href="[^"]*?/series/{series_id}/(\d+)"', raw.text)})
+        if not numeros:
+            return None
+
+        p = urlparse(raw.url)
+        base = f"{p.scheme}://{p.netloc}/series/{series_id}"
+        return [
+            CapituloDetectado(
+                chave=chave_capitulo(float(n), False),
+                numero=float(n),
+                numero_texto=f"Chapter {n}",
+                titulo=f"Chapter {n}",
+                side_story=False,
+                url=f"{base}/{n}",
+                bloqueado=False,
+                disponivel_em=None,
+                ordem=float(i),
+            )
+            for i, n in enumerate(numeros, start=1)
+        ]
+
 
 # --- A2. ts_theme (Themesia/ts_reader) — kingofshojo, arenascan -------------
 
@@ -666,12 +709,15 @@ class SakurazeAdapter(SourceAdapter):
                 f"{self._SUPABASE_URL}/rest/v1/chapters",
                 params={
                     "novel_id": f"eq.{novel['id']}",
-                    "select": "chapter_number",
+                    # SÓ METADADO. A tabela tem uma coluna `content` com o texto
+                    # do capítulo, deliberadamente fora do select: a varredura é
+                    # de metadados, e o texto só é buscado na hora de baixar um
+                    # capítulo específico que a usuária escolheu.
+                    "select": "id,chapter_number,title,is_premium,coin_cost,scheduled_free_at,created_at",
                     "order": "chapter_number.desc",
-                    "limit": "1",
                 },
                 headers=headers,
-                timeout=15,
+                timeout=20,
             )
             if not resp_chap.ok:
                 return RawContent("erro", url, diagnostico=f"REST chapters HTTP {resp_chap.status_code}")
@@ -705,6 +751,64 @@ class SakurazeAdapter(SourceAdapter):
         tipo_campo = (novel.get("novel_type") or novel.get("type") or "").lower()
         tipo_detectado = "novel" if "novel" in tipo_campo or not tipo_campo else detectar_tipo(raw.url)
         return ParseResult(STATUS_OK, titulo_site=novel.get("title"), ultimo_capitulo=numero_fmt, link_capitulo=raw.url, tipo_detectado=tipo_detectado)
+
+    def listar_capitulos(self, raw: RawContent) -> list[CapituloDetectado] | None:
+        """
+        Lista pra aba Reader, a partir do mesmo payload REST do `fetch()`.
+
+        O paywall daqui é o mais completo dos três sites: `is_premium` diz se
+        está preso e `scheduled_free_at` diz QUANDO cai — equivalente ao
+        `soon_free` do Madara, e melhor que o nyxscans (que não expõe data).
+        """
+        if raw.status != "ok" or not raw.text:
+            return None
+        try:
+            dados = json.loads(raw.text)
+        except ValueError:
+            return None
+
+        itens = dados.get("chapters") or []
+        if not itens:
+            return None
+
+        base = raw.url.split("?")[0].rstrip("/")
+        capitulos: list[CapituloDetectado] = []
+        for item in itens:
+            numero = item.get("chapter_number")
+            numero = float(numero) if isinstance(numero, (int, float)) else None
+            rotulo = (item.get("title") or "").strip() or (f"Chapter {numero}" if numero is not None else "")
+            side_story = bool(re.search(r"\b(side story|extra|special)\b", rotulo, re.I))
+
+            chave = chave_capitulo(numero, side_story, rotulo)
+            if not chave:
+                continue
+
+            bloqueado = bool(item.get("is_premium"))
+            # scheduled_free_at vem como timestamp ISO; disponivel_em é DATE.
+            agendado = item.get("scheduled_free_at")
+            disponivel_em = str(agendado)[:10] if agendado else None
+
+            capitulos.append(
+                CapituloDetectado(
+                    chave=chave,
+                    numero=numero,
+                    numero_texto=rotulo,
+                    titulo=rotulo,
+                    side_story=side_story,
+                    url=None if bloqueado or numero is None else f"{base}/chapter-{chave}",
+                    bloqueado=bloqueado,
+                    disponivel_em=disponivel_em,
+                    id_externo=str(item["id"]) if item.get("id") is not None else None,
+                )
+            )
+
+        if not capitulos:
+            return None
+
+        capitulos.sort(key=lambda c: (c.numero if c.numero is not None else 0.0, c.chave))
+        for i, cap in enumerate(capitulos, start=1):
+            cap.ordem = float(i)
+        return capitulos
 
 
 # --- A6. magustoon (Astro islands, /series/<slug>/chapter-<N>) ---------------

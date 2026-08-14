@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Fixture SINTÉTICO da página overview de uma série do readhive.org, pra
+     exercitar `ReadhiveAdapter.listar_capitulos` (aba Reader). Reproduz o que
+     foi observado ao vivo em 2026-08:
+
+       - a lista completa só existe na overview (/series/<id>), não numa página
+         de leitura — por isso o fetch() normaliza a URL antes;
+       - nenhum marcador de paywall/moeda/lock na página: no readhive é tudo
+         livre, e o adaptador reflete isso em vez de inventar bloqueio;
+       - o texto DENTRO da âncora vem sujo (contador e tempo relativo em volta
+         do nome do capítulo), então o número é lido da URL, não do rótulo. É o
+         que este fixture força: o rótulo aqui é bagunçado de propósito;
+       - a numeração tem BURACOS (1, 2, 5) — série real observada ia até 296
+         com 294 capítulos. O `ordem` é sequencial mesmo assim. -->
+<html>
+<head><title>Blade of Dawn</title></head>
+<body>
+<div up-follow>
+  <ul id="releases">
+    <li><a href="https://readhive.org/series/1234/5">10 Chapter 5 in 2 years</a></li>
+    <li><a href="https://readhive.org/series/1234/2">7 Chapter 2 in 2 years</a></li>
+    <li><a href="https://readhive.org/series/1234/1">12 Chapter 1 in 2 years</a></li>
+  </ul>
+  <!-- Link de OUTRA série na mesma página (recomendações): não pode entrar. -->
+  <a href="https://readhive.org/series/9999/42">Outra série, capítulo 42</a>
+</div>
+</body>
+</html>
