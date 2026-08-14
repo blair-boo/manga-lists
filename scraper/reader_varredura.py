@@ -27,6 +27,7 @@ Uso:
 import argparse
 import os
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 
@@ -38,6 +39,13 @@ from common import get_supabase, host_de_url, iniciar_run, finalizar_run
 # rebaixa um capítulo desses de volta pra 'descoberto'/'bloqueado' — senão uma
 # passagem do scraper apagaria o trabalho já feito de download/formatação.
 ESTADOS_INTOCAVEIS = {"baixado", "formatado", "publicado"}
+
+# Pausa entre obras do MESMO host. A varredura faz uma requisição por obra, mas
+# a biblioteca é concentrada: ~25 das obras vêm do mesmo site. Sem pausa isso
+# vira uma rajada contra um site pequeno de tradução, que é tanto falta de
+# educação quanto um bom jeito de ser bloqueado. 1s é folgado pra uma tarefa que
+# roda a cada quinze dias. Hosts diferentes não esperam um pelo outro.
+PAUSA_ENTRE_OBRAS_S = 1.0
 
 
 def agora_iso() -> str:
@@ -157,10 +165,20 @@ def sincronizar_capitulos(supabase, reader_obra: dict, fonte: dict, capitulos: l
     return {"novos": len(novos), "atualizados": atualizados, "liberados": liberados}
 
 
-def varrer_obra(supabase, reader_obra: dict, designacoes: dict) -> dict:
-    fontes = (
-        supabase.table("reader_fontes").select("*").eq("reader_obra_id", reader_obra["id"]).execute().data or []
-    )
+def carregar_fontes_por_obra(supabase) -> dict[str, list[dict]]:
+    """
+    Todas as reader_fontes numa consulta só, agrupadas por obra. Uma consulta
+    por obra funcionaria, mas além de ser N vezes mais lento, o host da fonte
+    precisa ser conhecido ANTES da requisição pra decidir a pausa de educação.
+    """
+    linhas = supabase.table("reader_fontes").select("*").execute().data or []
+    por_obra: dict[str, list[dict]] = {}
+    for linha in linhas:
+        por_obra.setdefault(linha["reader_obra_id"], []).append(linha)
+    return por_obra
+
+
+def varrer_obra(supabase, reader_obra: dict, fontes: list[dict], designacoes: dict) -> dict:
     fonte = escolher_fonte(fontes)
     if fonte is None:
         raise RuntimeError("obra sem fonte ativa com url_indice")
@@ -200,15 +218,26 @@ def executar(supabase, obra_id: str | None = None) -> None:
         return
 
     designacoes = carregar_designacoes(supabase)
+    fontes_por_obra = carregar_fontes_por_obra(supabase)
     run_id = iniciar_run(supabase, "reader")
     falhas = 0
     totais = {"novos": 0, "atualizados": 0, "liberados": 0}
 
     try:
+        ultimo_host: str | None = None
         for reader_obra in reader_obras:
             rotulo = reader_obra.get("obra_id")
+            fontes = fontes_por_obra.get(reader_obra["id"], [])
             try:
-                c = varrer_obra(supabase, reader_obra, designacoes)
+                # Pausa só quando a obra anterior veio do MESMO site — hosts
+                # diferentes não têm por que esperar um pelo outro.
+                escolhida = escolher_fonte(fontes)
+                host = host_de_url(escolhida["url_indice"]) if escolhida else None
+                if host is not None and host == ultimo_host:
+                    time.sleep(PAUSA_ENTRE_OBRAS_S)
+                ultimo_host = host
+
+                c = varrer_obra(supabase, reader_obra, fontes, designacoes)
                 for k in totais:
                     totais[k] += c[k]
                 print(

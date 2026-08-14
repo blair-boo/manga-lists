@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- Fixture SINTÉTICO do payload RSC do CMS Next.js, montado pra exercitar
+     `CmsGenericoAdapter.listar_capitulos` (aba Reader). Difere de
+     nyxscans_series.html (que só cobre o parse() do "último capítulo") por
+     incluir as flags de bloqueio, observadas ao vivo no nyxscans em 2026-08:
+
+       - capítulo travado vem `isLocked: true`, `isLockedByCoins: true`,
+         `isPermanentlyLocked: true` e `isAccessible: false`, mas com
+         `isTimeLocked: false` — ou seja, é pago e NÃO cai sozinho com o tempo,
+         ao contrário do `soon_free` do Madara. Por isso vira 'bloqueado' sem
+         data prevista;
+       - `chapterStatus` continua 'PUBLIC' mesmo travado: o status diz respeito
+         à publicação, não ao acesso. Usar ele pra decidir bloqueio daria falso
+         negativo — o sinal certo é `isAccessible`/`isLocked`;
+       - capítulo .5 (numeração fracionária);
+       - um DRAFT, que o parse() já ignorava. -->
+<html>
+<head><title>Blade of Dawn - Nyx Scans</title></head>
+<body>
+<div id="__next">conteúdo da página</div>
+<script>self.__next_f.push([1,"7:[\"$\",\"div\",null,{\"post\":{\"title\":\"Blade of Dawn\",\"slug\":\"blade-of-dawn\",\"chapters\":[{\"id\":1,\"number\":1,\"title\":\"Chapter 1\",\"chapterStatus\":\"PUBLIC\",\"slug\":\"chapter-1\",\"isLocked\":false,\"isAccessible\":true,\"isTimeLocked\":false,\"isLockedByCoins\":false},{\"id\":2,\"number\":2.5,\"title\":\"Chapter 2.5\",\"chapterStatus\":\"PUBLIC\",\"slug\":\"chapter-2-5\",\"isLocked\":false,\"isAccessible\":true,\"isTimeLocked\":false,\"isLockedByCoins\":false},{\"id\":3,\"number\":3,\"title\":\"Chapter 3\",\"chapterStatus\":\"PUBLIC\",\"slug\":\"chapter-3\",\"isLocked\":true,\"isAccessible\":false,\"isTimeLocked\":false,\"isLockedByCoins\":true,\"isPermanentlyLocked\":true,\"price\":50},{\"id\":4,\"number\":99,\"title\":\"Chapter 99\",\"chapterStatus\":\"DRAFT\",\"slug\":\"chapter-99\",\"isLocked\":false,\"isAccessible\":true}]}}]"])</script>
+</body>
+</html>

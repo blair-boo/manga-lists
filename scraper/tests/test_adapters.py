@@ -13,6 +13,8 @@ from adapters_novos import (
     ComixAdapter,
     MadaraAdapter,
     MagustoonAdapter,
+    ReadhiveAdapter,
+    SakurazeAdapter,
     _desembrulhar_resultado as comix_desembrulhar,
     _extrair_json as comix_extrair_json,
     _order as comix_order,
@@ -456,3 +458,89 @@ def test_madara_nenhuma_chave_duplicada(capitulos_madara):
 def test_madara_listar_capitulos_devolve_none_sem_conteudo():
     assert MadaraAdapter().listar_capitulos(RawContent("erro", "https://x/", text=None)) is None
     assert MadaraAdapter().listar_capitulos(RawContent("ok", "https://x/", text="<html></html>")) is None
+
+
+# --- listar_capitulos dos demais adaptadores (aba Reader) --------------------
+
+
+def test_cms_generico_lista_capitulos_com_bloqueio():
+    raw = RawContent("ok", "https://nyxscans.com/series/blade-of-dawn", text=fixture("nyxscans_reader.html"))
+    caps = CmsGenericoAdapter().listar_capitulos(raw)
+    assert caps is not None
+    assert [c.chave for c in caps] == ["1", "2.5", "3", "99"]
+
+    # O bloqueio vem de isAccessible/isLocked, NAO de chapterStatus: o cap. 3
+    # esta 'PUBLIC' e mesmo assim travado por moedas.
+    travado = next(c for c in caps if c.chave == "3")
+    assert travado.bloqueado is True
+    assert travado.url is None
+    # isTimeLocked=false: e pago, nao cai sozinho — entao nao inventamos data.
+    assert travado.disponivel_em is None
+
+    livre = next(c for c in caps if c.chave == "1")
+    assert livre.bloqueado is False
+    assert livre.url == "https://nyxscans.com/series/blade-of-dawn/chapter-1"
+
+
+def test_cms_generico_ordena_por_numero_e_nao_duplica():
+    raw = RawContent("ok", "https://nyxscans.com/series/blade-of-dawn", text=fixture("nyxscans_reader.html"))
+    caps = CmsGenericoAdapter().listar_capitulos(raw)
+    assert [c.ordem for c in caps] == [1.0, 2.0, 3.0, 4.0]
+    assert len({c.chave for c in caps}) == len(caps)
+
+
+def test_sakuraze_lista_capitulos_com_data_de_liberacao():
+    raw = RawContent("ok", "https://sakuraze.vercel.app/novel/blade-of-dawn", text=fixture("sakuraze_reader.json"))
+    caps = SakurazeAdapter().listar_capitulos(raw)
+    assert caps is not None
+    assert len(caps) == 4
+
+    # is_premium marca o bloqueio e scheduled_free_at diz quando cai — o
+    # paywall mais completo dos tres sites (o nyxscans nao expoe data).
+    travado = next(c for c in caps if c.bloqueado)
+    assert travado.chave == "4"
+    assert travado.disponivel_em == "2026-09-03"
+    assert travado.url is None
+
+    # Titulo vazio no banco cai pro rotulo derivado do numero.
+    assert next(c for c in caps if c.chave == "1").numero_texto == "Chapter 1.0"
+
+
+def test_sakuraze_side_story_sai_do_eixo_normal():
+    raw = RawContent("ok", "https://sakuraze.vercel.app/novel/blade-of-dawn", text=fixture("sakuraze_reader.json"))
+    caps = SakurazeAdapter().listar_capitulos(raw)
+    ss = [c for c in caps if c.side_story]
+    assert len(ss) == 1
+    assert ss[0].chave == "ss-3"
+
+
+def test_readhive_lista_capitulos_e_ignora_outras_series():
+    raw = RawContent("ok", "https://readhive.org/series/1234", text=fixture("readhive_reader.html"))
+    caps = ReadhiveAdapter().listar_capitulos(raw)
+    assert caps is not None
+    # O /series/9999/42 (recomendacao de outra serie) nao pode entrar.
+    assert [c.chave for c in caps] == ["1", "2", "5"]
+    assert all(c.url.startswith("https://readhive.org/series/1234/") for c in caps)
+
+
+def test_readhive_numero_vem_da_url_nao_do_rotulo_sujo():
+    # O texto da ancora e "10 Chapter 5 in 2 years" — o 10 (likes) nao pode
+    # virar o numero do capitulo.
+    raw = RawContent("ok", "https://readhive.org/series/1234", text=fixture("readhive_reader.html"))
+    caps = ReadhiveAdapter().listar_capitulos(raw)
+    ultimo = caps[-1]
+    assert ultimo.numero == 5.0
+    assert ultimo.numero_texto == "Chapter 5"
+
+
+def test_readhive_ordem_e_sequencial_apesar_dos_buracos():
+    raw = RawContent("ok", "https://readhive.org/series/1234", text=fixture("readhive_reader.html"))
+    caps = ReadhiveAdapter().listar_capitulos(raw)
+    assert [c.ordem for c in caps] == [1.0, 2.0, 3.0]
+    assert [c.numero for c in caps] == [1.0, 2.0, 5.0]
+
+
+def test_readhive_sem_paywall_nenhum_capitulo_bloqueado():
+    raw = RawContent("ok", "https://readhive.org/series/1234", text=fixture("readhive_reader.html"))
+    caps = ReadhiveAdapter().listar_capitulos(raw)
+    assert all(not c.bloqueado for c in caps)
