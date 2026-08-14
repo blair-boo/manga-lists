@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { criarReaderCapitulo, deleteReaderCapitulo, updateReaderCapitulo } from '../db/repo';
 import {
   AVISO_SEM_DOWNLOADER,
+  chaveCapitulo,
   formatarData,
   ordenarCapitulosReader,
   paywallLiberado,
@@ -53,10 +54,16 @@ export function ReaderCapitulosLista({ readerObraId, obraId, capitulos, somenteL
     // `ordem` é o eixo real de ordenação; sem varredura, derivamos do número
     // informado e caímos no fim da lista quando não há número.
     const ordem = numero ?? (ordenados.at(-1)?.ordem ?? 0) + 1;
+    // Mesma chave que a varredura vai derivar, pra que um capítulo cadastrado
+    // à mão seja reconhecido (e atualizado) quando o scraper passar por ele.
+    const chave = chaveCapitulo(numero, novoSide, novoTitulo.trim() || null);
+    if (!chave) throw new Error('Informe o número do capítulo ou um título.');
     await criarReaderCapitulo({
       reader_obra_id: readerObraId,
       obra_id: obraId,
       reader_fonte_id: null,
+      chave,
+      id_externo: null,
       numero,
       numero_texto: null,
       titulo: novoTitulo.trim() || null,

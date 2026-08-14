@@ -11,6 +11,7 @@ importar essas peças, e `adapters.py` também importa as classes de
 tentariam se importar um ao outro.
 """
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -165,6 +166,56 @@ class ParseResult:
     status_publicacao_detectado: str | None = None
 
 
+# --- Capítulo detectado pela varredura do Reader -----------------------------
+
+
+@dataclass
+class CapituloDetectado:
+    """
+    Um capítulo como a varredura o enxerga na LISTA da obra. Só metadado —
+    nenhum texto de capítulo passa por aqui; o download é outra fase.
+
+    `chave` é a identidade dentro da obra e NÃO é a URL: nos temas Madara o
+    capítulo atrás de paywall vem com href="#" e só ganha URL quando o paywall
+    cai. Usar URL duplicaria os bloqueados e perderia o vínculo na liberação
+    (ver migration 0022).
+    """
+
+    chave: str
+    numero: float | None = None
+    numero_texto: str | None = None  # rótulo cru do site, ex. "Side Story 3"
+    titulo: str | None = None
+    side_story: bool = False
+    url: str | None = None  # None enquanto bloqueado
+    bloqueado: bool = False
+    disponivel_em: str | None = None  # 'YYYY-MM-DD' quando o site informa
+    id_externo: str | None = None
+    ordem: float | None = None
+
+
+def chave_capitulo(numero: float | None, side_story: bool, numero_texto: str | None = None) -> str:
+    """
+    Identidade do capítulo dentro da obra, derivada do rótulo do site.
+
+    ESPELHO EXATO de `chaveCapitulo` em src/lib/reader.ts — se mudar aqui, mude
+    lá: divergir faz a varredura deixar de reconhecer o que o app cadastrou (e
+    vice-versa), duplicando tudo.
+
+    Side story ganha prefixo 'ss-' porque a numeração dela corre num eixo
+    próprio: existe "Side Story 3" numa obra que também tem "Chapter 3".
+    """
+    prefixo = "ss-" if side_story else ""
+    if numero is not None:
+        # Normaliza a representação como o JS faz: 143.0 -> '143', 143.20 -> '143.2'.
+        numero_fmt = int(numero) if float(numero).is_integer() else float(numero)
+        return f"{prefixo}{numero_fmt}"
+    cru = (numero_texto or "").strip().lower()
+    if cru:
+        limpo = re.sub(r"[^a-z0-9.]+", "-", cru).strip("-")
+        return f"{prefixo}{limpo}"
+    return ""
+
+
 # --- Interface do adaptador -------------------------------------------------
 
 
@@ -181,3 +232,17 @@ class SourceAdapter:
 
     def parse(self, raw: RawContent) -> ParseResult:
         raise NotImplementedError
+
+    # --- Aba Reader ---------------------------------------------------------
+    #
+    # `parse()` reduz a lista a UM número (o último capítulo lançado) porque é
+    # o que o update_fontes.py precisa. A aba Reader precisa da lista inteira,
+    # com bloqueio e data de liberação — daí um método separado em vez de
+    # inchar o ParseResult.
+    #
+    # É OPCIONAL de propósito: adaptador que não implementa devolve None, e a
+    # varredura simplesmente reporta "sem suporte" pra aquele domínio, sem
+    # quebrar. Assim dá pra implementar site a site sem tocar nos outros.
+
+    def listar_capitulos(self, raw: RawContent) -> list["CapituloDetectado"] | None:
+        return None

@@ -129,6 +129,8 @@ const COLUNAS_READER_CAPITULOS = new Set<keyof ReaderCapitulo>([
   'reader_obra_id',
   'obra_id',
   'reader_fonte_id',
+  'chave',
+  'id_externo',
   'numero',
   'numero_texto',
   'titulo',

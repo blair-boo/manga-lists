@@ -24,6 +24,7 @@ import requests
 from adapter_base import (
     ACCESS_HTTP,
     FETCHERS,
+    CapituloDetectado,
     RawContent,
     ParseResult,
     SourceAdapter,
@@ -32,6 +33,7 @@ from adapter_base import (
     STATUS_INVALIDA,
     STATUS_OK,
     STATUS_VAZIA,
+    chave_capitulo,
     fetch_http,
 )
 from common import host_de_url, http_get
@@ -265,6 +267,65 @@ class MgreadAdapter(SourceAdapter):
 # --- A3. madara (tema Madara real) — anubisscans, hazelnade -----------------
 
 
+_MESES = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _data_iso(texto: str) -> str | None:
+    """
+    'Unlocked on Aug 15, 2026' -> '2026-08-15'.
+
+    Formato em inglês porque é o que os temas Madara servem (confirmado em
+    bellerepository/hazelnade/eternalune). Devolve None se não reconhecer, e
+    nesse caso o capítulo fica bloqueado sem data — o painel mostra o bloqueio,
+    só não sabe dizer quando cai.
+    """
+    m = re.search(r"([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})", texto or "")
+    if not m:
+        return None
+    mes = _MESES.get(m.group(1)[:3].lower())
+    if not mes:
+        return None
+    return f"{int(m.group(3)):04d}-{mes:02d}-{int(m.group(2)):02d}"
+
+
+def _desempatar_chaves(capitulos: list[CapituloDetectado]) -> None:
+    """
+    Resolve rótulos ambíguos in-place.
+
+    Caso real (bellerepository): a obra tem DOIS capítulos rotulados
+    "Chapter 133.1", em URLs distintas — `chapter-133-1/` e `chapter-133-1_1/`,
+    onde o `_1` é o WordPress desempatando slug numa republicação. O rótulo
+    sozinho não identifica o capítulo, e sem isto a segunda linha bateria na
+    constraint `unique (reader_obra_id, chave)`.
+
+    O desempate usa o slug da URL, e a ordem do grupo é decidida pela própria
+    URL — não pela posição na lista do site. Isso importa: o Madara devolve do
+    mais recente pro mais antigo, então se uma republicação aparecesse depois,
+    ordenar por posição trocaria a chave do capítulo original e criaria uma
+    linha nova. Ordenando por URL, quem já tinha a chave limpa continua com ela.
+    """
+    grupos: dict[str, list[CapituloDetectado]] = {}
+    for cap in capitulos:
+        grupos.setdefault(cap.chave, []).append(cap)
+
+    for chave, grupo in grupos.items():
+        if len(grupo) < 2:
+            continue
+        # Bloqueado não tem URL; cai pro rótulo cru e, no limite, fica estável
+        # pela ordem relativa dentro do grupo (raro: exigiria dois bloqueados
+        # com o mesmo rótulo).
+        for i, cap in enumerate(sorted(grupo, key=lambda c: (c.url or c.numero_texto or "", ))):
+            if i == 0:
+                continue
+            sufixo = ""
+            if cap.url:
+                sufixo = cap.url.rstrip("/").rsplit("/", 1)[-1]
+            cap.chave = f"{chave}-{sufixo or i + 1}"
+
+
 class MadaraAdapter(SourceAdapter):
     """
     WordPress + tema Madara real. Fingerprint: `listing-chapters_wrap` ou
@@ -331,6 +392,103 @@ class MadaraAdapter(SourceAdapter):
         # A URL original (não a do ajax) carrega o sinal de tipo (/novel/ vs /manga/).
         url_obra = raw.url.split("/ajax/chapters/")[0] + "/"
         return ParseResult(STATUS_OK, ultimo_capitulo=numero_fmt, link_capitulo=link, tipo_detectado=detectar_tipo(url_obra))
+
+    def listar_capitulos(self, raw: RawContent) -> list[CapituloDetectado] | None:
+        """
+        Lista completa pra aba Reader, INCLUINDO os bloqueados — que o
+        `parse()` acima ignora de propósito (a regex dele só casa href com
+        /chapter-N/, e capítulo atrás de paywall vem com href="#").
+
+        Estrutura real de um <li> bloqueado (confirmada ao vivo em
+        bellerepository, 2026-08):
+
+            <li class="wp-manga-chapter to_be_free premium coin-10
+                       data-chapter-14124 premium-block">
+              <span class="coin"><i class="fas fa-coins"></i>10</span>
+              <a href="#"> Chapter 143.2 <i class="fas fa-lock"></i> - END </a>
+              <span class="chapter-release-date"><i>Mar 11, 2026</i></span>
+              <span class='soon_free'>Unlocked on Aug 15, 2026</span>
+            </li>
+
+        `soon_free` traz a data de liberação já calculada — é dela que sai o
+        `disponivel_em`, sem heurística de "em N dias". `chapter-release-date`
+        é a data de PUBLICAÇÃO e não serve pra isso.
+        """
+        if raw.status != "ok" or not raw.text:
+            return None
+
+        itens = re.findall(r'<li class="wp-manga-chapter[^"]*".*?</li>', raw.text, re.S)
+        if not itens:
+            return None
+
+        capitulos: list[CapituloDetectado] = []
+        for ordem, item in enumerate(itens):
+            cap = self._parse_item(item)
+            if cap is None:
+                continue
+            capitulos.append(cap)
+
+        if not capitulos:
+            return None
+
+        _desempatar_chaves(capitulos)
+
+        # O Madara devolve do mais recente pro mais antigo. `ordem` é o eixo de
+        # ordenação da UI, então numeramos do começo da obra pro fim.
+        total = len(capitulos)
+        for i, cap in enumerate(capitulos):
+            cap.ordem = float(total - i)
+        capitulos.reverse()
+        return capitulos
+
+    @staticmethod
+    def _parse_item(item: str) -> CapituloDetectado | None:
+        classes = re.search(r'<li class="([^"]*)"', item)
+        classe = classes.group(1) if classes else ""
+
+        ancora = re.search(r"<a[^>]*href=\"([^\"]*)\"[^>]*>(.*?)</a>", item, re.S)
+        if not ancora:
+            return None
+        href = ancora.group(1).strip()
+        # O rótulo pode carregar <i class="fas fa-lock"> e sufixos tipo " - END".
+        rotulo = re.sub(r"<[^>]+>", " ", ancora.group(2))
+        rotulo = re.sub(r"\s+", " ", rotulo).strip(" -–—\t\n")
+        if not rotulo:
+            return None
+
+        bloqueado = "premium-block" in classe or href in ("#", "")
+        url = None if bloqueado or href in ("#", "") else href
+
+        side_story = bool(re.search(r"\b(side story|extra|special)\b", rotulo, re.I))
+        num_match = re.search(r"(\d+(?:\.\d+)?)", rotulo)
+        numero = float(num_match.group(1)) if num_match else None
+
+        id_externo = None
+        id_match = re.search(r"data-chapter-(\d+)", classe)
+        if id_match:
+            id_externo = id_match.group(1)
+
+        disponivel_em = None
+        soon = re.search(r"soon_free['\"]?>(.*?)</span>", item, re.S)
+        if soon:
+            texto = re.sub(r"<[^>]+>", " ", soon.group(1))
+            disponivel_em = _data_iso(texto)
+
+        chave = chave_capitulo(numero, side_story, rotulo)
+        if not chave:
+            return None
+
+        return CapituloDetectado(
+            chave=chave,
+            numero=numero,
+            numero_texto=rotulo,
+            titulo=rotulo,
+            side_story=side_story,
+            url=url,
+            bloqueado=bloqueado,
+            disponivel_em=disponivel_em,
+            id_externo=id_externo,
+        )
 
 
 # --- A4. vymanga (Laravel, single-site) -------------------------------------

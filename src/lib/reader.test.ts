@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chaveCapitulo,
   fontePreferida,
   fontesParaCapitulo,
   ordenarCapitulosReader,
@@ -53,6 +54,8 @@ function capituloFake(parcial: Partial<ReaderCapitulo> = {}): ReaderCapitulo {
     reader_obra_id: 'r1',
     obra_id: 'o1',
     reader_fonte_id: null,
+    chave: '1',
+    id_externo: null,
     numero: 1,
     numero_texto: null,
     titulo: null,
@@ -91,6 +94,41 @@ function fonteFake(parcial: Partial<ReaderFonte> = {}): ReaderFonte {
     ...parcial,
   };
 }
+
+describe('chaveCapitulo', () => {
+  it('usa o número quando existe', () => {
+    expect(chaveCapitulo(143.2, false)).toBe('143.2');
+    expect(chaveCapitulo(12, false)).toBe('12');
+  });
+
+  it('normaliza representações equivalentes do mesmo número', () => {
+    // 143.20 e 143.2 são o mesmo capítulo; 143.0 é o capítulo 143.
+    expect(chaveCapitulo(143.2, false)).toBe(chaveCapitulo(143.20, false));
+    expect(chaveCapitulo(143.0, false)).toBe('143');
+  });
+
+  it('separa side story do eixo normal — obra pode ter Chapter 3 e Side Story 3', () => {
+    expect(chaveCapitulo(3, true)).toBe('ss-3');
+    expect(chaveCapitulo(3, false)).toBe('3');
+    expect(chaveCapitulo(3, true)).not.toBe(chaveCapitulo(3, false));
+  });
+
+  it('cai no rótulo cru quando não há número', () => {
+    expect(chaveCapitulo(null, false, 'Extra 2')).toBe('extra-2');
+    expect(chaveCapitulo(null, true, 'Epilogue')).toBe('ss-epilogue');
+  });
+
+  it('é estável entre bloqueado e liberado (é o ponto da chave)', () => {
+    // Bloqueado: sem URL, só o rótulo. Liberado: mesmo rótulo, agora com URL.
+    const bloqueado = chaveCapitulo(143.2, false, 'Chapter 143.2');
+    const liberado = chaveCapitulo(143.2, false, 'Chapter 143.2');
+    expect(bloqueado).toBe(liberado);
+  });
+
+  it('devolve string vazia quando não há nada de onde derivar', () => {
+    expect(chaveCapitulo(null, false, null)).toBe('');
+  });
+});
 
 describe('ordenarCapitulosReader', () => {
   it('ordena por ordem e joga os sem ordem pro fim', () => {

@@ -370,3 +370,89 @@ def test_comix_order_notacao_de_colchetes():
     # `params` vira notação de colchetes, não JSON.stringify (ver docstring
     # de `_order` em adapters_novos.py).
     assert comix_order({"chapter_updated_at": "desc"}) == {"order[chapter_updated_at]": "desc"}
+
+
+# --- MadaraAdapter.listar_capitulos (aba Reader) -----------------------------
+#
+# Diferente do parse() acima, que só devolve o último capítulo: aqui a lista
+# inteira importa, e os bloqueados — que o parse() ignora de propósito, porque
+# vêm com href="#" — são justamente o caso que interessa.
+
+
+@pytest.fixture
+def capitulos_madara():
+    raw = RawContent("ok", "https://example.com/novel/blade-of-dawn/ajax/chapters/", text=fixture("madara_ajax_reader.html"))
+    caps = MadaraAdapter().listar_capitulos(raw)
+    assert caps is not None
+    return caps
+
+
+def test_madara_lista_todos_os_capitulos(capitulos_madara):
+    # 6 <li> no fixture, nenhum descartado (nem os bloqueados sem URL).
+    assert len(capitulos_madara) == 6
+
+
+def test_madara_ordena_do_comeco_da_obra_pro_fim(capitulos_madara):
+    # O tema serve do mais recente pro mais antigo; a UI quer o contrário.
+    assert capitulos_madara[0].numero_texto == "Chapter 1"
+    assert capitulos_madara[-1].numero_texto.startswith("Chapter 12.2")
+    ordens = [c.ordem for c in capitulos_madara]
+    assert ordens == sorted(ordens)
+
+
+def test_madara_extrai_paywall_com_data_de_liberacao(capitulos_madara):
+    bloqueados = [c for c in capitulos_madara if c.bloqueado]
+    assert len(bloqueados) == 2
+    # A data vem do <span class="soon_free">, nao do chapter-release-date
+    # (que e a data de PUBLICACAO — 'Mar 11, 2026' no fixture).
+    assert {c.disponivel_em for c in bloqueados} == {"2026-08-14", "2026-08-15"}
+    # Bloqueado nao tem URL: e por isso que a chave nao pode ser a URL.
+    assert all(c.url is None for c in bloqueados)
+    # ...mas tem id proprio, que ajuda a casar/depurar.
+    assert {c.id_externo for c in bloqueados} == {"14123", "14124"}
+
+
+def test_madara_limpa_o_rotulo_do_capitulo(capitulos_madara):
+    ultimo = capitulos_madara[-1]
+    # O <i class="fas fa-lock"> dentro da ancora vira espaco e some. Ja o
+    # sufixo " - END" FICA: numero_texto e o rotulo cru do site, e "END" e
+    # informacao real (a obra terminou) que a lista de capitulos vai mostrar.
+    assert "lock" not in ultimo.numero_texto
+    assert "<" not in ultimo.numero_texto
+    assert ultimo.numero_texto == "Chapter 12.2 - END"
+    # O que precisa ser limpo e a IDENTIDADE, e ela sai do numero, nao do
+    # rotulo — entao "- END" nao contamina a chave nem quebra a idempotencia.
+    assert ultimo.numero == 12.2
+    assert ultimo.chave == "12.2"
+
+
+def test_madara_side_story_nao_colide_com_capitulo_de_mesmo_numero(capitulos_madara):
+    ss = [c for c in capitulos_madara if c.side_story]
+    assert len(ss) == 1
+    assert ss[0].chave == "ss-1"
+    cap1 = [c for c in capitulos_madara if c.numero_texto == "Chapter 1"]
+    assert cap1[0].chave == "1"
+
+
+def test_madara_desempata_rotulos_repetidos_pela_url(capitulos_madara):
+    # Caso real: dois "Chapter 11.1" em URLs diferentes (o `_1` e o WordPress
+    # desempatando slug numa republicacao). Sem desempate, a segunda linha
+    # bateria na constraint unique (reader_obra_id, chave).
+    repetidos = [c for c in capitulos_madara if c.numero_texto == "Chapter 11.1"]
+    assert len(repetidos) == 2
+    chaves = {c.chave for c in repetidos}
+    assert len(chaves) == 2
+    # Quem tem a URL "limpa" fica com a chave limpa — a ordem do desempate vem
+    # da URL, nao da posicao na lista, pra que uma republicacao futura nao
+    # renomeie a chave do capitulo original.
+    assert "11.1" in chaves
+
+
+def test_madara_nenhuma_chave_duplicada(capitulos_madara):
+    chaves = [c.chave for c in capitulos_madara]
+    assert len(chaves) == len(set(chaves))
+
+
+def test_madara_listar_capitulos_devolve_none_sem_conteudo():
+    assert MadaraAdapter().listar_capitulos(RawContent("erro", "https://x/", text=None)) is None
+    assert MadaraAdapter().listar_capitulos(RawContent("ok", "https://x/", text="<html></html>")) is None

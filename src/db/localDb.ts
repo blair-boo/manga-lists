@@ -42,6 +42,12 @@ class LocalDb extends Dexie {
       reader_fontes: 'id, reader_obra_id, ordem',
       reader_capitulos: 'id, reader_obra_id, obra_id, estado, disponivel_em',
     });
+    // v3 só acrescenta o índice de `chave` (a identidade do capítulo passou a
+    // ser ela, não a URL — ver migration 0022). Os blocos anteriores continuam
+    // aqui: o Dexie funde as versões, e apagá-los zeraria instalações antigas.
+    this.version(3).stores({
+      reader_capitulos: 'id, reader_obra_id, obra_id, estado, disponivel_em, chave',
+    });
   }
 }
 

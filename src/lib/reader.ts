@@ -60,6 +60,39 @@ export function formatarData(iso: string | null): string {
 }
 
 /**
+ * Identidade do capítulo dentro da obra, derivada do rótulo do site.
+ *
+ * Precisa ser estável entre "atrás de paywall" e "liberado", porque é nesse
+ * momento que o capítulo ganha uma URL — usar URL como chave duplicaria os
+ * bloqueados (todos vêm com href="#") e perderia o vínculo na liberação.
+ *
+ * Side story ganha prefixo `ss-` porque a numeração dela corre num eixo
+ * próprio: existe "Side Story 3" numa obra que também tem "Chapter 3".
+ *
+ * Esta mesma regra existe do lado do Python (scraper/reader_capitulos.py) —
+ * se mudar aqui, mude lá, senão a varredura passa a duplicar tudo.
+ */
+export function chaveCapitulo(
+  numero: number | null,
+  sideStory: boolean,
+  numeroTexto?: string | null
+): string {
+  const prefixo = sideStory ? 'ss-' : '';
+  if (numero != null && Number.isFinite(numero)) {
+    // Normaliza a representação: 143.20 e 143.2 são o mesmo capítulo, e
+    // `String(143.0)` já devolve '143'.
+    return prefixo + String(numero);
+  }
+  // Sem número, cai no rótulo cru normalizado — melhor do que nada, e estável
+  // enquanto o site não reescrever o texto.
+  const cru = (numeroTexto ?? '').trim().toLowerCase();
+  if (cru) {
+    return prefixo + cru.replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  return '';
+}
+
+/**
  * Como o capítulo aparece na tela. `numero_texto` (o rótulo cru do site) ganha
  * quando existe, porque é ele que preserva o que a numeração perde — "Side
  * Story 3" e "Extra 2" não têm número que os represente.
