@@ -1,12 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState } from 'react';
 import { db } from '../db/localDb';
+import type { Obra } from '../types';
 
 interface Props {
   /** Obra atual, pra excluir da lista de opções (evita auto-vínculo). Null quando ainda não foi criada. */
   excluirId?: string | null;
+  /** Restringe as opções (ex.: só Novels ainda não inscritas no Reader). Sem isso, oferece todas. */
+  filtrar?: (obra: Obra) => boolean;
   value: string;
   onChange: (obraId: string) => void;
+  placeholder?: string;
 }
 
 /**
@@ -16,7 +20,7 @@ interface Props {
  * padrão de dropdown de sugestões do TagPicker (sem <datalist>, que o Safari
  * iOS não abre de forma confiável).
  */
-export function VinculoObraSelect({ excluirId, value, onChange }: Props) {
+export function VinculoObraSelect({ excluirId, filtrar, value, onChange, placeholder }: Props) {
   const obras = useLiveQuery(() => db.obras.toArray(), []);
   const [query, setQuery] = useState('');
   const [aberto, setAberto] = useState(false);
@@ -29,13 +33,14 @@ export function VinculoObraSelect({ excluirId, value, onChange }: Props) {
       .filter(
         (o) =>
           o.id !== excluirId &&
+          (!filtrar || filtrar(o)) &&
           (!q ||
             o.titulo.toLowerCase().includes(q) ||
             (o.titulos_alternativos ?? []).some((t) => t.toLowerCase().includes(q)))
       )
       .sort((a, b) => a.titulo.localeCompare(b.titulo))
       .slice(0, 8);
-  }, [obras, excluirId, query]);
+  }, [obras, excluirId, filtrar, query]);
 
   if (selecionada) {
     return (
@@ -64,7 +69,7 @@ export function VinculoObraSelect({ excluirId, value, onChange }: Props) {
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setAberto(true)}
         onBlur={() => setTimeout(() => setAberto(false), 120)}
-        placeholder="Search a title…"
+        placeholder={placeholder ?? 'Search a title…'}
         autoComplete="off"
       />
       {aberto && sugestoes.length > 0 && (

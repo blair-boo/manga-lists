@@ -135,10 +135,125 @@ create table conciliacao_blacklist (
     unique (obra_id, url)
 );
 
+-- ---------------------------------------------------------------------------
+-- Reader — download, formatação e leitura de novels (migration 0021)
+--
+-- A divisão que guia o desenho: DETECTAR é automático, BAIXAR é sempre decisão
+-- da usuária. A varredura quinzenal só descobre capítulos e datas de liberação
+-- do paywall; nada é baixado sem escolha explícita da fonte. Por isso o estado
+-- 'descoberto' do capítulo é um estado de ESPERA (acende 'disponivel' na obra),
+-- não uma fila de trabalho.
+-- ---------------------------------------------------------------------------
+
+-- Uma linha por obra inscrita no Reader (1:1 com obras).
+create table reader_obras (
+    id uuid primary key default gen_random_uuid(),
+    obra_id uuid not null unique references obras(id) on delete cascade,
+    concluido boolean not null default false,    -- decide In progress vs Completed
+    busca_manual boolean not null default false, -- toggle "Search now"
+    estado text not null default 'aguardando'
+      check (estado in ('aguardando', 'disponivel', 'buscando', 'baixando', 'formatando', 'pronto')),
+    estado_em timestamptz not null default now(),
+    -- Última busca em três colunas (não jsonb): a UI mostra data e resultado
+    -- lado a lado em cada linha, e ultima_busca_ok vai ser filtrada depois.
+    ultima_busca_em timestamptz,
+    ultima_busca_ok boolean,
+    ultima_busca_mensagem text,
+    total_capitulos_site numeric,      -- total declarado pelo site
+    total_side_stories_site numeric,
+    -- Página de informações: NULL = herda de obras. Colunas explícitas porque o
+    -- conjunto é fixo e cada campo é editado/espelhado individualmente.
+    -- Translation não entra aqui — é derivado de reader_fontes.
+    info_titulo text,
+    info_autor text,
+    info_score numeric,
+    info_status text,
+    info_link text,
+    info_sinopse text,
+    info_generos text[],
+    info_tags text[],
+    -- Quais campos info_* também gravam na obra ao salvar, ex. {"titulo": true}.
+    espelhar jsonb not null default '{}',
+    -- Artefatos. O parcial (regenerado sozinho a cada leva nova) é separado do
+    -- final (gerado pelo botão) — senão a regeneração automática sobrescreveria
+    -- a versão carimbada.
+    pasta_storage text,
+    capa_path text,
+    epub_path text,
+    epub_gerado_em timestamptz,
+    epub_parcial_path text,
+    epub_parcial_gerado_em timestamptz,
+    pdf_path text,
+    pdf_gerado_em timestamptz,
+    criado_em timestamptz not null default now(),
+    atualizado_em timestamptz not null default now()
+);
+
+-- Grupo de tradução E origem de download — são o mesmo dado visto de dois
+-- ângulos. O campo "Translation" da página de informações ("1-150 Eternalune /
+-- 151-X Novelupdates") é derivado desta tabela, não digitado à parte. Faixas
+-- sobrepostas são PERMITIDAS de propósito: é o caso em que a usuária escolhe
+-- de qual fonte baixar; `preferida` só marca o default da tela.
+create table reader_fontes (
+    id uuid primary key default gen_random_uuid(),
+    reader_obra_id uuid not null references reader_obras(id) on delete cascade,
+    grupo text not null,
+    url_indice text,     -- página com a lista de capítulos
+    url_base text,
+    de numeric,          -- primeiro capítulo coberto
+    ate numeric,         -- último; NULL = faixa aberta ("daqui pra frente")
+    adaptador text,
+    preferida boolean not null default false,
+    ordem numeric,
+    ativa boolean not null default true,
+    criado_em timestamptz not null default now(),
+    atualizado_em timestamptz not null default now()
+);
+
+-- Máquina de estados por capítulo. Idempotente por (reader_obra_id, url):
+-- revarrer não duplica.
+create table reader_capitulos (
+    id uuid primary key default gen_random_uuid(),
+    reader_obra_id uuid not null references reader_obras(id) on delete cascade,
+    -- Desnormalizado de propósito: deixa o cache local (Dexie) indexar capítulo
+    -- por obra sem precisar de join.
+    obra_id uuid not null references obras(id) on delete cascade,
+    reader_fonte_id uuid references reader_fontes(id) on delete set null,
+    numero numeric(10, 2),  -- numeric e não integer: capítulos .5 existem
+    numero_texto text,      -- rótulo cru do site, ex. "Side Story 3"
+    titulo text,
+    side_story boolean not null default false,
+    -- Slot de ordenação explícito: side story não tem lugar no eixo do numero,
+    -- então toda ordenação da UI passa por aqui, nunca por numero.
+    ordem numeric,
+    estado text not null default 'descoberto'
+      check (estado in ('descoberto', 'bloqueado', 'baixado', 'formatado', 'publicado')),
+    estado_em timestamptz not null default now(),
+    disponivel_em date,  -- paywall: quando cai de graça (refinado a cada varredura)
+    url text,
+    path_md text,
+    baixado_em timestamptz,
+    formatado_em timestamptz,
+    erro text,
+    erro_em timestamptz,
+    criado_em timestamptz not null default now(),
+    atualizado_em timestamptz not null default now(),
+    -- Mesma regra de identidade que `fontes` usa: a numeração dos sites é
+    -- confiável de menos pra ser chave, a URL identifica.
+    unique (reader_obra_id, url)
+);
+
 create index idx_fontes_obra_id on fontes(obra_id);
 create index idx_fontes_status_aprovacao on fontes(status_aprovacao);
 create index idx_obras_titulo on obras(titulo);
 create index idx_listas_categoria on listas(categoria);
+create index idx_reader_obras_obra_id on reader_obras(obra_id);
+create index idx_reader_obras_concluido on reader_obras(concluido);
+create index idx_reader_fontes_reader_obra_id on reader_fontes(reader_obra_id);
+create index idx_reader_capitulos_reader_obra_id on reader_capitulos(reader_obra_id);
+create index idx_reader_capitulos_obra_id on reader_capitulos(obra_id);
+create index idx_reader_capitulos_estado on reader_capitulos(estado);
+create index idx_reader_capitulos_disponivel_em on reader_capitulos(disponivel_em);
 
 -- Trigger para manter atualizado_em em obras
 create or replace function set_atualizado_em()
@@ -151,6 +266,22 @@ $$ language plpgsql;
 
 create trigger trg_obras_atualizado_em
 before update on obras
+for each row execute function set_atualizado_em();
+
+-- As três tabelas do Reader precisam de atualizado_em porque o pull do app
+-- (src/sync/sync.ts) é INCREMENTAL nelas. O outro padrão de pull do repo
+-- (limpar e repovoar, usado em fontes) foi a causa real de linhas "sumindo"
+-- acima de 1000 registros, e reader_capitulos passa disso com poucas obras.
+create trigger trg_reader_obras_atualizado_em
+before update on reader_obras
+for each row execute function set_atualizado_em();
+
+create trigger trg_reader_fontes_atualizado_em
+before update on reader_fontes
+for each row execute function set_atualizado_em();
+
+create trigger trg_reader_capitulos_atualizado_em
+before update on reader_capitulos
 for each row execute function set_atualizado_em();
 
 -- Seed inicial de sites_suportados (ajustar conforme necessário)
@@ -211,4 +342,17 @@ create policy "authenticated_full_access_conciliacao_pendentes" on conciliacao_p
 alter table conciliacao_blacklist enable row level security;
 
 create policy "authenticated_full_access_conciliacao_blacklist" on conciliacao_blacklist
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table reader_obras enable row level security;
+alter table reader_fontes enable row level security;
+alter table reader_capitulos enable row level security;
+
+create policy "authenticated_full_access_reader_obras" on reader_obras
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+create policy "authenticated_full_access_reader_fontes" on reader_fontes
+    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+create policy "authenticated_full_access_reader_capitulos" on reader_capitulos
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

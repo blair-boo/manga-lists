@@ -97,6 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     List
                   </NavLink>
                   <NavLink to="/atualizacoes">Updates</NavLink>
+                  <NavLink to="/reader">Reader</NavLink>
                   <NavLink to="/cadastrar">Add</NavLink>
                   <NavLink to="/settings">Settings</NavLink>
                 </nav>

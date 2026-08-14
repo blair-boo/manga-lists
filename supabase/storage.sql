@@ -56,3 +56,32 @@ create policy "imagens_importadas_update_autenticada" on storage.objects
 
 create policy "imagens_importadas_delete_autenticada" on storage.objects
     for delete using (bucket_id = 'imagens-importadas' and auth.role() = 'authenticated');
+
+-- Bucket do Reader (Supabase Storage) — aba Reader
+--
+-- PRIVADO, ao contrário dos outros três: guarda o texto das novels baixadas,
+-- que é obra protegida por direito autoral e não deve ficar acessível por URL
+-- pública adivinhável. Consequência prática: o app lê daqui com
+-- `createSignedUrl` (URL assinada, expira) em vez de `getPublicUrl` — funciona
+-- num <a href> normal, só não é permanente.
+--
+-- Layout dos paths:
+--   reader/<obra_id>/capa.jpg
+--   reader/<obra_id>/md/<ordem>.md
+--   reader/<obra_id>/out/<slug>.epub
+
+insert into storage.buckets (id, name, public)
+values ('reader', 'reader', false)
+on conflict (id) do nothing;
+
+create policy "reader_leitura_autenticada" on storage.objects
+    for select using (bucket_id = 'reader' and auth.role() = 'authenticated');
+
+create policy "reader_escrita_autenticada" on storage.objects
+    for insert with check (bucket_id = 'reader' and auth.role() = 'authenticated');
+
+create policy "reader_update_autenticada" on storage.objects
+    for update using (bucket_id = 'reader' and auth.role() = 'authenticated');
+
+create policy "reader_delete_autenticada" on storage.objects
+    for delete using (bucket_id = 'reader' and auth.role() = 'authenticated');

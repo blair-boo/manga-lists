@@ -132,7 +132,115 @@ export interface ScraperRun {
   resumo: Record<string, number> | null;
 }
 
-export type SyncEntity = 'obras' | 'fontes';
+// ---------------------------------------------------------------------------
+// Reader — download, formatação e leitura de novels.
+//
+// A divisão que guia o desenho: DETECTAR é automático, BAIXAR é sempre decisão
+// da usuária. Por isso 'descoberto' é um estado de ESPERA (acende 'disponivel'
+// na obra), não uma fila de trabalho que alguém vai consumir sozinho.
+// ---------------------------------------------------------------------------
+
+export type ReaderEstadoObra = 'aguardando' | 'disponivel' | 'buscando' | 'baixando' | 'formatando' | 'pronto';
+
+export type ReaderEstadoCapitulo = 'descoberto' | 'bloqueado' | 'baixado' | 'formatado' | 'publicado';
+
+/** Campos da página de informações que podem também gravar no cadastro da obra. */
+export type CampoInfoReader = 'titulo' | 'autor' | 'score' | 'status' | 'generos' | 'tags' | 'link' | 'sinopse';
+
+export interface ReaderObra {
+  id: string;
+  obra_id: string;
+  /** Decide em qual das duas listas a obra aparece (In progress / Completed). */
+  concluido: boolean;
+  /** Toggle "Search now" — pede uma varredura fora da cadência quinzenal. */
+  busca_manual: boolean;
+  estado: ReaderEstadoObra;
+  estado_em: string;
+  ultima_busca_em: string | null;
+  ultima_busca_ok: boolean | null;
+  ultima_busca_mensagem: string | null;
+  /** Totais declarados pelo site (o quanto foi baixado é contado dos capítulos). */
+  total_capitulos_site: number | null;
+  total_side_stories_site: number | null;
+  /** Overrides da página de informações — null = herda de `obras`. */
+  info_titulo: string | null;
+  info_autor: string | null;
+  info_score: number | null;
+  info_status: string | null;
+  info_link: string | null;
+  info_sinopse: string | null;
+  info_generos: string[] | null;
+  info_tags: string[] | null;
+  /** Quais campos info_* também gravam na obra ao salvar. */
+  espelhar: Partial<Record<CampoInfoReader, boolean>>;
+  pasta_storage: string | null;
+  capa_path: string | null;
+  /** EPUB final, carimbado pelo botão. Separado do parcial pra não ser sobrescrito. */
+  epub_path: string | null;
+  epub_gerado_em: string | null;
+  /** EPUB parcial, regenerado sozinho a cada leva de capítulos novos. */
+  epub_parcial_path: string | null;
+  epub_parcial_gerado_em: string | null;
+  pdf_path: string | null;
+  pdf_gerado_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/**
+ * Grupo de tradução E origem de download — o mesmo dado visto de dois ângulos.
+ * O campo "Translation" da página de informações é derivado daqui.
+ * Faixas sobrepostas são permitidas: é o caso em que a usuária escolhe.
+ */
+export interface ReaderFonte {
+  id: string;
+  reader_obra_id: string;
+  grupo: string;
+  /** Página com a lista de capítulos. */
+  url_indice: string | null;
+  url_base: string | null;
+  /** Primeiro capítulo coberto por esta fonte. */
+  de: number | null;
+  /** Último capítulo coberto; null = faixa aberta ("daqui pra frente"). */
+  ate: number | null;
+  adaptador: string | null;
+  /** Default da tela de download — não impede escolher outra. */
+  preferida: boolean;
+  ordem: number | null;
+  ativa: boolean;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface ReaderCapitulo {
+  id: string;
+  reader_obra_id: string;
+  /** Desnormalizado: deixa o Dexie indexar capítulo por obra sem join. */
+  obra_id: string;
+  /** De qual fonte veio; null enquanto só foi detectado. */
+  reader_fonte_id: string | null;
+  numero: number | null;
+  /** Rótulo cru do site, ex. "Side Story 3" — preserva o que a numeração perde. */
+  numero_texto: string | null;
+  titulo: string | null;
+  side_story: boolean;
+  /** Slot de ordenação explícito: side story não tem lugar no eixo do `numero`. */
+  ordem: number | null;
+  estado: ReaderEstadoCapitulo;
+  estado_em: string;
+  /** Paywall: data em que cai de graça (refinada a cada varredura). */
+  disponivel_em: string | null;
+  url: string | null;
+  path_md: string | null;
+  baixado_em: string | null;
+  formatado_em: string | null;
+  erro: string | null;
+  erro_em: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export type SyncEntity = 'obras' | 'fontes' | 'reader_obras' | 'reader_fontes' | 'reader_capitulos';
 export type SyncOp = 'insert' | 'update' | 'delete';
 
 export interface SyncQueueItem {
@@ -140,6 +248,6 @@ export interface SyncQueueItem {
   entity: SyncEntity;
   op: SyncOp;
   recordId: string;
-  payload: Obra | Fonte | null;
+  payload: Obra | Fonte | ReaderObra | ReaderFonte | ReaderCapitulo | null;
   createdAt: string;
 }
