@@ -34,6 +34,7 @@ from adapter_base import (
     STATUS_OK,
     STATUS_VAZIA,
     chave_capitulo,
+    desempatar_chaves,
     fetch_http,
 )
 from common import host_de_url, http_get
@@ -334,41 +335,6 @@ def _data_iso(texto: str) -> str | None:
     return f"{int(m.group(3)):04d}-{mes:02d}-{int(m.group(2)):02d}"
 
 
-def _desempatar_chaves(capitulos: list[CapituloDetectado]) -> None:
-    """
-    Resolve rótulos ambíguos in-place.
-
-    Caso real (bellerepository): a obra tem DOIS capítulos rotulados
-    "Chapter 133.1", em URLs distintas — `chapter-133-1/` e `chapter-133-1_1/`,
-    onde o `_1` é o WordPress desempatando slug numa republicação. O rótulo
-    sozinho não identifica o capítulo, e sem isto a segunda linha bateria na
-    constraint `unique (reader_obra_id, chave)`.
-
-    O desempate usa o slug da URL, e a ordem do grupo é decidida pela própria
-    URL — não pela posição na lista do site. Isso importa: o Madara devolve do
-    mais recente pro mais antigo, então se uma republicação aparecesse depois,
-    ordenar por posição trocaria a chave do capítulo original e criaria uma
-    linha nova. Ordenando por URL, quem já tinha a chave limpa continua com ela.
-    """
-    grupos: dict[str, list[CapituloDetectado]] = {}
-    for cap in capitulos:
-        grupos.setdefault(cap.chave, []).append(cap)
-
-    for chave, grupo in grupos.items():
-        if len(grupo) < 2:
-            continue
-        # Bloqueado não tem URL; cai pro rótulo cru e, no limite, fica estável
-        # pela ordem relativa dentro do grupo (raro: exigiria dois bloqueados
-        # com o mesmo rótulo).
-        for i, cap in enumerate(sorted(grupo, key=lambda c: (c.url or c.numero_texto or "", ))):
-            if i == 0:
-                continue
-            sufixo = ""
-            if cap.url:
-                sufixo = cap.url.rstrip("/").rsplit("/", 1)[-1]
-            cap.chave = f"{chave}-{sufixo or i + 1}"
-
-
 class MadaraAdapter(SourceAdapter):
     """
     WordPress + tema Madara real. Fingerprint: `listing-chapters_wrap` ou
@@ -474,7 +440,7 @@ class MadaraAdapter(SourceAdapter):
         if not capitulos:
             return None
 
-        _desempatar_chaves(capitulos)
+        desempatar_chaves(capitulos)
 
         # O Madara devolve do mais recente pro mais antigo. `ordem` é o eixo de
         # ordenação da UI, então numeramos do começo da obra pro fim.
@@ -805,6 +771,7 @@ class SakurazeAdapter(SourceAdapter):
         if not capitulos:
             return None
 
+        desempatar_chaves(capitulos)
         capitulos.sort(key=lambda c: (c.numero if c.numero is not None else 0.0, c.chave))
         for i, cap in enumerate(capitulos, start=1):
             cap.ordem = float(i)

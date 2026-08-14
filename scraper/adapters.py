@@ -43,6 +43,7 @@ from adapter_base import (
     STATUS_VAZIA,
     SourceAdapter,
     chave_capitulo,
+    desempatar_chaves,
     fetch_flaresolverr,
     fetch_http,
     fetch_playwright,
@@ -175,6 +176,7 @@ class CmsGenericoAdapter(SourceAdapter):
         if not capitulos:
             return None
 
+        desempatar_chaves(capitulos)
         capitulos.sort(key=lambda c: (c.numero if c.numero is not None else 0.0, c.chave))
         for i, cap in enumerate(capitulos, start=1):
             cap.ordem = float(i)

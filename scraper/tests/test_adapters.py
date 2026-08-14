@@ -7,7 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from adapter_base import RawContent, STATUS_BLOQUEADO, STATUS_INVALIDA, STATUS_OK, STATUS_VAZIA
+from adapter_base import (
+    CapituloDetectado,
+    RawContent,
+    STATUS_BLOQUEADO,
+    STATUS_INVALIDA,
+    STATUS_OK,
+    STATUS_VAZIA,
+    desempatar_chaves,
+)
 from adapters import CmsGenericoAdapter, EzmangaAdapter
 from adapters_novos import (
     ComixAdapter,
@@ -544,3 +552,41 @@ def test_readhive_sem_paywall_nenhum_capitulo_bloqueado():
     raw = RawContent("ok", "https://readhive.org/series/1234", text=fixture("readhive_reader.html"))
     caps = ReadhiveAdapter().listar_capitulos(raw)
     assert all(not c.bloqueado for c in caps)
+
+
+def test_desempate_de_chave_vale_pra_todos_os_adaptadores():
+    """
+    Regressao real: o desempate nasceu dentro do MadaraAdapter, e a varredura
+    de producao falhou numa serie do nyxscans com dois "Chapter 130" (ids 16748
+    e 16750) — a obra inteira ficou sem capitulos por violar a constraint
+    unique (reader_obra_id, chave). A regra vale pra qualquer site, entao mora
+    em adapter_base e e aplicada pelos quatro adaptadores.
+    """
+    caps = [
+        CapituloDetectado(chave="130", numero=130.0, numero_texto="Chapter 130", id_externo="16750"),
+        CapituloDetectado(chave="130", numero=130.0, numero_texto="Chapter 130", id_externo="16748"),
+        CapituloDetectado(chave="131", numero=131.0, numero_texto="Chapter 131", id_externo="16751"),
+    ]
+    desempatar_chaves(caps)
+    assert len({c.chave for c in caps}) == 3
+    # O menor discriminador mantem a chave limpa, pra que uma republicacao
+    # futura nao renomeie a chave do capitulo original.
+    assert next(c for c in caps if c.id_externo == "16748").chave == "130"
+    assert next(c for c in caps if c.id_externo == "16750").chave == "130-16750"
+    assert next(c for c in caps if c.id_externo == "16751").chave == "131"
+
+
+def test_desempate_usa_url_quando_nao_ha_id_do_site():
+    # Caso do bellerepository: dois "Chapter 133.1" livres, sem id proprio.
+    caps = [
+        CapituloDetectado(chave="133.1", numero=133.1, url="https://x/novel/y/chapter-133-1_1/"),
+        CapituloDetectado(chave="133.1", numero=133.1, url="https://x/novel/y/chapter-133-1/"),
+    ]
+    desempatar_chaves(caps)
+    assert {c.chave for c in caps} == {"133.1", "133.1-chapter-133-1_1"}
+
+
+def test_desempate_nao_mexe_em_chave_unica():
+    caps = [CapituloDetectado(chave="1", numero=1.0), CapituloDetectado(chave="2", numero=2.0)]
+    desempatar_chaves(caps)
+    assert [c.chave for c in caps] == ["1", "2"]

@@ -216,6 +216,49 @@ def chave_capitulo(numero: float | None, side_story: bool, numero_texto: str | N
     return ""
 
 
+def _discriminador(cap: "CapituloDetectado") -> str:
+    """
+    Sufixo estável pra desempatar dois capítulos de mesmo rótulo. Prefere o id
+    do próprio site (o mais estável), cai pro slug da URL, e só então pro
+    rótulo cru.
+    """
+    if cap.id_externo:
+        return str(cap.id_externo)
+    if cap.url:
+        return cap.url.rstrip("/").rsplit("/", 1)[-1]
+    return (cap.numero_texto or "").strip()
+
+
+def desempatar_chaves(capitulos: list["CapituloDetectado"]) -> None:
+    """
+    Resolve rótulos ambíguos in-place. Vale pra QUALQUER adaptador — por isso
+    mora aqui e não dentro de um deles.
+
+    Dois casos reais, em sites diferentes: bellerepository trouxe dois
+    "Chapter 133.1" (URLs `chapter-133-1/` e `chapter-133-1_1/`, o sufixo do
+    WordPress numa republicação) e nyxscans trouxe dois "Chapter 130" (ids
+    16748 e 16750). Sem desempate, a segunda linha bate na constraint
+    `unique (reader_obra_id, chave)` e a obra inteira falha a varredura — foi
+    exatamente o que aconteceu em produção antes disto existir.
+
+    A ordem do grupo vem do discriminador, NÃO da posição na lista do site:
+    vários adaptadores servem do mais recente pro mais antigo, então ordenar
+    por posição faria uma republicação futura renomear a chave do capítulo
+    original e criar uma linha órfã.
+    """
+    grupos: dict[str, list[CapituloDetectado]] = {}
+    for cap in capitulos:
+        grupos.setdefault(cap.chave, []).append(cap)
+
+    for chave, grupo in grupos.items():
+        if len(grupo) < 2:
+            continue
+        for i, cap in enumerate(sorted(grupo, key=_discriminador)):
+            if i == 0:
+                continue  # o primeiro mantém a chave limpa
+            cap.chave = f"{chave}-{_discriminador(cap) or i + 1}"
+
+
 # --- Interface do adaptador -------------------------------------------------
 
 
