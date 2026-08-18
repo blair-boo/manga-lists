@@ -2,7 +2,6 @@ import { useState, type ChangeEvent } from 'react';
 import { db } from '../db/localDb';
 import { createFonte, deleteFonte, updateObra } from '../db/repo';
 import { syncNow } from '../sync/sync';
-import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
 import { deriveSite } from '../lib/site';
 import { familiaDeTipo } from '../lib/obra';
@@ -234,26 +233,29 @@ export function CsvBulkSection() {
     }
   }
 
+  // Lê do mirror local (db.obras/db.fontes) em vez de supabase.from(...).select('*')
+  // direto: uma query sem paginação é truncada em silêncio pelo limite padrão
+  // de ~1000 linhas do PostgREST/Supabase (fontes já passou disso — mesma causa
+  // raiz documentada em buscarTudoPaginado, src/sync/sync.ts). pullFontes() já
+  // busca TODAS as linhas paginando; syncNow() garante que o mirror local está
+  // fresco antes do download.
   async function handleDownload(formato: 'csv' | 'xlsx') {
     setBaixando(true);
     setErroDownload(null);
     try {
-      const [{ data: obras, error: erroObras }, { data: fontes, error: erroFontes }] = await Promise.all([
-        supabase.from('obras').select('*'),
-        supabase.from('fontes').select('*'),
-      ]);
-      if (erroObras) throw erroObras;
-      if (erroFontes) throw erroFontes;
+      const resultadoSync = await syncNow();
+      if (!resultadoSync.ok) throw resultadoSync.error;
+      const [obras, fontes] = await Promise.all([db.obras.toArray(), db.fontes.toArray()]);
       const fontesPorObra = new Map<string, Fonte[]>();
-      for (const f of (fontes ?? []) as Fonte[]) {
+      for (const f of fontes) {
         const lista = fontesPorObra.get(f.obra_id) ?? [];
         lista.push(f);
         fontesPorObra.set(f.obra_id, lista);
       }
       if (formato === 'csv') {
-        baixarCsv(obrasParaCsv((obras ?? []) as Obra[], fontesPorObra), nomeArquivoComDataHora('obras', 'csv'));
+        baixarCsv(obrasParaCsv(obras, fontesPorObra), nomeArquivoComDataHora('obras', 'csv'));
       } else {
-        await baixarObrasXlsx((obras ?? []) as Obra[], fontesPorObra, nomeArquivoComDataHora('obras', 'xlsx'));
+        await baixarObrasXlsx(obras, fontesPorObra, nomeArquivoComDataHora('obras', 'xlsx'));
       }
     } catch (err) {
       setErroDownload(mensagemDeErro(err));
