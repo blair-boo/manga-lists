@@ -716,7 +716,19 @@ export function ImportarComixPage() {
 
               {/* 7. Genres / Tags (only values already in the app's vocabulary) */}
               <section className="importar-secao">
-                <h3>Genres</h3>
+                <div className="importar-secao-titulo">
+                  <h3>Genres</h3>
+                  {generosClassificados.conhecidos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setGenerosSelecionados(new Set([...generosSelecionados, ...generosClassificados.conhecidos]))
+                      }
+                    >
+                      Select all
+                    </button>
+                  )}
+                </div>
                 {generosClassificados.conhecidos.length > 0 ? (
                   <div className="importar-grid">
                     {generosClassificados.conhecidos.map((g) => (
@@ -736,7 +748,17 @@ export function ImportarComixPage() {
               </section>
 
               <section className="importar-secao">
-                <h3>Tags</h3>
+                <div className="importar-secao-titulo">
+                  <h3>Tags</h3>
+                  {tagsClassificados.conhecidos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTagsSelecionados(new Set([...tagsSelecionados, ...tagsClassificados.conhecidos]))}
+                    >
+                      Select all
+                    </button>
+                  )}
+                </div>
                 {tagsClassificados.conhecidos.length > 0 ? (
                   <div className="importar-grid">
                     {tagsClassificados.conhecidos.map((t) => (

@@ -96,10 +96,10 @@ export function Layout({ children }: { children: ReactNode }) {
                   <NavLink to="/" end>
                     List
                   </NavLink>
-                  <NavLink to="/atualizacoes">Updates</NavLink>
-                  <NavLink to="/reader">Reader</NavLink>
                   <NavLink to="/cadastrar">Add</NavLink>
+                  <NavLink to="/reader">Reader</NavLink>
                   <NavLink to="/settings">Settings</NavLink>
+                  <NavLink to="/atualizacoes">Updates</NavLink>
                 </nav>
                 <BotaoModoEdicao />
               </div>

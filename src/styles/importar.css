@@ -56,6 +56,17 @@
   font-size: 15px;
 }
 
+.importar-secao-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.importar-secao-titulo h3 {
+  margin: 0;
+}
+
 .importar-linha {
   display: flex;
   flex-direction: row;
