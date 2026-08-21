@@ -38,7 +38,8 @@ const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] =
   {
     valor: 'complementar',
     rotulo: 'Merge (non-destructive)',
-    descricao: 'a blank cell leaves the field untouched; new values are added, nothing is ever removed.',
+    descricao:
+      'a blank cell leaves the field untouched; single-value fields get replaced, list fields (genres/tags/alternative titles/sources) only gain new values — nothing is ever removed.',
   },
   {
     valor: 'sobrescrever',
