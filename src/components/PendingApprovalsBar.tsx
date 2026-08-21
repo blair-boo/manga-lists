@@ -48,7 +48,7 @@ export function PendingApprovalsBar({ sitesSuportados }: Props) {
       <Link to="/settings/sources" className="pending-approvals-item">
         Works <span className="status-chip-contagem">{worksCount}</span>
       </Link>
-      <Link to="/atualizacoes" className="pending-approvals-item">
+      <Link to="/settings/sources" className="pending-approvals-item">
         Sources Type <span className="status-chip-contagem">{tipoDivergenteCount}</span>
       </Link>
     </div>

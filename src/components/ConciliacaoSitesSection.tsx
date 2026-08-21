@@ -309,13 +309,12 @@ export function ConciliacaoSitesSection() {
 
   return (
     <section className="atualizacao-secao">
-      <h3>Related sites reconciliation</h3>
+      <h3>Sources reconciliation</h3>
       <p>
         Upload a spreadsheet with just <strong>title</strong> and <strong>link</strong> (any extra columns are
-        ignored) — a dump from a reading site's catalog, or from a catalog like NovelUpdates, AniList,
-        MyAnimeList, MangaUpdates, MangaDex or MangaBaka. Matches your works by title/alternative titles: exact and
-        90%+ matches are linked automatically (90-99% also adds the found title as an alternative title); 70-89%
-        wait for your approval below; anything lower is discarded.
+        ignored). Matches your works by title/alternative titles: exact and 90%+ matches are linked automatically
+        (90-99% also adds the found title as an alternative title); 70-89% wait for your approval below; anything
+        lower is discarded.
       </p>
 
       <div className="conciliacao-tipos">
