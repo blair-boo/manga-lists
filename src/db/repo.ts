@@ -4,12 +4,14 @@ import { deriveSite } from '../lib/site';
 import { escolherDuplicata, type ObraDuplicada } from '../lib/duplicatas';
 import { syncNow } from '../sync/sync';
 import type {
+  FamiliaTipo,
   Fonte,
   Obra,
   ReaderCapitulo,
   ReaderFonte,
   ReaderObra,
   StatusAprovacao,
+  Tipo,
 } from '../types';
 
 function triggerBackgroundSync(): void {
@@ -100,6 +102,45 @@ export async function criarObraVinculada(obraOrigemId: string, dadosNovaObra: No
   await vincularObras(obraOrigemId, nova.id);
   triggerBackgroundSync();
   return nova;
+}
+
+/**
+ * Cria a contraparte manga<->novel de `obraOrigem` já vinculada, com os campos
+ * espelhados (título, títulos alternativos, gêneros, tags, links de catálogo)
+ * copiados da origem — o espelhamento contínuo (B1) mantém os dois em sincronia
+ * daí em diante. Usada tanto pelo cadastro manual de contraparte (tela da obra)
+ * quanto pela ação "Create" da fila de tipos divergentes.
+ */
+export async function criarContraparteVinculada(obraOrigem: Obra, tipoNovo: FamiliaTipo): Promise<Obra> {
+  return criarObraVinculada(obraOrigem.id, {
+    tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
+    titulo: obraOrigem.titulo,
+    titulos_alternativos: obraOrigem.titulos_alternativos,
+    autor: null,
+    artistas: null,
+    capa_url: null,
+    capitulo_atual: null,
+    status_leitura: null,
+    status_publicacao: null,
+    status_publicacao_manual: false,
+    fim_de_temporada: false,
+    ultimo_capitulo_lancado: null,
+    ultimo_capitulo_via_scraper: false,
+    score: null,
+    generos: obraOrigem.generos,
+    tags: obraOrigem.tags,
+    observacoes: null,
+    obra_vinculada_id: null,
+    classificacao: null,
+    novelupdates_url: obraOrigem.novelupdates_url,
+    anilist_url: obraOrigem.anilist_url,
+    myanimelist_url: obraOrigem.myanimelist_url,
+    mangaupdates_url: obraOrigem.mangaupdates_url,
+    mangadex_url: obraOrigem.mangadex_url,
+    mangabaka_url: obraOrigem.mangabaka_url,
+    pdf: false,
+    favorito: false,
+  });
 }
 
 export async function deleteObra(id: string): Promise<void> {
