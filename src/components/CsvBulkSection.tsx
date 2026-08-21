@@ -39,12 +39,12 @@ const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] =
     valor: 'complementar',
     rotulo: 'Merge (non-destructive)',
     descricao:
-      'a blank cell leaves the field untouched; genres/tags/alternative titles and sources only get new values added, nothing is ever removed.',
+      'a blank cell leaves the field untouched; single-value fields get replaced, list fields (genres/tags/alternative titles/sources) only gain new values, nothing is ever removed.',
   },
   {
     valor: 'sobrescrever',
     rotulo: 'Overwrite',
-    descricao: 'a blank cell clears the field; sources not listed in the "sources" column are removed.',
+    descricao: 'a blank cell clears the field; values erased from the columns are removed.',
   },
 ];
 
@@ -102,7 +102,7 @@ async function reconciliarFontes(
   return { criadas: paraCriar.length, removidas: paraRemover.length };
 }
 
-/** Seção "Bulk fill via CSV" da página de Updates: upload, download e resultado. */
+/** Seção "Update via CSV/XLSX" da página de Updates: upload, download e resultado. */
 export function CsvBulkSection() {
   const { confirmar } = useDialogos();
   const [modo, setModo] = useState<ModoImportacaoCsv>('complementar');
@@ -266,12 +266,13 @@ export function CsvBulkSection() {
 
   return (
     <section className="atualizacao-secao">
-      <h3>Bulk fill via CSV</h3>
+      <h3>Update via CSV/XLSX</h3>
       <p>
         Export the <code>obras</code> table (buttons below, or from the Supabase Table Editor), fill in whatever
         fields you want in Excel/Google Sheets and upload the file here — CSV and XLSX are both accepted, either
-        way round. Do not change the <code>id</code> and <code>titulo</code> columns. A column left out of the file
-        entirely is never touched; in <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>,
+        way round. Do not change the <code>id</code> and <code>titulo</code> columns. Only the columns present in
+        the file are altered — a column left out of it entirely is ignored, never touched; in{' '}
+        <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>,
         separate multiple values with <code>;</code>. <code>criado_em</code>/<code>atualizado_em</code> (and any
         other column outside the ones listed in the downloaded file, like <code>obra_vinculada_id</code>) are always
         ignored — but if you exported straight from the Table Editor, deleting those two date columns before

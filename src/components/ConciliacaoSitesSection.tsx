@@ -12,9 +12,19 @@ import {
   type PendenteConciliacaoComObra,
   type ResultadoAplicacaoConciliacao,
 } from '../lib/conciliacaoRepo';
-import { getMatchConfig, listarBlacklistConciliacao, removerBlacklistConciliacao } from '../lib/scraperConfig';
+import {
+  getMatchConfig,
+  listarBlacklistConciliacao,
+  removerBlacklistConciliacao,
+  setMatchConfig,
+  MATCH_CONFIG_PADRAO,
+  type LimiaresOperacao,
+  type MatchConfig,
+} from '../lib/scraperConfig';
 import { mensagemDeErro } from '../lib/erros';
 import { StatusImportacaoView } from './StatusImportacaoView';
+import { LimiaresFieldset } from './ConfigMatchTitulo';
+import { useToast } from './Toast';
 import {
   ROTULO_TIPO,
   bloqueiaImportacao,
@@ -26,6 +36,55 @@ import type { ConciliacaoBlacklistItem } from '../lib/scraperConfig';
 import type { Tipo } from '../types';
 
 const TIPOS_OPCOES: Tipo[] = ['Manga', 'Manhwa', 'Manhua', 'Novel'];
+
+/** Limiares de match só da conciliação de CSV (Modo 3) — vive aqui (embaixo do
+ * botão de upload) em vez de dentro de ConfigMatchTitulo (Settings > Sources),
+ * já que essa é a única tela onde esse limiar específico é usado. Carrega o
+ * MatchConfig inteiro e grava de volta inteiro (via setMatchConfig) pra não
+ * apagar os limiares de 'atualizar_obras'/'buscar_novas_fontes', que continuam
+ * editáveis só em ConfigMatchTitulo. */
+function MatchSettingsConciliacao() {
+  const { mostrarToast } = useToast();
+  const [config, setConfig] = useState<MatchConfig | null>(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    getMatchConfig()
+      .then(setConfig)
+      .catch(() => setConfig(MATCH_CONFIG_PADRAO));
+  }, []);
+
+  if (!config) return <p className="execucao-status">Loading settings…</p>;
+
+  function setCampo(chave: keyof LimiaresOperacao, valor: string) {
+    const n = valor === '' ? 0 : Number(valor);
+    setConfig((c) => (c ? { ...c, conciliacao_csv: { ...c.conciliacao_csv, [chave]: n } } : c));
+  }
+
+  async function salvar() {
+    if (!config) return;
+    setSalvando(true);
+    try {
+      await setMatchConfig(config);
+      mostrarToast('Settings saved ✓');
+    } catch {
+      mostrarToast('Failed to save settings', 'erro');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="config-match">
+      <div className="config-match-grupos">
+        <LimiaresFieldset titulo="Match Settings" valor={config.conciliacao_csv} onChange={setCampo} />
+      </div>
+      <button type="button" onClick={salvar} disabled={salvando}>
+        {salvando ? 'Saving…' : 'Save settings'}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Seção "Related sites reconciliation" (Modo 3 da importação CSV): casa
@@ -268,8 +327,7 @@ export function ConciliacaoSitesSection() {
         ))}
       </div>
       <p className="atualizacao-subtitulo-nota">
-        Only works of the type(s) checked above are compared — works of any other type are skipped entirely (e.g.
-        uncheck everything but Novel for a NovelUpdates dump).
+        Only works of the type(s) checked above are compared, works of any other type are skipped entirely.
       </p>
 
       <div className="csv-acoes">
@@ -283,6 +341,9 @@ export function ConciliacaoSitesSection() {
           {analisando ? 'Analyzing…' : 'Choose CSV file'}
         </label>
       </div>
+
+      <MatchSettingsConciliacao />
+
       {tiposSelecionados.size === 0 && (
         <p className="execucao-status execucao-erro">Check at least one type before uploading.</p>
       )}
