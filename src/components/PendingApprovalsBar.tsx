@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listarDominiosPendentes } from '../lib/scraperConfig';
 import { useFontesPendentesCount } from '../hooks/useFontesPendentes';
+import { useFontesTipoDivergenteObrasCount } from '../hooks/useFontesTipoDivergente';
 
 interface Props {
   /** Nomes dos sites suportados ativos — mesmo dado usado por FilaAprovacoes pra separar escopos. */
@@ -18,6 +19,7 @@ interface Props {
 export function PendingApprovalsBar({ sitesSuportados }: Props) {
   const novasCount = useFontesPendentesCount('novas', sitesSuportados);
   const worksCount = useFontesPendentesCount('suportados', sitesSuportados);
+  const tipoDivergenteCount = useFontesTipoDivergenteObrasCount();
   const [domainsCount, setDomainsCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -45,6 +47,9 @@ export function PendingApprovalsBar({ sitesSuportados }: Props) {
       </Link>
       <Link to="/settings/sources" className="pending-approvals-item">
         Works <span className="status-chip-contagem">{worksCount}</span>
+      </Link>
+      <Link to="/atualizacoes" className="pending-approvals-item">
+        Sources Type <span className="status-chip-contagem">{tipoDivergenteCount}</span>
       </Link>
     </div>
   );

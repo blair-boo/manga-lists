@@ -7,6 +7,7 @@ import { ListaSitesSuportados, StatusAgregadoScraper } from '../components/Lista
 import { CsvBulkSection } from '../components/CsvBulkSection';
 import { ConciliacaoSitesSection } from '../components/ConciliacaoSitesSection';
 import { PendingApprovalsBar } from '../components/PendingApprovalsBar';
+import { FilaTipoDivergente } from '../components/FilaTipoDivergente';
 import { SecaoNovelUpdates } from '../components/SecaoNovelUpdates';
 import type { ScraperTipo } from '../types';
 
@@ -144,6 +145,16 @@ export function AtualizacoesPage() {
       <h2>Updates</h2>
 
       <PendingApprovalsBar sitesSuportados={sitesSuportados} />
+
+      <section className="atualizacao-secao">
+        <h3>Source type mismatches</h3>
+        <p>
+          Sources whose detected type (manga/novel) no longer matches the work they're attached to — happens when a
+          type gets corrected manually. Move each one to the corresponding work, create it if it doesn't exist yet,
+          discard the source, or keep it as-is to decide later.
+        </p>
+        <FilaTipoDivergente />
+      </section>
 
       <SecaoSitesSuportados />
       {MOSTRAR_NOVELUPDATES && <SecaoNovelUpdates />}

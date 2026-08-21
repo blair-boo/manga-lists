@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { db } from '../db/localDb';
 import {
-  criarObraVinculada,
+  criarContraparteVinculada,
   deleteFonte,
   deleteObra,
   desvincularObra,
@@ -59,7 +59,7 @@ import { dominioDeUrl } from '../lib/scraperConfig';
 import { urlNormalizada } from '../lib/site';
 import { salvarCamposObra } from '../lib/salvarObra';
 import { adicionarFonteNaObra } from '../lib/adicionarFonte';
-import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao, Tipo } from '../types';
+import type { Classificacao, FamiliaTipo, Fonte, Obra, StatusAprovacao } from '../types';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
   { valor: 'manga', rotulo: 'Manga' },
@@ -461,83 +461,21 @@ export function DetalheObraPage() {
   // Cria a contraparte direto, sem pedir título — o título nasce espelhado da
   // obra de origem (C2), e daí em diante o espelhamento contínuo mantém os dois.
   async function handleCriarVinculada(tipoNovo: FamiliaTipo) {
-    if (!id || !obra) return;
-    const nova = await criarObraVinculada(id, {
-      tipo: (tipoNovo === 'novel' ? 'Novel' : 'Manga') as Tipo,
-      titulo: obra.titulo,
-      // Bloco B2: a obra correspondente nasce com os campos espelhados copiados
-      // da origem (titulos_alternativos, generos, tags). Daí em diante o
-      // espelhamento contínuo (B1) mantém os quatro campos sincronizados.
-      titulos_alternativos: obra.titulos_alternativos,
-      autor: null,
-      artistas: null,
-      capa_url: null,
-      capitulo_atual: null,
-      status_leitura: null,
-      status_publicacao: null,
-      status_publicacao_manual: false,
-      fim_de_temporada: false,
-      ultimo_capitulo_lancado: null,
-      ultimo_capitulo_via_scraper: false,
-      score: null,
-      generos: obra.generos,
-      tags: obra.tags,
-      observacoes: null,
-      obra_vinculada_id: null,
-      classificacao: null,
-      // O link do NU refere-se à história: a contraparte nasce com o mesmo link (E6).
-      novelupdates_url: obra.novelupdates_url,
-      // Links de catálogo idem — mesma história, mesmo espelhamento (Handout comix, A3).
-      anilist_url: obra.anilist_url,
-      myanimelist_url: obra.myanimelist_url,
-      mangaupdates_url: obra.mangaupdates_url,
-      mangadex_url: obra.mangadex_url,
-      mangabaka_url: obra.mangabaka_url,
-      pdf: false,
-      favorito: false,
-    });
+    if (!obra) return;
+    const nova = await criarContraparteVinculada(obra, tipoNovo);
     setMostrarCaixaVinculo(false);
     mostrarToast(`"${nova.titulo}" created and linked ✓`);
     return nova;
   }
 
   /**
-   * Correção manual de tipo de uma fonte (Bloco B4). Quando o novo tipo diverge
-   * do tipo da obra atual, move a fonte pra contraparte vinculada — se não
-   * houver uma compatível, oferece criar. tipo_manual=true impede o scraper de
-   * reatribuir a fonte de volta.
+   * Troca manual de tipo de uma fonte. Quando o novo tipo diverge da família
+   * da obra atual, a fonte não move sozinha — ela passa a aparecer na fila
+   * "Mismatched source types" (Updates), onde dá pra mover/criar/descartar ou
+   * manter pra decidir depois.
    */
   async function handleMudarTipoFonte(fonte: Fonte, novoTipo: FamiliaTipo | null) {
-    if (!obra) return;
-    if (!novoTipo) {
-      await setFonteTipo(fonte.id, null);
-      return;
-    }
-
-    const familiaAtual = familiaDeTipo(obra.tipo);
-    if (familiaAtual === null || familiaAtual === novoTipo) {
-      await setFonteTipo(fonte.id, novoTipo);
-      return;
-    }
-
-    if (obraVinculada && familiaDeTipo(obraVinculada.tipo) === novoTipo) {
-      await setFonteTipo(fonte.id, novoTipo, obraVinculada.id);
-      mostrarToast(`Source moved to "${obraVinculada.titulo}"`);
-      return;
-    }
-
-    const tipoLabel = novoTipo === 'novel' ? 'novel' : 'manga';
-    const criarContraparte = await confirmar({
-      titulo: 'Type mismatch',
-      mensagem: `This source looks like a ${tipoLabel}, but "${obra.titulo}" is registered as ${obra.tipo ?? '—'}. Create the corresponding ${tipoLabel} work and move this source there?`,
-      confirmarRotulo: 'Create and move',
-    });
-    if (criarContraparte) {
-      const nova = await handleCriarVinculada(novoTipo);
-      if (nova) await setFonteTipo(fonte.id, novoTipo, nova.id);
-    } else {
-      await setFonteTipo(fonte.id, novoTipo);
-    }
+    await setFonteTipo(fonte.id, novoTipo);
   }
 
   async function handleExcluirObra() {
