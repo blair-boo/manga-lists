@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { criarContraparteVinculada, deleteFonte, setFonteTipo } from '../db/repo';
 import { familiaDeTipo } from '../lib/obra';
@@ -8,7 +8,13 @@ import { dominioDeUrl } from '../lib/scraperConfig';
 import { useFontesTipoDivergente } from '../hooks/useFontesTipoDivergente';
 import { useToast } from './Toast';
 import { VinculoObraSelect } from './VinculoObraSelect';
+import type { FamiliaTipo } from '../types';
 import type { FonteTipoDivergente } from '../lib/fonteTipo';
+
+const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
+  { valor: 'manga', rotulo: 'Manga' },
+  { valor: 'novel', rotulo: 'Novel' },
+];
 
 interface ItemProps {
   item: FonteTipoDivergente;
@@ -73,6 +79,13 @@ function ItemTipoDivergente({ item }: ItemProps) {
     });
   }
 
+  function handleTipo(e: ChangeEvent<HTMLSelectElement>) {
+    const novoTipo = (e.target.value || null) as FamiliaTipo | null;
+    void executar(async () => {
+      await setFonteTipo(fonte.id, novoTipo);
+    });
+  }
+
   return (
     <li className="fonte-item fonte-aprovacao">
       <div className="fonte-aprovacao-info">
@@ -85,11 +98,27 @@ function ItemTipoDivergente({ item }: ItemProps) {
         <span className="scraper-data">
           detected as {tipoLabel}, but "{obraAtual.titulo}" is {obraAtual.tipo ?? '—'}
         </span>
+        <label className="scraper-data">
+          Wrong detection? Fix it:{' '}
+          <select
+            className="fonte-tipo-select"
+            value={fonte.tipo_detectado ?? ''}
+            onChange={handleTipo}
+            title="Correct the detected type here if the scraper got it wrong — the mismatch resolves once it matches the work again."
+            disabled={processando}
+          >
+            {TIPO_FONTE_OPCOES.map((o) => (
+              <option key={o.valor} value={o.valor}>
+                {o.rotulo}
+              </option>
+            ))}
+          </select>
+        </label>
         {obraCorrespondente && (
           <span className="scraper-data">
             Match found:{' '}
             <Link to={`/obra/${obraCorrespondente.id}`} target="_blank" rel="noreferrer">
-              {obraCorrespondente.titulo}
+              {obraCorrespondente.titulo} {obraCorrespondente.tipo ? `(${obraCorrespondente.tipo})` : ''}
             </Link>
           </span>
         )}
