@@ -311,10 +311,8 @@ export function ConciliacaoSitesSection() {
     <section className="atualizacao-secao">
       <h3>Sources reconciliation</h3>
       <p>
-        Upload a spreadsheet with just <strong>title</strong> and <strong>link</strong> (any extra columns are
-        ignored). Matches your works by title/alternative titles: exact and 90%+ matches are linked automatically
-        (90-99% also adds the found title as an alternative title); 70-89% wait for your approval below; anything
-        lower is discarded.
+        Upload a spreadsheet with just <strong>title</strong> and <strong>link</strong>, any extra columns are
+        ignored.
       </p>
 
       <div className="conciliacao-tipos">
