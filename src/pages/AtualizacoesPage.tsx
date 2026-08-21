@@ -24,7 +24,11 @@ const POLL_MS = 8000;
 
 function SecaoSitesSuportados() {
   const sitesInfo = useSitesSuportados();
-  const [acionando, setAcionando] = useState<ScraperTipo | null>(null);
+  // Estado de "disparando" por tipo (não um único ScraperTipo compartilhado):
+  // clicar em "Update chapters" não pode travar o botão "Update works" (e
+  // vice-versa) enquanto o dispatch está em voo — são scrapers independentes.
+  const [acionandoCapitulos, setAcionandoCapitulos] = useState(false);
+  const [acionandoObras, setAcionandoObras] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
   // Momento em que cada tipo foi disparado, enquanto a run ainda não registrou
   // como 'rodando' no banco. Mantém o botão travado no intervalo entre o
@@ -45,8 +49,8 @@ function SecaoSitesSuportados() {
     if (rodandoObras) setPendenteObras(null);
   }, [rodandoObras]);
 
-  const capitulosTravado = acionando !== null || rodandoCapitulos || pendenteCapitulos !== null;
-  const obrasTravado = acionando !== null || rodandoObras || pendenteObras !== null;
+  const capitulosTravado = acionandoCapitulos || rodandoCapitulos || pendenteCapitulos !== null;
+  const obrasTravado = acionandoObras || rodandoObras || pendenteObras !== null;
 
   // Enquanto houver run em andamento (ou recém-disparada), refaz o fetch em
   // intervalo pra o status e os botões virarem sozinhos quando terminar, sem
@@ -64,7 +68,8 @@ function SecaoSitesSuportados() {
   }, [monitorando, recarregar]);
 
   async function disparar(tipo: ScraperTipo) {
-    setAcionando(tipo);
+    const setAcionando = tipo === 'capitulos' ? setAcionandoCapitulos : setAcionandoObras;
+    setAcionando(true);
     setErroAcao(null);
     try {
       await controlarScraper(tipo, 'start');
@@ -74,7 +79,7 @@ function SecaoSitesSuportados() {
     } catch (err) {
       setErroAcao(mensagemErroAcao(err));
     } finally {
-      setAcionando(null);
+      setAcionando(false);
     }
   }
 
@@ -88,14 +93,14 @@ function SecaoSitesSuportados() {
 
       <div className="scraper-controles">
         <button type="button" onClick={() => disparar('capitulos')} disabled={capitulosTravado}>
-          {acionando === 'capitulos'
+          {acionandoCapitulos
             ? 'Please wait…'
             : rodandoCapitulos || pendenteCapitulos !== null
               ? 'In progress…'
               : 'Update chapters'}
         </button>
         <button type="button" onClick={() => disparar('obras')} disabled={obrasTravado}>
-          {acionando === 'obras'
+          {acionandoObras
             ? 'Please wait…'
             : rodandoObras || pendenteObras !== null
               ? 'In progress…'
