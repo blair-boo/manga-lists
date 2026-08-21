@@ -150,10 +150,10 @@ function ItemTipoDivergente({ item }: ItemProps) {
 }
 
 /**
- * Fila "Mismatched source types" (Updates): lista toda fonte cujo tipo
- * detectado diverge da família da obra atual, agrupada por obra. Resolver
- * (Create/Move/Discard) some com o item; Keep deixa a fonte como está, então
- * ela continua aparecendo até a usuária decidir de fato.
+ * Fila "Mismatched source types" (Settings > Sources): lista toda fonte cujo
+ * tipo detectado diverge da família da obra atual, agrupada por obra.
+ * Resolver (Create/Move/Discard) some com o item; Keep deixa a fonte como
+ * está, então ela continua aparecendo até a usuária decidir de fato.
  */
 export function FilaTipoDivergente() {
   const lista = useFontesTipoDivergente();

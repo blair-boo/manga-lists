@@ -39,12 +39,12 @@ const MODOS: { valor: ModoImportacaoCsv; rotulo: string; descricao: string }[] =
     valor: 'complementar',
     rotulo: 'Merge (non-destructive)',
     descricao:
-      'a blank cell leaves the field untouched; single-value fields get replaced, list fields (genres/tags/alternative titles/sources) only gain new values, nothing is ever removed.',
+      'A blank cell leaves the field untouched. Single-value fields (including links) get replaced when the cell has a value. List fields — genres/tags/alternative titles/sources — only gain new values, nothing is ever removed.',
   },
   {
     valor: 'sobrescrever',
     rotulo: 'Overwrite',
-    descricao: 'a blank cell clears the field; values erased from the columns are removed.',
+    descricao: 'A blank cell clears the field. Values erased in the columns are removed.',
   },
 ];
 
@@ -267,18 +267,7 @@ export function CsvBulkSection() {
   return (
     <section className="atualizacao-secao">
       <h3>Update via CSV/XLSX</h3>
-      <p>
-        Export the <code>obras</code> table (buttons below, or from the Supabase Table Editor), fill in whatever
-        fields you want in Excel/Google Sheets and upload the file here — CSV and XLSX are both accepted, either
-        way round. Do not change the <code>id</code> and <code>titulo</code> columns. Only the columns present in
-        the file are altered — a column left out of it entirely is ignored, never touched; in{' '}
-        <code>generos</code>/<code>tags</code>/<code>titulos_alternativos</code>,
-        separate multiple values with <code>;</code>. <code>criado_em</code>/<code>atualizado_em</code> (and any
-        other column outside the ones listed in the downloaded file, like <code>obra_vinculada_id</code>) are always
-        ignored — but if you exported straight from the Table Editor, deleting those two date columns before
-        editing/saving is a good idea anyway: spreadsheet apps sometimes reformat them with an unquoted comma, which
-        shifts the rest of that row's columns and gets flagged below (CSV only).
-      </p>
+      <p>Only the columns present in the file are altered — if a column isn't present, it's ignored.</p>
       <p>
         Sources (<code>fontes</code> table) come split across three columns, purely to keep the sheet organized —
         the app's display doesn't change. <code>comix</code> holds comix.to links, <code>official_sources</code>
