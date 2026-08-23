@@ -1,0 +1,145 @@
+/* Aba Format: sobe PDF/Markdown/Word, aplica um template e baixa em md/docx/pdf/epub. */
+
+.format-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+  padding-bottom: 24px;
+}
+
+.format-cabecalho h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.format-subtitulo {
+  font-size: 13px;
+  opacity: 0.7;
+  margin: 0;
+}
+
+.format-secao {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.format-secao h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.format-upload-label {
+  display: inline-flex;
+}
+
+.format-upload-botao {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.format-upload-botao:hover {
+  border-color: var(--accent-border);
+}
+
+.format-arquivo-atual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  opacity: 0.85;
+  margin: 0;
+}
+
+.format-limpar {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.format-templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.format-template-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.format-template-opcao input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.format-template-opcao.selecionada {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.format-template-nome {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.format-template-descricao {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.format-preview {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  background: var(--bg-raised);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.format-preview h1,
+.format-preview h2,
+.format-preview h3 {
+  margin: 0.8em 0 0.4em;
+}
+
+.format-preview p {
+  margin: 0 0 8px;
+}
+
+.format-preview blockquote {
+  padding-left: 12px;
+  margin: 8px 0;
+  opacity: 0.85;
+}
+
+.format-preview ul {
+  margin: 0 0 8px;
+}
+
+.format-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.format-erro {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
