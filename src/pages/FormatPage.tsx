@@ -1,6 +1,6 @@
-import { TEMPLATES, buscarTemplate } from '../lib/formatador/templates';
 import type { Bloco } from '../lib/formatador/tipos';
 import { useFormatador, type FormatoSaida } from '../lib/useFormatador';
+import { useTemplateFormatacao } from '../lib/useTemplateFormatacao';
 
 const ROTULO_FORMATO: Record<FormatoSaida, string> = { md: 'Markdown (.md)', docx: 'Word (.docx)', pdf: 'PDF (.pdf)', epub: 'EPUB (.epub)' };
 
@@ -24,14 +24,24 @@ function agruparParaPreview(blocos: Bloco[]): ItemPreview[] {
 /**
  * Settings > Format: sobe um PDF/Markdown/Word, o conteúdo vira um documento
  * estruturado (título + títulos/parágrafos/listas/citações — ver
- * lib/formatador/tipos.ts), aplica um dos templates de formatação e permite
- * baixar o resultado nos 4 formatos (md/docx/pdf/epub).
+ * lib/formatador/tipos.ts), aplica um template (o "Custom" — derivado de um
+ * .docx de referência, substituível a qualquer momento — ou um dos 3 presets)
+ * e permite baixar o resultado nos 4 formatos (md/docx/pdf/epub).
  */
 export function FormatPage() {
-  const { nomeOriginal, documento, templateId, setTemplateId, processando, erro, baixandoFormato, handleArquivoSelecionado, limpar, baixar } =
-    useFormatador();
-
-  const template = buscarTemplate(templateId);
+  const { nomeOriginal, documento, processando, erro, baixandoFormato, handleArquivoSelecionado, limpar, baixar } = useFormatador();
+  const {
+    opcoes,
+    selecionadoId,
+    setSelecionadoId,
+    templateAtivo: template,
+    carregandoPadrao,
+    substituindo,
+    erro: erroTemplate,
+    substituirTemplate,
+    resetarTemplate,
+    temTemplateCustomizado,
+  } = useTemplateFormatacao();
 
   return (
     <div className="format-pagina">
@@ -66,14 +76,31 @@ export function FormatPage() {
           <section className="format-secao">
             <h2>2. Template</h2>
             <div className="format-templates">
-              {TEMPLATES.map((t) => (
-                <label key={t.id} className={`format-template-opcao${templateId === t.id ? ' selecionada' : ''}`}>
-                  <input type="radio" name="template" checked={templateId === t.id} onChange={() => setTemplateId(t.id)} />
-                  <span className="format-template-nome">{t.nome}</span>
-                  <span className="format-template-descricao">{t.descricao}</span>
-                </label>
+              {opcoes.map((t) => (
+                <div key={t.id} className={`format-template-card${selecionadoId === t.id ? ' selecionada' : ''}`}>
+                  <label className="format-template-opcao">
+                    <input type="radio" name="template" checked={selecionadoId === t.id} onChange={() => setSelecionadoId(t.id)} />
+                    <span className="format-template-nome">{t.nome}</span>
+                    <span className="format-template-descricao">{t.descricao}</span>
+                  </label>
+                  {t.id === 'custom' && (
+                    <div className="format-template-custom-acoes">
+                      <label className="format-upload-mini-label">
+                        <input type="file" accept=".docx" hidden onChange={(e) => void substituirTemplate(e)} />
+                        <span className="format-upload-mini-botao">{substituindo ? 'Reading…' : 'Replace with another .docx…'}</span>
+                      </label>
+                      {temTemplateCustomizado && (
+                        <button type="button" className="format-link-botao" onClick={() => void resetarTemplate()} disabled={carregandoPadrao}>
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
+            {carregandoPadrao && <p className="format-template-status">Loading default template…</p>}
+            {erroTemplate && <p className="format-erro">{erroTemplate}</p>}
           </section>
 
           <section className="format-secao">
@@ -118,7 +145,7 @@ export function FormatPage() {
             <h2>4. Download</h2>
             <div className="format-downloads">
               {(Object.keys(ROTULO_FORMATO) as FormatoSaida[]).map((formato) => (
-                <button key={formato} type="button" onClick={() => void baixar(formato)} disabled={baixandoFormato !== null}>
+                <button key={formato} type="button" onClick={() => void baixar(formato, template)} disabled={baixandoFormato !== null}>
                   {baixandoFormato === formato ? 'Generating…' : ROTULO_FORMATO[formato]}
                 </button>
               ))}

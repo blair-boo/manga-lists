@@ -1,7 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { parseArquivo } from './formatador/parsers';
-import { buscarTemplate, TEMPLATE_PADRAO_ID } from './formatador/templates';
-import type { Documento } from './formatador/tipos';
+import type { Documento, Template } from './formatador/tipos';
 import { baixarMarkdown } from './formatador/exportarMarkdown';
 import { baixarDocx } from './formatador/exportarDocx';
 import { baixarPdf } from './formatador/exportarPdf';
@@ -27,7 +26,6 @@ function nomeArquivoSaida(titulo: string, formato: FormatoSaida): string {
 export function useFormatador() {
   const [nomeOriginal, setNomeOriginal] = useState<string | null>(null);
   const [documento, setDocumento] = useState<Documento | null>(null);
-  const [templateId, setTemplateId] = useState(TEMPLATE_PADRAO_ID);
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [baixandoFormato, setBaixandoFormato] = useState<FormatoSaida | null>(null);
@@ -57,12 +55,11 @@ export function useFormatador() {
     setErro(null);
   }
 
-  async function baixar(formato: FormatoSaida) {
+  async function baixar(formato: FormatoSaida, template: Template) {
     if (!documento) return;
     setBaixandoFormato(formato);
     setErro(null);
     try {
-      const template = buscarTemplate(templateId);
       const nomeArquivo = nomeArquivoSaida(documento.titulo, formato);
       if (formato === 'md') baixarMarkdown(documento, nomeArquivo);
       else if (formato === 'docx') await baixarDocx(documento, template, nomeArquivo);
@@ -78,8 +75,6 @@ export function useFormatador() {
   return {
     nomeOriginal,
     documento,
-    templateId,
-    setTemplateId,
     processando,
     erro,
     baixandoFormato,

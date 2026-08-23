@@ -38,8 +38,6 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-export const TEMPLATE_PADRAO_ID = TEMPLATES[0].id;
-
 export function buscarTemplate(id: string): Template {
   return TEMPLATES.find((t) => t.id === id) ?? TEMPLATES[0];
 }
