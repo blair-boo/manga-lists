@@ -9,6 +9,7 @@ export function SettingsPage() {
         <NavLink to="generos-tags">Genres/Tags</NavLink>
         <NavLink to="sources">Sources</NavLink>
         <NavLink to="images">Images</NavLink>
+        <NavLink to="format">Format</NavLink>
       </nav>
       <Outlet />
     </div>
