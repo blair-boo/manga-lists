@@ -23,6 +23,22 @@ Desenho:
   erro (402/403 de cota esgotada), o próximo é tentado automaticamente, sem
   troca de código — só a ordem/credenciais no ambiente.
 
+- **Fallback pro acesso direto.** Quando TODOS os providers falham, `buscar`
+  devolve None e `common.http_get` refaz o GET pelo caminho direto de sempre,
+  em vez de propagar o erro do provider. Sem isso, credencial vencida/cota
+  estourada em todos os providers derruba 100% do domínio roteado mesmo
+  quando o site responde normalmente sem intermediário — foi exatamente o que
+  aconteceu com o comix.to (ScraperAPI 403 + ScrapingBee 401 + scrape.do 401
+  em 273/273 fontes, enquanto comix.to servia o `#initial-data` direto, com
+  200). O roteamento continua sendo a primeira opção: se o Cloudflare voltar
+  a exigir JS, os providers seguem cobrindo o caso quando tiverem crédito.
+
+- **Disjuntor por processo.** Se os providers falharem em bloco
+  `_LIMITE_FALHAS_SEGUIDAS` vezes seguidas, o roteamento é desligado pelo
+  resto do processo (`deve_rotear` passa a devolver False) e tudo segue
+  direto. Evita queimar minutos de run repetindo 3 chamadas mortas por URL
+  em centenas de fontes; qualquer sucesso zera o contador.
+
 - **Cobre os três estágios de uma vez.** Como capítulos (`fetch_http`),
   catálogo (`ComixAdapter._consultar`) e descoberta (`adapter.buscar`) todos
   passam por `common.http_get`, rotear lá dentro cobre os três sem tocar em
@@ -56,6 +72,45 @@ import sys
 from urllib.parse import urlencode, urlparse
 
 SCRAPING_TIMEOUT = 75
+
+# Disjuntor por processo: quantas vezes seguidas TODOS os providers podem
+# falhar antes de o roteamento ser desligado pelo resto da run. 3 é o bastante
+# pra separar "credencial morta / cota estourada" (falha em toda URL) de um
+# tropeço pontual num alvo específico.
+_LIMITE_FALHAS_SEGUIDAS = 3
+
+_falhas_seguidas = 0
+_desligado_no_processo = False
+
+
+def _registrar_sucesso() -> None:
+    """Zera o contador do disjuntor: algum provider voltou a responder."""
+    global _falhas_seguidas
+    _falhas_seguidas = 0
+
+
+def _registrar_falha_total() -> None:
+    """
+    Conta uma rodada em que NENHUM provider respondeu OK. No limite, desliga o
+    roteamento pelo resto do processo — daí em diante tudo vai direto, sem
+    gastar ~1 request morta por provider em cada uma das centenas de fontes.
+    """
+    global _falhas_seguidas, _desligado_no_processo
+    _falhas_seguidas += 1
+    if _falhas_seguidas >= _LIMITE_FALHAS_SEGUIDAS and not _desligado_no_processo:
+        _desligado_no_processo = True
+        print(
+            f"  scraping_api: {_falhas_seguidas} falhas seguidas em todos os providers — "
+            "roteamento desligado nesta run, seguindo pelo acesso direto",
+            file=sys.stderr,
+        )
+
+
+def resetar_estado() -> None:
+    """Zera o disjuntor (usado nos testes; cada run de produção é um processo novo)."""
+    global _falhas_seguidas, _desligado_no_processo
+    _falhas_seguidas = 0
+    _desligado_no_processo = False
 
 
 def _env_flag(nome: str, padrao: bool = False) -> bool:
@@ -193,7 +248,12 @@ def _provedores_ativos() -> list[tuple[str, callable]]:
 
 
 def deve_rotear(url: str) -> bool:
-    """True se o host da URL está listado E há ao menos um provider com chave."""
+    """
+    True se o host da URL está listado, há ao menos um provider com chave E o
+    disjuntor não desligou o roteamento nesta run (ver _registrar_falha_total).
+    """
+    if _desligado_no_processo:
+        return False
     return _host_de(url) in _hosts_configurados() and bool(_provedores_ativos())
 
 
@@ -209,30 +269,38 @@ def _target(url: str, params) -> str:
 def buscar(sessao, url: str, params=None):
     """
     Faz o GET da `url` (com `params`) através dos providers ativos, em ordem.
-    Devolve o `requests.Response` do primeiro provider que responder 2xx; se
-    todos falharem, devolve a última resposta recebida (pra o chamador ver o
-    status), ou levanta a última exceção de rede se nenhum respondeu.
+    Devolve o `requests.Response` do primeiro provider que responder 2xx.
+
+    Devolve **None** quando nenhum provider entregou uma resposta OK — seja por
+    erro HTTP (401/403 de credencial vencida, 402/429 de cota) ou por falha de
+    rede. None é o sinal pra `common.http_get` refazer o GET pelo acesso
+    direto: melhor tentar sem intermediário do que devolver o erro do provider
+    como se fosse a resposta do site. Antes essa função devolvia a última
+    resposta com erro, e o chamador a tratava como definitiva — foi assim que
+    o comix.to ficou com 273/273 fontes em "HTTP 401" enquanto respondia 200
+    no acesso direto.
 
     Só deve ser chamado quando `deve_rotear(url)` é True.
     """
     alvo = _target(url, params)
-    ultima_resp = None
-    ultima_exc = None
+    houve_tentativa = False
     for nome, construir in _provedores_ativos():
+        houve_tentativa = True
         base, pparams, pheaders = construir(alvo)
         try:
             resp = sessao.get(base, params=pparams, headers=pheaders, timeout=SCRAPING_TIMEOUT)
         except Exception as exc:  # noqa: BLE001 - rede/provider fora do ar: tenta o próximo
-            ultima_exc = exc
             print(f"  scraping_api[{nome}]: falha de rede em {alvo}: {exc}", file=sys.stderr)
             continue
         if resp.ok:
+            _registrar_sucesso()
             return resp
-        ultima_resp = resp
         print(
             f"  scraping_api[{nome}]: HTTP {resp.status_code} pra {alvo} — tentando próximo provider",
             file=sys.stderr,
         )
-    if ultima_resp is not None:
-        return ultima_resp
-    raise ultima_exc if ultima_exc is not None else RuntimeError("nenhum provider de scraping configurado")
+
+    if houve_tentativa:
+        _registrar_falha_total()
+        print(f"  scraping_api: nenhum provider respondeu pra {alvo} — caindo pro acesso direto", file=sys.stderr)
+    return None

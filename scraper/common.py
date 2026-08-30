@@ -78,14 +78,22 @@ def http_get(url: str, **kwargs):
     resolve o challenge JS do Cloudflare — o caso do comix.to, que challenge
     direto/curl não passa. Roteando aqui, os três estágios (capítulos,
     catálogo, descoberta) herdam o desvio de uma vez, já que todos passam por
-    http_get. Sem chave/host, é no-op: segue o caminho direto de sempre. Ver
-    scraping_api.py.
+    http_get. Sem chave/host, é no-op: segue o caminho direto de sempre.
+
+    O roteamento é a primeira opção, não a única: quando NENHUM provider
+    responde (`buscar` devolve None — credencial vencida, cota estourada,
+    provider fora do ar), a request cai pro caminho direto abaixo em vez de
+    virar erro. Um domínio roteado nunca deve ficar 100% morto só porque a
+    conta paga expirou, ainda mais quando o site responde bem sem
+    intermediário. Ver scraping_api.py.
     """
     kwargs.setdefault("timeout", TIMEOUT)
 
     if scraping_api.deve_rotear(url):
-        params = kwargs.get("params")
-        return scraping_api.buscar(_sessao_http(), url, params=params)
+        resp = scraping_api.buscar(_sessao_http(), url, params=kwargs.get("params"))
+        if resp is not None:
+            return resp
+        # Todos os providers falharam: segue pro acesso direto (abaixo).
 
     try:
         resp = _sessao_http().get(url, **kwargs)

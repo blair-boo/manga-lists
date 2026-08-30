@@ -21,6 +21,9 @@ def _limpa_env(monkeypatch):
         "SCRAPEDO_SUPER",
     ):
         monkeypatch.delenv(var, raising=False)
+    # O disjuntor é estado de módulo (vive pelo processo): sem zerar, um teste
+    # que estoura o limite desliga o roteamento pros seguintes.
+    scraping_api.resetar_estado()
 
 
 class RespFake:
@@ -275,12 +278,79 @@ def test_buscar_scraperapi_primeiro_ok_nao_chama_os_outros(monkeypatch):
     assert sessao.chamadas[0]["base"] == "https://api.scraperapi.com/"
 
 
-def test_buscar_todos_falham_devolve_ultima_resp(monkeypatch):
+# --- fallback pro acesso direto ----------------------------------------------
+
+
+def test_buscar_todos_falham_devolve_none(monkeypatch):
+    """
+    Todos os providers com erro -> None, e não a última resposta com erro.
+    None é o sinal pra common.http_get refazer o GET direto. Devolver a
+    resposta do provider fazia o chamador tratar "401 do scrape.do" como se
+    fosse a resposta do site — o bug que matou 273/273 fontes do comix.to.
+    """
     monkeypatch.setenv("SCRAPERAPI_KEY", "K")
     monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
     sessao = SessaoFake([RespFake(403), RespFake(402)])
-    resp = scraping_api.buscar(sessao, "https://comix.to/x")
-    assert resp.status_code == 402
+    assert scraping_api.buscar(sessao, "https://comix.to/x") is None
+
+
+def test_buscar_credenciais_mortas_nos_tres_devolve_none(monkeypatch):
+    """Cenário exato da run de 29/08: 403 + 401 + 401 nos três providers."""
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    monkeypatch.setenv("SCRAPINGBEE_KEY", "B")
+    monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
+    monkeypatch.setenv("SCRAPING_API_ORDER", "scraperapi,scrapingbee,scrapedo")
+    sessao = SessaoFake([RespFake(403), RespFake(401), RespFake(401)])
+    assert scraping_api.buscar(sessao, "https://comix.to/title/x") is None
+    assert len(sessao.chamadas) == 3
+
+
+def test_buscar_todos_com_erro_de_rede_devolve_none(monkeypatch):
+    """Provider fora do ar (exceção, não resposta) também cai pro direto."""
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    monkeypatch.setenv("SCRAPEDO_TOKEN", "T")
+    sessao = SessaoFake([RuntimeError("timeout"), RuntimeError("conexão recusada")])
+    assert scraping_api.buscar(sessao, "https://comix.to/x") is None
+
+
+# --- disjuntor por processo ---------------------------------------------------
+
+
+def test_disjuntor_desliga_roteamento_apos_falhas_seguidas(monkeypatch):
+    """
+    Depois de _LIMITE_FALHAS_SEGUIDAS rodadas em que nenhum provider respondeu,
+    deve_rotear passa a devolver False: o resto da run vai direto, sem queimar
+    uma request morta por provider em cada uma das centenas de fontes.
+    """
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    assert scraping_api.deve_rotear("https://comix.to/x") is True
+
+    for _ in range(scraping_api._LIMITE_FALHAS_SEGUIDAS):
+        assert scraping_api.buscar(SessaoFake([RespFake(401)]), "https://comix.to/x") is None
+
+    assert scraping_api.deve_rotear("https://comix.to/x") is False
+
+
+def test_disjuntor_nao_desliga_antes_do_limite(monkeypatch):
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    for _ in range(scraping_api._LIMITE_FALHAS_SEGUIDAS - 1):
+        scraping_api.buscar(SessaoFake([RespFake(401)]), "https://comix.to/x")
+    assert scraping_api.deve_rotear("https://comix.to/x") is True
+
+
+def test_sucesso_zera_o_contador_do_disjuntor(monkeypatch):
+    """Falha pontual num alvo não pode acumular até desligar o roteamento."""
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    for _ in range(scraping_api._LIMITE_FALHAS_SEGUIDAS - 1):
+        scraping_api.buscar(SessaoFake([RespFake(500)]), "https://comix.to/x")
+    # Um sucesso no meio zera o contador...
+    assert scraping_api.buscar(SessaoFake([RespFake(200)]), "https://comix.to/y") is not None
+    # ...então mais uma falha ainda não atinge o limite.
+    scraping_api.buscar(SessaoFake([RespFake(500)]), "https://comix.to/x")
+    assert scraping_api.deve_rotear("https://comix.to/x") is True
 
 
 def test_buscar_dobra_params_no_alvo(monkeypatch):
@@ -288,3 +358,64 @@ def test_buscar_dobra_params_no_alvo(monkeypatch):
     sessao = SessaoFake([RespFake(200)])
     scraping_api.buscar(sessao, "https://comix.to/api/v1/manga", params={"page": 2, "limit": 100})
     assert sessao.chamadas[0]["params"]["url"] == "https://comix.to/api/v1/manga?page=2&limit=100"
+
+
+# --- integração com common.http_get ------------------------------------------
+
+
+def test_http_get_cai_pro_direto_quando_os_providers_morrem(monkeypatch):
+    """
+    O contrato que fecha o buraco do comix: roteamento ligado, todos os
+    providers falhando, e mesmo assim `http_get` devolve a resposta do site
+    pelo caminho direto — em vez do erro do provider.
+    """
+    import common
+
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+
+    direto = RespFake(200, "html-do-site")
+
+    class SessaoDireta:
+        def __init__(self):
+            self.gets_diretos = []
+
+        def get(self, url, params=None, headers=None, timeout=None, **kwargs):
+            # Chamada ao provider (base da API) vs. chamada direta ao site.
+            if url.startswith("https://api.scraperapi.com/"):
+                return RespFake(401)
+            self.gets_diretos.append(url)
+            return direto
+
+    sessao = SessaoDireta()
+    monkeypatch.setattr(common, "_sessao_http", lambda: sessao)
+
+    resp = common.http_get("https://comix.to/title/x")
+    assert resp is direto
+    assert sessao.gets_diretos == ["https://comix.to/title/x"]
+
+
+def test_http_get_usa_o_provider_quando_ele_responde(monkeypatch):
+    """Com provider saudável, nada de acesso direto: o roteamento segue valendo."""
+    import common
+
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+
+    via_provider = RespFake(200, "html-do-provider")
+
+    class SessaoDireta:
+        def __init__(self):
+            self.gets_diretos = []
+
+        def get(self, url, params=None, headers=None, timeout=None, **kwargs):
+            if url.startswith("https://api.scraperapi.com/"):
+                return via_provider
+            self.gets_diretos.append(url)
+            return RespFake(200, "nao-deveria-chegar-aqui")
+
+    sessao = SessaoDireta()
+    monkeypatch.setattr(common, "_sessao_http", lambda: sessao)
+
+    assert common.http_get("https://comix.to/title/x") is via_provider
+    assert sessao.gets_diretos == []

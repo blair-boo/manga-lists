@@ -89,6 +89,32 @@
   margin-bottom: 10px;
 }
 
+/* Um bloco por scraper (Chapters / Works) dentro de "Supported sites": cada um
+   com botão, erro e "Latest run" próprios, pra deixar visível que são duas
+   operações independentes — disparar uma não mexe na outra. */
+.scraper-blocos {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* flex-basis 0 pros dois blocos dividirem a linha igualmente; min-width 220px
+   quebra um embaixo do outro no celular estreito, em vez de espremer. */
+.scraper-bloco {
+  flex: 1 1 0;
+  min-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+/* O subtítulo é a primeira coisa do bloco: sem a margem de topo que ele leva
+   quando é um separador de seção. */
+.scraper-bloco .atualizacao-subtitulo {
+  margin-top: 0;
+}
+
 .atualizar-status {
   background: none;
   border: 1px solid var(--border);
@@ -313,19 +339,8 @@
   opacity: 0.6;
 }
 
-/* "Latest run" (Works/Chapters) acima da tabela de domínios (Handout 3, A5). */
-.latest-run-grupo {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-/* flex-basis 0 (não 220px) pra os dois itens (Works/Chapters) dividirem a
-   linha e ficarem lado a lado mesmo no celular estreito, em vez de quebrar
-   um embaixo do outro. */
+/* "Latest run" de um scraper, dentro do bloco dele (ver .scraper-bloco). */
 .latest-run-item {
-  flex: 1 1 0;
   min-width: 0;
 }
 
