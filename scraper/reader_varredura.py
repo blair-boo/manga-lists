@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 
 from adapter_base import resolver_access_strategy
 from adapters import REGISTRY
-from common import get_supabase, host_de_url, iniciar_run, finalizar_run
+from common import buscar_todas, get_supabase, host_de_url, iniciar_run, finalizar_run
 
 # Estados que significam "o texto já está no nosso storage". A varredura NUNCA
 # rebaixa um capítulo desses de volta pra 'descoberto'/'bloqueado' — senão uma
@@ -54,7 +54,9 @@ def agora_iso() -> str:
 
 def carregar_designacoes(supabase) -> dict:
     """host -> {'adaptador', 'access_strategy'} a partir de sites_suportados."""
-    linhas = supabase.table("sites_suportados").select("nome,url_base,adaptador,access_strategy").execute().data or []
+    linhas = buscar_todas(
+        lambda: supabase.table("sites_suportados").select("nome,url_base,adaptador,access_strategy").order("nome")
+    )
     designacoes = {}
     for linha in linhas:
         host = host_de_url(linha.get("url_base") or "") or (linha.get("nome") or "").lower()
@@ -108,13 +110,14 @@ def listar_capitulos_da_fonte(fonte: dict, designacoes: dict):
 
 def sincronizar_capitulos(supabase, reader_obra: dict, fonte: dict, capitulos: list) -> dict:
     """Insere os capítulos novos e atualiza os que já existem. Retorna contadores."""
-    existentes = (
-        supabase.table("reader_capitulos")
+    # Paginado: uma obra longa passa de 1000 capítulos, e o corte silencioso
+    # faria os capítulos além do teto sumirem de `por_chave` — a varredura os
+    # reinseriria como novos a cada run, duplicando a lista.
+    existentes = buscar_todas(
+        lambda: supabase.table("reader_capitulos")
         .select("id,chave,estado,url,disponivel_em")
         .eq("reader_obra_id", reader_obra["id"])
-        .execute()
-        .data
-        or []
+        .order("id")
     )
     por_chave = {c["chave"]: c for c in existentes}
 
@@ -171,7 +174,7 @@ def carregar_fontes_por_obra(supabase) -> dict[str, list[dict]]:
     por obra funcionaria, mas além de ser N vezes mais lento, o host da fonte
     precisa ser conhecido ANTES da requisição pra decidir a pausa de educação.
     """
-    linhas = supabase.table("reader_fontes").select("*").execute().data or []
+    linhas = buscar_todas(lambda: supabase.table("reader_fontes").select("*").order("id"))
     por_obra: dict[str, list[dict]] = {}
     for linha in linhas:
         por_obra.setdefault(linha["reader_obra_id"], []).append(linha)
@@ -207,10 +210,13 @@ def varrer_obra(supabase, reader_obra: dict, fontes: list[dict], designacoes: di
 
 
 def executar(supabase, obra_id: str | None = None) -> None:
-    query = supabase.table("reader_obras").select("*").eq("concluido", False)
-    if obra_id:
-        query = query.eq("obra_id", obra_id)
-    reader_obras = query.execute().data or []
+    def query():
+        q = supabase.table("reader_obras").select("*").eq("concluido", False)
+        if obra_id:
+            q = q.eq("obra_id", obra_id)
+        return q.order("id")
+
+    reader_obras = buscar_todas(query)
 
     if not reader_obras:
         alvo = f" para a obra {obra_id}" if obra_id else ""

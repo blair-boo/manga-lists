@@ -37,7 +37,7 @@ import traceback
 from datetime import datetime, timezone
 
 from adapters import REGISTRY, resolver_access_strategy
-from common import finalizar_run, get_supabase, iniciar_run
+from common import buscar_todas, finalizar_run, get_supabase, iniciar_run
 
 
 def _relatorio_diagnostico(url: str) -> dict:
@@ -83,12 +83,11 @@ def processar_site(supabase, site: dict) -> str:
 
 def executar(supabase) -> tuple[int, int]:
     """Retorna (designados, sem_adaptador). Considera todos os domínios sem adaptador, aprovados ou não."""
-    sites = (
-        supabase.table("sites_suportados")
+    sites = buscar_todas(
+        lambda: supabase.table("sites_suportados")
         .select("id, nome, url_base, ativo, adaptador, access_strategy")
         .is_("adaptador", "null")
-        .execute()
-        .data
+        .order("id")
     )
     print(f"{len(sites)} domínio(s) sem adaptador para detectar.")
 

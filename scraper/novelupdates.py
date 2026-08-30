@@ -21,7 +21,7 @@ import unicodedata
 
 from bs4 import BeautifulSoup
 
-from common import finalizar_run, get_supabase, iniciar_run
+from common import buscar_todas, finalizar_run, get_supabase, iniciar_run
 from match_titulo import melhor_match
 from nu_browser import abrir_nu_browser
 
@@ -181,14 +181,17 @@ def executar(supabase) -> dict:
     auto = limiares.get("limiar_auto_aprovacao", 0.95)
     minimo = limiares.get("limiar_minimo_pendencia", 0.85)
 
-    obras = (
-        supabase.table("obras")
+    obras = buscar_todas(
+        lambda: supabase.table("obras")
         .select("id, titulo, titulos_alternativos, obra_vinculada_id, novelupdates_url")
         .is_("novelupdates_url", "null")
-        .execute()
-        .data
+        .order("id")
     )
-    pendentes = supabase.table("novelupdates_pendentes").select("obra_id, novelupdates_url, status_aprovacao").execute().data
+    pendentes = buscar_todas(
+        lambda: supabase.table("novelupdates_pendentes")
+        .select("obra_id, novelupdates_url, status_aprovacao")
+        .order("obra_id")
+    )
     reprovados = {p["obra_id"]: p["novelupdates_url"] for p in pendentes if p.get("status_aprovacao") == "reprovado"}
 
     # Batching opcional (Handout 4, 2.4): NU_LIMITE_OBRAS limita quantas obras por

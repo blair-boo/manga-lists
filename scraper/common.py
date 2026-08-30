@@ -196,10 +196,10 @@ def carregar_config_match(supabase) -> dict:
 def carregar_dominios_bloqueados(supabase) -> set[str]:
     """Conjunto de domínios em blacklist (dominios_bloqueados). Vazio se a tabela não existir."""
     try:
-        resp = supabase.table("dominios_bloqueados").select("dominio").execute()
+        linhas = buscar_todas(lambda: supabase.table("dominios_bloqueados").select("dominio").order("dominio"))
     except Exception:  # noqa: BLE001
         return set()
-    return {row["dominio"] for row in (resp.data or []) if row.get("dominio")}
+    return {row["dominio"] for row in linhas if row.get("dominio")}
 
 
 def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None, resumo: dict | None = None) -> None:

@@ -160,7 +160,7 @@ def executar(supabase) -> None:
     designacoes = carregar_designacoes(supabase)
 
     # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
-    sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
+    sites = buscar_todas(lambda: supabase.table("sites_suportados").select("nome, url_base").order("nome"))
     base_por_site = {s["nome"]: s.get("url_base") for s in sites}
     for nome, cfg in SITES_NEXTJS_CMS.items():
         base_por_site.setdefault(nome, cfg["site"])

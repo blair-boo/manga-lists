@@ -102,12 +102,11 @@ def main():
     config = carregar_config_match(supabase)
     limiares = config.get("atualizar_obras", {"limiar_auto_aprovacao": 0.95, "limiar_minimo_pendencia": 0.70})
 
-    sites = (
-        supabase.table("sites_suportados")
+    sites = buscar_todas(
+        lambda: supabase.table("sites_suportados")
         .select("nome, url_base, ativo, adaptador, access_strategy")
         .eq("ativo", True)
-        .execute()
-        .data
+        .order("nome")
     )
 
     # Paginado (ver buscar_todas): `fontes` já passa de 1000 linhas. Um corte

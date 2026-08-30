@@ -173,12 +173,11 @@ def executar(supabase) -> int:
         lambda: supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").order("id")
     )
     fontes_existentes = buscar_todas(lambda: supabase.table("fontes").select("obra_id, site").order("id"))
-    sites = (
-        supabase.table("sites_suportados")
+    sites = buscar_todas(
+        lambda: supabase.table("sites_suportados")
         .select("nome, url_base, ativo, adaptador, access_strategy")
         .eq("ativo", True)
-        .execute()
-        .data
+        .order("nome")
     )
 
     sites_por_obra: dict[str, set[str]] = {}

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { db, getLastSyncedAt, setLastSyncedAt } from '../db/localDb';
+import { buscarTudoPaginado } from '../lib/paginacao';
 import type {
   Fonte,
   ListaItem,
@@ -160,36 +161,6 @@ const COLUNAS_POR_ENTIDADE: Record<SyncEntity, ReadonlySet<string>> = {
 function sanitizarPayload(entity: SyncEntity, payload: Record<string, unknown>): Record<string, unknown> {
   const colunas = COLUNAS_POR_ENTIDADE[entity];
   return Object.fromEntries(Object.entries(payload).filter(([chave]) => colunas.has(chave)));
-}
-
-const TAMANHO_PAGINA = 1000;
-
-/**
- * Busca TODAS as linhas de uma tabela, paginando em lotes de TAMANHO_PAGINA.
- * Uma query sem paginação (`select('*')` puro) é truncada silenciosamente
- * pelo limite padrão de linhas do PostgREST/Supabase quando a tabela passa
- * de ~1000 linhas — sem erro, só devolve menos linhas do que existem. Foi a
- * causa real de fontes "desaparecidas": `fontes` passou de 1000 linhas e
- * pullFontes() parou de enxergar as mais recentes em toda sincronização,
- * mesmo numa sessão nova (nada a ver com cache do PWA). `query` PRECISA vir
- * com `.order(...)` numa coluna estável (ver chamadas) — `.range()` é só
- * offset/limit, sem ORDER BY as páginas não são deterministicamente
- * complementares.
- */
-async function buscarTudoPaginado<T>(
-  query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
-): Promise<T[]> {
-  const todas: T[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await query(from, from + TAMANHO_PAGINA - 1);
-    if (error) throw error;
-    const linhas = data ?? [];
-    todas.push(...linhas);
-    if (linhas.length < TAMANHO_PAGINA) break;
-    from += TAMANHO_PAGINA;
-  }
-  return todas;
 }
 
 async function applyMutation(item: SyncQueueItem): Promise<void> {
