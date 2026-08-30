@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -87,4 +87,9 @@ export default defineConfig(({ command }) => ({
       },
     }),
   ],
+  test: {
+    // fake-indexeddb precisa estar no globalThis antes de src/db/localDb.ts ser
+    // importado (o Dexie é construído no topo do módulo) — ver src/test/setup.ts.
+    setupFiles: ['./src/test/setup.ts'],
+  },
 }))
