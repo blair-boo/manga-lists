@@ -108,6 +108,40 @@ def http_get(url: str, **kwargs):
     return resp
 
 
+# Teto de linhas que o PostgREST devolve por requisição (db-max-rows do
+# Supabase). Vale como tamanho de página na paginação abaixo.
+PAGINA_SUPABASE = 1000
+
+
+def buscar_todas(construir_query, tamanho_pagina: int = PAGINA_SUPABASE) -> list[dict]:
+    """
+    Lê TODAS as linhas de uma query, paginando com `.range()`.
+
+    O PostgREST corta em `db-max-rows` (1000 no Supabase) **em silêncio**: um
+    `.select()` numa tabela maior devolve um recorte, sem erro e sem aviso. Era
+    o que fazia o estágio de capítulos varrer só 1000 das 1448 fontes
+    aprovadas — as outras 448 nunca eram verificadas, e quais entravam no corte
+    variava de run pra run (sem ORDER BY a janela é arbitrária). Fontes
+    cadastradas/atualizadas pela importação do comix caíam justamente aí: já
+    aprovadas, mas invisíveis pro scraper. O front já paginava assim
+    (`buscarTudoPaginado` em src/sync/sync.ts, mesmo bug, mesma correção); o
+    scraper não.
+
+    `construir_query` é chamado uma vez por página e deve devolver uma query
+    NOVA e **ordenada por uma coluna estável** (`.order("id")`) — `.range()` é
+    só offset/limit, então sem ORDER BY as páginas não são complementares e
+    linhas se repetem ou somem.
+    """
+    linhas: list[dict] = []
+    inicio = 0
+    while True:
+        pagina = construir_query().range(inicio, inicio + tamanho_pagina - 1).execute().data or []
+        linhas.extend(pagina)
+        if len(pagina) < tamanho_pagina:
+            return linhas
+        inicio += tamanho_pagina
+
+
 def carregar_env_local():
     """Suporte a scraper/.env pra rodar localmente; em CI as secrets já vêm como env vars."""
     env_path = Path(__file__).parent / ".env"

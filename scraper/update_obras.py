@@ -18,6 +18,7 @@ import traceback
 
 from adapters import ACCESS_HTTP, REGISTRY, resolver_access_strategy
 from common import (
+    buscar_todas,
     carregar_config_match,
     finalizar_run,
     get_supabase,
@@ -109,8 +110,15 @@ def main():
         .data
     )
 
-    todas_obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
-    todas_fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
+    # Paginado (ver buscar_todas): `fontes` já passa de 1000 linhas. Um corte
+    # silencioso aqui faz `obras_sem_fonte_no_site` achar que uma obra que JÁ
+    # tem fonte no site ainda não tem, e casar uma segunda — fonte duplicada.
+    # Não chegou a acontecer com o comix (o catálogo dele está desligado, ver
+    # _catalogo_ativo), mas vale pra qualquer site com catálogo ativo.
+    todas_obras = buscar_todas(
+        lambda: supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").order("id")
+    )
+    todas_fontes = buscar_todas(lambda: supabase.table("fontes").select("obra_id, site, url").order("id"))
 
     total = 0
     for site in sites:

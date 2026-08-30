@@ -412,9 +412,19 @@ export function ImportarComixPage() {
       const fontesAtuais = criandoNova ? [] : (fontesRaw ?? []).filter((f) => f.obra_id === obraId);
       const fonteExistente = fontesAtuais.find((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
       const fonte = fonteExistente ?? (await adicionarFonteNaObra(obraId, comixObra.url, tipoFinal, fontesAtuais));
+      // `atualizado_por_scraper: true` é intencional: o número vem do
+      // `latestChapter` da própria página do comix, não de digitação — mesma
+      // natureza do scraper (E5). `updateFonte` respeita esse valor porque ele
+      // é passado explicitamente (ver o comentário lá).
+      //
+      // `ultima_verificacao` fecha a outra ponta: sem carimbar agora, a fonte
+      // ficava "never checked" na tela mesmo recém-lida do comix, e ninguém
+      // distinguia "o scraper ainda não passou aqui" de "acabou de ser
+      // atualizada pela importação".
       await updateFonte(fonte.id, {
         ultimo_capitulo_detectado: comixObra.ultimoCapitulo,
         atualizado_por_scraper: true,
+        ultima_verificacao: new Date().toISOString(),
       });
     }
 

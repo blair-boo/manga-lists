@@ -170,10 +170,24 @@ export async function createFonte(input: NovaFonte, dispararSync = true): Promis
 }
 
 export async function updateFonte(id: string, changes: Partial<NovaFonte>): Promise<void> {
-  // Qualquer edição de capítulo feita por aqui (app) é manual por definição — o
-  // scraper (Python) escreve direto no Supabase, sem passar por esta função.
+  // Edição de capítulo feita por aqui (app) é manual por padrão — o scraper
+  // (Python) escreve direto no Supabase, sem passar por esta função.
+  //
+  // "Por padrão", não sempre: quem sabe que o número veio de uma fonte externa
+  // passa `atualizado_por_scraper` explicitamente, e aí a decisão do chamador
+  // vale. É o caso da importação do comix.to, que lê o `latestChapter` da
+  // própria página da obra — mesma natureza do scraper, e o código dela já
+  // pedia `true`. Antes esse `true` era sobrescrito por `false` logo abaixo
+  // (o campo estava no spread, mas a linha seguinte passava por cima), então
+  // capítulo vindo do comix nunca contava como confirmado: `temNovoCapitulo`
+  // (lib/obra.ts) exige `ultimo_capitulo_via_scraper`, que sai justamente
+  // daqui via recalcUltimoCapituloLancado. Resultado: 310 das 430 fontes do
+  // comix marcadas como não-verificadas, e nenhuma delas acendendo o aviso de
+  // capítulo novo.
   const merged: Partial<NovaFonte> = { ...changes };
-  if ('ultimo_capitulo_detectado' in changes) merged.atualizado_por_scraper = false;
+  if ('ultimo_capitulo_detectado' in changes && !('atualizado_por_scraper' in changes)) {
+    merged.atualizado_por_scraper = false;
+  }
 
   await db.fontes.update(id, merged);
   const full = await db.fontes.get(id);
