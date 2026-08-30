@@ -78,14 +78,22 @@ def http_get(url: str, **kwargs):
     resolve o challenge JS do Cloudflare — o caso do comix.to, que challenge
     direto/curl não passa. Roteando aqui, os três estágios (capítulos,
     catálogo, descoberta) herdam o desvio de uma vez, já que todos passam por
-    http_get. Sem chave/host, é no-op: segue o caminho direto de sempre. Ver
-    scraping_api.py.
+    http_get. Sem chave/host, é no-op: segue o caminho direto de sempre.
+
+    O roteamento é a primeira opção, não a única: quando NENHUM provider
+    responde (`buscar` devolve None — credencial vencida, cota estourada,
+    provider fora do ar), a request cai pro caminho direto abaixo em vez de
+    virar erro. Um domínio roteado nunca deve ficar 100% morto só porque a
+    conta paga expirou, ainda mais quando o site responde bem sem
+    intermediário. Ver scraping_api.py.
     """
     kwargs.setdefault("timeout", TIMEOUT)
 
     if scraping_api.deve_rotear(url):
-        params = kwargs.get("params")
-        return scraping_api.buscar(_sessao_http(), url, params=params)
+        resp = scraping_api.buscar(_sessao_http(), url, params=kwargs.get("params"))
+        if resp is not None:
+            return resp
+        # Todos os providers falharam: segue pro acesso direto (abaixo).
 
     try:
         resp = _sessao_http().get(url, **kwargs)
@@ -98,6 +106,40 @@ def http_get(url: str, **kwargs):
         return _sessao_http().get(url, **kwargs)
 
     return resp
+
+
+# Teto de linhas que o PostgREST devolve por requisição (db-max-rows do
+# Supabase). Vale como tamanho de página na paginação abaixo.
+PAGINA_SUPABASE = 1000
+
+
+def buscar_todas(construir_query, tamanho_pagina: int = PAGINA_SUPABASE) -> list[dict]:
+    """
+    Lê TODAS as linhas de uma query, paginando com `.range()`.
+
+    O PostgREST corta em `db-max-rows` (1000 no Supabase) **em silêncio**: um
+    `.select()` numa tabela maior devolve um recorte, sem erro e sem aviso. Era
+    o que fazia o estágio de capítulos varrer só 1000 das 1448 fontes
+    aprovadas — as outras 448 nunca eram verificadas, e quais entravam no corte
+    variava de run pra run (sem ORDER BY a janela é arbitrária). Fontes
+    cadastradas/atualizadas pela importação do comix caíam justamente aí: já
+    aprovadas, mas invisíveis pro scraper. O front já paginava assim
+    (`buscarTudoPaginado` em src/sync/sync.ts, mesmo bug, mesma correção); o
+    scraper não.
+
+    `construir_query` é chamado uma vez por página e deve devolver uma query
+    NOVA e **ordenada por uma coluna estável** (`.order("id")`) — `.range()` é
+    só offset/limit, então sem ORDER BY as páginas não são complementares e
+    linhas se repetem ou somem.
+    """
+    linhas: list[dict] = []
+    inicio = 0
+    while True:
+        pagina = construir_query().range(inicio, inicio + tamanho_pagina - 1).execute().data or []
+        linhas.extend(pagina)
+        if len(pagina) < tamanho_pagina:
+            return linhas
+        inicio += tamanho_pagina
 
 
 def carregar_env_local():
@@ -154,10 +196,10 @@ def carregar_config_match(supabase) -> dict:
 def carregar_dominios_bloqueados(supabase) -> set[str]:
     """Conjunto de domínios em blacklist (dominios_bloqueados). Vazio se a tabela não existir."""
     try:
-        resp = supabase.table("dominios_bloqueados").select("dominio").execute()
+        linhas = buscar_todas(lambda: supabase.table("dominios_bloqueados").select("dominio").order("dominio"))
     except Exception:  # noqa: BLE001
         return set()
-    return {row["dominio"] for row in (resp.data or []) if row.get("dominio")}
+    return {row["dominio"] for row in linhas if row.get("dominio")}
 
 
 def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None, resumo: dict | None = None) -> None:

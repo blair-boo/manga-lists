@@ -27,7 +27,7 @@ import json
 import sys
 
 from adapters_novos import ComixAdapter, _pares_titulo_url
-from common import carregar_config_match, finalizar_run, get_supabase, iniciar_run
+from common import buscar_todas, carregar_config_match, finalizar_run, get_supabase, iniciar_run
 from match_titulo import decidir_status, melhor_match
 from tipo_titulo import familia_de_tipo, por_url
 from update_obras import obras_sem_fonte_no_site
@@ -57,8 +57,12 @@ def main():
     config = carregar_config_match(supabase)
     limiares = config.get("atualizar_obras", {"limiar_auto_aprovacao": 0.95, "limiar_minimo_pendencia": 0.70})
 
-    todas_obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
-    todas_fontes = supabase.table("fontes").select("obra_id, site, url").execute().data
+    # Paginado (ver buscar_todas): sem isso o import lê só as 1000 primeiras
+    # fontes e recadastra, como "nova", obra que já tem fonte no comix.
+    todas_obras = buscar_todas(
+        lambda: supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").order("id")
+    )
+    todas_fontes = buscar_todas(lambda: supabase.table("fontes").select("obra_id, site, url").order("id"))
     obras = obras_sem_fonte_no_site(todas_obras, todas_fontes, args.dominio, url_base)
     print(f"{len(obras)} obra(s) ainda sem fonte no {args.dominio}.")
 

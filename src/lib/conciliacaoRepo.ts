@@ -1,6 +1,7 @@
 import { db } from '../db/localDb';
 import { createFonte, updateObra } from '../db/repo';
 import { supabase } from './supabaseClient';
+import { buscarTudoPaginado } from './paginacao';
 import { mensagemDeErro } from './erros';
 import { campoPorDominio, deriveSite } from './site';
 import { familiaDeTipo } from './obra';
@@ -139,13 +140,20 @@ export interface PendenteConciliacaoComObra {
 }
 
 export async function listarPendentesConciliacao(): Promise<PendenteConciliacaoComObra[]> {
-  const { data, error } = await supabase
-    .from('conciliacao_pendentes')
-    .select('id, obra_id, titulo_candidato, url_candidato, score, criado_em, obra:obras(id, titulo, titulos_alternativos)')
-    .eq('status_aprovacao', 'pendente')
-    .order('score', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as unknown as PendenteConciliacaoComObra[];
+  // Paginado: a fila pode passar de 1000 itens e o PostgREST truncaria em
+  // silêncio, escondendo pendências no fim da lista. Ordem por score empata
+  // com frequência, então `id` entra como desempate estável — sem ele as
+  // páginas não são complementares.
+  const data = await buscarTudoPaginado<unknown>((from, to) =>
+    supabase
+      .from('conciliacao_pendentes')
+      .select('id, obra_id, titulo_candidato, url_candidato, score, criado_em, obra:obras(id, titulo, titulos_alternativos)')
+      .eq('status_aprovacao', 'pendente')
+      .order('score', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  );
+  return data as PendenteConciliacaoComObra[];
 }
 
 /**

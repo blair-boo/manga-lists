@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { buscarTudoPaginado } from '../lib/paginacao';
 import { controlarScraper } from '../lib/scraperControl';
 import { useScraperRun } from '../hooks/useScraperRun';
 import { useAsyncAction } from '../hooks/useAsyncAction';
@@ -54,13 +55,14 @@ export function DominiosSemAdaptador() {
   const recarregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
-    const { data, error } = await supabase
-      .from('sites_suportados')
-      .select('*')
-      .is('adaptador', null)
-      .order('nome');
-    if (error) setErro(error.message);
-    else setSites((data ?? []) as SiteSuportado[]);
+    try {
+      const data = await buscarTudoPaginado<SiteSuportado>((from, to) =>
+        supabase.from('sites_suportados').select('*').is('adaptador', null).order('nome').range(from, to)
+      );
+      setSites(data);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : String(err));
+    }
     setCarregando(false);
   }, []);
 

@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 
 from adapters import ACCESS_HTTP, REGISTRY, resolver_access_strategy
 from common import (
+    buscar_todas,
     carregar_config_match,
     carregar_dominios_bloqueados,
     finalizar_run,
@@ -166,14 +167,17 @@ def executar(supabase) -> int:
     )
     dominios_bloqueados = carregar_dominios_bloqueados(supabase)
 
-    obras = supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").execute().data
-    fontes_existentes = supabase.table("fontes").select("obra_id, site").execute().data
-    sites = (
-        supabase.table("sites_suportados")
+    # Paginado (ver buscar_todas): `fontes` passa de 1000 linhas, e um corte
+    # silencioso faria a descoberta propor fonte pra obra que já tem uma.
+    obras = buscar_todas(
+        lambda: supabase.table("obras").select("id, titulo, titulos_alternativos, tipo").order("id")
+    )
+    fontes_existentes = buscar_todas(lambda: supabase.table("fontes").select("obra_id, site").order("id"))
+    sites = buscar_todas(
+        lambda: supabase.table("sites_suportados")
         .select("nome, url_base, ativo, adaptador, access_strategy")
         .eq("ativo", True)
-        .execute()
-        .data
+        .order("nome")
     )
 
     sites_por_obra: dict[str, set[str]] = {}

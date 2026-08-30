@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { buscarTudoPaginado } from '../lib/paginacao';
 import { db } from '../db/localDb';
 import { updateObra } from '../db/repo';
 import { mensagemDeErro, mensagemErroAcao } from '../lib/erros';
@@ -38,15 +39,21 @@ export function SecaoNovelUpdates() {
   const carregarPendentes = useCallback(async () => {
     setCarregandoFila(true);
     setErroFila(null);
-    const { data, error } = await supabase
-      .from('novelupdates_pendentes')
-      .select('id, obra_id, novelupdates_url, titulo_encontrado, score, titulos_associados, obra:obras(id, titulo)')
-      .eq('status_aprovacao', 'pendente')
-      .order('score', { ascending: false });
-    if (error) {
-      setErroFila(error.message);
-    } else {
-      setPendentes((data ?? []) as unknown as PendenteComObra[]);
+    // Paginado (ver buscarTudoPaginado): `id` desempata o score pra as
+    // páginas serem complementares.
+    try {
+      const data = await buscarTudoPaginado<unknown>((from, to) =>
+        supabase
+          .from('novelupdates_pendentes')
+          .select('id, obra_id, novelupdates_url, titulo_encontrado, score, titulos_associados, obra:obras(id, titulo)')
+          .eq('status_aprovacao', 'pendente')
+          .order('score', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      setPendentes(data as PendenteComObra[]);
+    } catch (err) {
+      setErroFila(err instanceof Error ? err.message : String(err));
     }
     setCarregandoFila(false);
   }, []);

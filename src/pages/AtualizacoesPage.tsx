@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { mensagemErroAcao } from '../lib/erros';
 import { controlarScraper } from '../lib/scraperControl';
 import { useSitesSuportados } from '../hooks/useSitesSuportados';
+import type { StatusAgregadoRun } from '../hooks/useSitesSuportados';
 import { useNomesSitesAtivos } from '../hooks/useSitesAtivos';
 import { ListaSitesSuportados, StatusAgregadoScraper } from '../components/ListaSitesSuportados';
 import { CsvBulkSection } from '../components/CsvBulkSection';
@@ -22,59 +23,74 @@ function formatarFinalizacao(iso: string | null): string {
 const PENDENTE_MAX_MS = 3 * 60 * 1000;
 const POLL_MS = 8000;
 
-function SecaoSitesSuportados() {
-  const sitesInfo = useSitesSuportados();
-  // Estado de "disparando" por tipo (não um único ScraperTipo compartilhado):
-  // clicar em "Update chapters" não pode travar o botão "Update works" (e
-  // vice-versa) enquanto o dispatch está em voo — são scrapers independentes.
-  const [acionandoCapitulos, setAcionandoCapitulos] = useState(false);
-  const [acionandoObras, setAcionandoObras] = useState(false);
+/**
+ * Um scraper, um bloco: botão, erro e "Latest run" próprios.
+ *
+ * Cada instância é dona do seu estado (`acionando`, `pendente`, `erroAcao`) e
+ * só dispara o `tipo` que recebeu por prop. Isso é o que garante a separação
+ * pedida: como não existe estado compartilhado entre as instâncias, clicar em
+ * "Update chapters" não tem por onde mexer no bloco de "Update works" — nem
+ * travar o botão, nem herdar mensagem de erro, nem disparar o outro workflow.
+ * (Os dois workflows do GitHub Actions e os dois scripts Python já eram
+ * independentes; o que era compartilhado morava só aqui na UI.)
+ */
+function BlocoScraper({
+  tipo,
+  titulo,
+  descricao,
+  rotuloBotao,
+  status,
+  finalizadoEm,
+  carregando,
+  erro,
+  recarregar,
+}: {
+  tipo: ScraperTipo;
+  titulo: string;
+  descricao: string;
+  rotuloBotao: string;
+  status: StatusAgregadoRun;
+  finalizadoEm: string | null;
+  carregando: boolean;
+  erro: string | null;
+  recarregar: () => Promise<void>;
+}) {
+  const [acionando, setAcionando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
-  // Momento em que cada tipo foi disparado, enquanto a run ainda não registrou
-  // como 'rodando' no banco. Mantém o botão travado no intervalo entre o
-  // dispatch do workflow e a primeira run aparecer (o runner leva uns segundos).
-  const [pendenteCapitulos, setPendenteCapitulos] = useState<number | null>(null);
-  const [pendenteObras, setPendenteObras] = useState<number | null>(null);
+  // Momento do disparo, enquanto a run ainda não registrou como 'rodando' no
+  // banco. Mantém o botão travado no intervalo entre o dispatch do workflow e
+  // a primeira run aparecer (o runner leva uns segundos).
+  const [pendente, setPendente] = useState<number | null>(null);
 
-  const { recarregar, statusCapitulos, statusObras } = sitesInfo;
-  const rodandoCapitulos = statusCapitulos === 'rodando';
-  const rodandoObras = statusObras === 'rodando';
+  const rodando = status === 'rodando';
 
-  // Assim que a run aparece como 'rodando', tira o tipo de "pendente" — daí em
-  // diante o status real do banco é que trava/solta o botão.
+  // Assim que a run aparece como 'rodando', tira o "pendente" — daí em diante
+  // o status real do banco é que trava/solta o botão.
   useEffect(() => {
-    if (rodandoCapitulos) setPendenteCapitulos(null);
-  }, [rodandoCapitulos]);
-  useEffect(() => {
-    if (rodandoObras) setPendenteObras(null);
-  }, [rodandoObras]);
+    if (rodando) setPendente(null);
+  }, [rodando]);
 
-  const capitulosTravado = acionandoCapitulos || rodandoCapitulos || pendenteCapitulos !== null;
-  const obrasTravado = acionandoObras || rodandoObras || pendenteObras !== null;
-
-  // Enquanto houver run em andamento (ou recém-disparada), refaz o fetch em
-  // intervalo pra o status e os botões virarem sozinhos quando terminar, sem
-  // precisar recarregar a página. Também aplica o failsafe dos "pendentes".
-  const monitorando = rodandoCapitulos || rodandoObras || pendenteCapitulos !== null || pendenteObras !== null;
+  // Enquanto ESTE scraper roda (ou acabou de ser disparado), refaz o fetch em
+  // intervalo pro status e o botão virarem sozinhos quando terminar, sem
+  // recarregar a página. Também aplica o failsafe do "pendente".
+  const monitorando = rodando || pendente !== null;
   useEffect(() => {
     if (!monitorando) return;
     const id = window.setInterval(() => {
       void recarregar();
-      const agora = Date.now();
-      setPendenteCapitulos((t) => (t !== null && agora - t > PENDENTE_MAX_MS ? null : t));
-      setPendenteObras((t) => (t !== null && agora - t > PENDENTE_MAX_MS ? null : t));
+      setPendente((t) => (t !== null && Date.now() - t > PENDENTE_MAX_MS ? null : t));
     }, POLL_MS);
     return () => window.clearInterval(id);
   }, [monitorando, recarregar]);
 
-  async function disparar(tipo: ScraperTipo) {
-    const setAcionando = tipo === 'capitulos' ? setAcionandoCapitulos : setAcionandoObras;
+  const travado = acionando || rodando || pendente !== null;
+
+  async function disparar() {
     setAcionando(true);
     setErroAcao(null);
     try {
       await controlarScraper(tipo, 'start');
-      if (tipo === 'capitulos') setPendenteCapitulos(Date.now());
-      if (tipo === 'obras') setPendenteObras(Date.now());
+      setPendente(Date.now());
       await recarregar();
     } catch (err) {
       setErroAcao(mensagemErroAcao(err));
@@ -84,54 +100,68 @@ function SecaoSitesSuportados() {
   }
 
   return (
-    <section className="atualizacao-secao">
-      <h3>Supported sites</h3>
-      <p>
-        Update the latest chapter of your approved sources, and scan supported sites' catalogs to link works you
-        already track but don't have a source on that site yet.
-      </p>
+    <div className="scraper-bloco">
+      <h4 className="atualizacao-subtitulo">{titulo}</h4>
+      <p className="atualizacao-subtitulo-nota">{descricao}</p>
 
       <div className="scraper-controles">
-        <button type="button" onClick={() => disparar('capitulos')} disabled={capitulosTravado}>
-          {acionandoCapitulos
-            ? 'Please wait…'
-            : rodandoCapitulos || pendenteCapitulos !== null
-              ? 'In progress…'
-              : 'Update chapters'}
-        </button>
-        <button type="button" onClick={() => disparar('obras')} disabled={obrasTravado}>
-          {acionandoObras
-            ? 'Please wait…'
-            : rodandoObras || pendenteObras !== null
-              ? 'In progress…'
-              : 'Update works'}
+        <button type="button" onClick={() => void disparar()} disabled={travado}>
+          {acionando ? 'Please wait…' : rodando || pendente !== null ? 'In progress…' : rotuloBotao}
         </button>
       </div>
+
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
 
-      <h4 className="atualizacao-subtitulo">Latest run</h4>
-      <div className="latest-run-grupo">
-        <div className="latest-run-item">
-          <span className="latest-run-rotulo">Works</span>
-          <StatusAgregadoScraper status={sitesInfo.statusObras} carregando={sitesInfo.carregando} erro={sitesInfo.erro} />
-          {sitesInfo.finalizadoObras && (
-            <span className="latest-run-data">Finished {formatarFinalizacao(sitesInfo.finalizadoObras)}</span>
-          )}
-        </div>
-        <div className="latest-run-item">
-          <span className="latest-run-rotulo">Chapters</span>
-          <StatusAgregadoScraper
-            status={sitesInfo.statusCapitulos}
-            carregando={sitesInfo.carregando}
-            erro={sitesInfo.erro}
-          />
-          {sitesInfo.finalizadoCapitulos && (
-            <span className="latest-run-data">Finished {formatarFinalizacao(sitesInfo.finalizadoCapitulos)}</span>
-          )}
-        </div>
+      <div className="latest-run-item">
+        <span className="latest-run-rotulo">Latest run</span>
+        <StatusAgregadoScraper status={status} carregando={carregando} erro={erro} />
+        {finalizadoEm && <span className="latest-run-data">Finished {formatarFinalizacao(finalizadoEm)}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Supported sites": dois scrapers independentes, um bloco cada, e a tabela de
+ * domínios embaixo (relatório só-leitura, com uma coluna por scraper).
+ *
+ * Nada de estado compartilhado entre os dois blocos — ver BlocoScraper.
+ */
+function SecaoSitesSuportados() {
+  const sitesInfo = useSitesSuportados();
+  const { recarregar, statusCapitulos, statusObras, carregando, erro } = sitesInfo;
+
+  return (
+    <section className="atualizacao-secao">
+      <h3>Supported sites</h3>
+
+      <div className="scraper-blocos">
+        <BlocoScraper
+          tipo="capitulos"
+          titulo="Chapters"
+          descricao="Check your approved sources and update each work's latest released chapter."
+          rotuloBotao="Update chapters"
+          status={statusCapitulos}
+          finalizadoEm={sitesInfo.finalizadoCapitulos}
+          carregando={carregando}
+          erro={erro}
+          recarregar={recarregar}
+        />
+
+        <BlocoScraper
+          tipo="obras"
+          titulo="Works"
+          descricao="Scan supported sites' catalogs to link works you already track but don't have a source on that site yet."
+          rotuloBotao="Update works"
+          status={statusObras}
+          finalizadoEm={sitesInfo.finalizadoObras}
+          carregando={carregando}
+          erro={erro}
+          recarregar={recarregar}
+        />
       </div>
 
-      <ListaSitesSuportados sites={sitesInfo.sites} carregando={sitesInfo.carregando} erro={sitesInfo.erro} />
+      <ListaSitesSuportados sites={sitesInfo.sites} carregando={carregando} erro={erro} />
     </section>
   );
 }

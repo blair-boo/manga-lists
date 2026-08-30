@@ -23,6 +23,7 @@ import requests
 from common import (
     _extrair_array_balanceado,
     buscar_candidatos_cms,
+    buscar_todas,
     host_de_url,
     http_get,
     listar_todos_posts_cms,
@@ -437,11 +438,10 @@ def carregar_designacoes(supabase) -> dict[str, dict]:
     domínio, sem redetectar toda vez.
     """
     try:
-        rows = (
-            supabase.table("sites_suportados")
+        rows = buscar_todas(
+            lambda: supabase.table("sites_suportados")
             .select("nome, url_base, adaptador, access_strategy")
-            .execute()
-            .data
+            .order("nome")
         )
     except Exception:  # noqa: BLE001
         return {}

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { buscarTudoPaginado } from './paginacao';
 import { controlarScraper } from './scraperControl';
 import { dominioDeUrl } from './site';
 
@@ -18,12 +19,17 @@ export interface DominioBloqueado {
 }
 
 export async function listarDominiosBloqueados(): Promise<DominioBloqueado[]> {
-  const { data, error } = await supabase
-    .from('dominios_bloqueados')
-    .select('*')
-    .order('criado_em', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as DominioBloqueado[];
+  // Paginado (ver buscarTudoPaginado): `criado_em` empata em inserções do
+  // mesmo instante, então `dominio` entra como desempate estável.
+  const data = await buscarTudoPaginado<DominioBloqueado>((from, to) =>
+    supabase
+      .from('dominios_bloqueados')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .order('dominio', { ascending: true })
+      .range(from, to)
+  );
+  return data;
 }
 
 /**
@@ -76,9 +82,11 @@ export async function registrarDominioManual(url: string): Promise<void> {
   const dominio = dominioDeUrl(url);
   if (!dominio) return;
   try {
-    const { data } = await supabase.from('sites_suportados').select('nome, url_base');
+    const data = await buscarTudoPaginado<{ nome: string; url_base: string | null }>((from, to) =>
+      supabase.from('sites_suportados').select('nome, url_base').order('nome').range(from, to)
+    );
     const conhecidos = new Set<string>();
-    for (const s of data ?? []) {
+    for (const s of data) {
       if (s.nome) conhecidos.add(String(s.nome).toLowerCase());
       const h = dominioDeUrl(s.url_base ?? '');
       if (h) conhecidos.add(h);
@@ -108,13 +116,15 @@ export interface DominioPendente {
 
 /** Domínios aguardando decisão (ativo=false): pedidos vindos do cadastro manual de fonte. */
 export async function listarDominiosPendentes(): Promise<DominioPendente[]> {
-  const { data, error } = await supabase
-    .from('sites_suportados')
-    .select('id, nome, url_base, criado_em')
-    .eq('ativo', false)
-    .order('nome');
-  if (error) throw error;
-  return (data ?? []) as DominioPendente[];
+  const data = await buscarTudoPaginado<DominioPendente>((from, to) =>
+    supabase
+      .from('sites_suportados')
+      .select('id, nome, url_base, criado_em')
+      .eq('ativo', false)
+      .order('nome')
+      .range(from, to)
+  );
+  return data;
 }
 
 /** Aprova um domínio pendente: vira ativo, sai de eventual blacklist, e dispara a detecção de adaptador. */
@@ -147,8 +157,10 @@ export async function adicionarDominioSeguro(entrada: string): Promise<Resultado
   const dominio = dominioDeUrl(url);
   if (!dominio) throw new Error('Invalid domain/URL');
 
-  const { data } = await supabase.from('sites_suportados').select('id, nome, url_base, ativo');
-  const existente = (data ?? []).find(
+  const data = await buscarTudoPaginado<{ id: string; nome: string; url_base: string | null; ativo: boolean }>(
+    (from, to) => supabase.from('sites_suportados').select('id, nome, url_base, ativo').order('nome').range(from, to)
+  );
+  const existente = data.find(
     (s) => String(s.nome).toLowerCase() === dominio || dominioDeUrl(s.url_base ?? '') === dominio
   );
 
@@ -237,12 +249,15 @@ export interface ConciliacaoBlacklistItem {
 }
 
 export async function listarBlacklistConciliacao(): Promise<ConciliacaoBlacklistItem[]> {
-  const { data, error } = await supabase
-    .from('conciliacao_blacklist')
-    .select('*')
-    .order('criado_em', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as ConciliacaoBlacklistItem[];
+  const data = await buscarTudoPaginado<ConciliacaoBlacklistItem>((from, to) =>
+    supabase
+      .from('conciliacao_blacklist')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  );
+  return data;
 }
 
 export async function adicionarBlacklistConciliacao(obraId: string, url: string): Promise<void> {

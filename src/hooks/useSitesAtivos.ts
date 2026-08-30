@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { buscarTudoPaginado } from '../lib/paginacao';
 
 /**
  * Nomes dos domínios aprovados para scraping (sites_suportados.ativo=true).
@@ -12,12 +13,14 @@ export function useSitesAtivos(): Set<string> {
 
   useEffect(() => {
     let cancelado = false;
-    supabase
-      .from('sites_suportados')
-      .select('nome')
-      .eq('ativo', true)
-      .then(({ data }) => {
-        if (!cancelado) setAtivos(new Set((data ?? []).map((s) => String(s.nome).toLowerCase())));
+    void buscarTudoPaginado<{ nome: string }>((from, to) =>
+      supabase.from('sites_suportados').select('nome').eq('ativo', true).order('nome').range(from, to)
+    )
+      .then((linhas) => {
+        if (!cancelado) setAtivos(new Set(linhas.map((s) => String(s.nome).toLowerCase())));
+      })
+      .catch(() => {
+        /* lista de apoio: falha aqui não deve derrubar a tela (mantém o Set vazio) */
       });
     return () => {
       cancelado = true;
@@ -38,12 +41,14 @@ export function useNomesSitesAtivos(): string[] {
 
   useEffect(() => {
     let cancelado = false;
-    supabase
-      .from('sites_suportados')
-      .select('nome')
-      .eq('ativo', true)
-      .then(({ data }) => {
-        if (!cancelado) setNomes((data ?? []).map((r) => r.nome as string));
+    void buscarTudoPaginado<{ nome: string }>((from, to) =>
+      supabase.from('sites_suportados').select('nome').eq('ativo', true).order('nome').range(from, to)
+    )
+      .then((linhas) => {
+        if (!cancelado) setNomes(linhas.map((r) => r.nome as string));
+      })
+      .catch(() => {
+        /* idem: sem lista, a tela só não separa "supported" de "web" */
       });
     return () => {
       cancelado = true;

@@ -64,6 +64,29 @@ def ja_migrada(capa_url: str | None) -> bool:
     return bool(capa_url) and f"/storage/v1/object/public/{BUCKET}/" in capa_url
 
 
+PAGINA_SUPABASE = 1000
+
+
+def _buscar_todas(construir_query, tamanho_pagina: int = PAGINA_SUPABASE) -> list[dict]:
+    """
+    Lê TODAS as linhas de uma query, paginando com .range().
+
+    O PostgREST corta em 1000 linhas em silêncio: sem isso, a migração
+    simplesmente ignoraria as obras além do teto, sem dizer nada. Cópia local
+    de scraper/common.py:buscar_todas — este script não importa de scraper/.
+    `construir_query` deve devolver uma query nova e ordenada por coluna
+    estável a cada chamada.
+    """
+    linhas: list[dict] = []
+    inicio = 0
+    while True:
+        pagina = construir_query().range(inicio, inicio + tamanho_pagina - 1).execute().data or []
+        linhas.extend(pagina)
+        if len(pagina) < tamanho_pagina:
+            return linhas
+        inicio += tamanho_pagina
+
+
 def main():
     if len(sys.argv) != 2:
         print("Uso: python scripts/migrate_capas.py /caminho/para/pasta/do/drive")
@@ -83,7 +106,7 @@ def main():
 
     supabase = create_client(url, service_key)
 
-    obras = supabase.table("obras").select("id, titulo, capa_url").execute().data
+    obras = _buscar_todas(lambda: supabase.table("obras").select("id, titulo, capa_url").order("id"))
     print(f"{len(obras)} obras encontradas no banco.")
 
     sem_match = []

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { buscarTudoPaginado } from '../lib/paginacao';
 import type { ScraperRun, SiteSuportado } from '../types';
 
 export interface SiteComRun {
@@ -39,7 +40,19 @@ export function useSitesSuportados() {
     setCarregando(true);
     setErro(null);
     const [sitesResp, obrasResp, capitulosResp] = await Promise.all([
-      supabase.from('sites_suportados').select('*').eq('ativo', true).order('nome'),
+      // As duas queries de scraper_runs têm .limit() de propósito (só as runs
+      // mais recentes interessam); sites_suportados é que precisa vir inteira.
+      buscarTudoPaginado<SiteSuportado>((from, to) =>
+        supabase.from('sites_suportados').select('*').eq('ativo', true).order('nome').range(from, to)
+      )
+        .then((data) => ({ data, error: null as { message: string } | null }))
+        // Converte a rejeição no mesmo formato {data, error} das outras duas,
+        // senão o Promise.all rejeitaria e o erro escaparia de recarregar()
+        // (que é chamado com `void`) em vez de aparecer na tela.
+        .catch((err) => ({
+          data: [] as SiteSuportado[],
+          error: { message: err instanceof Error ? err.message : String(err) },
+        })),
       supabase.from('scraper_runs').select('*').eq('tipo', 'obras').order('iniciado_em', { ascending: false }).limit(100),
       supabase.from('scraper_runs').select('*').eq('tipo', 'capitulos').order('iniciado_em', { ascending: false }).limit(200),
     ]);
@@ -63,7 +76,7 @@ export function useSitesSuportados() {
     const porCapitulos = ultimaPorDominio((capitulosResp.data ?? []) as ScraperRun[]);
 
     setSites(
-      ((sitesResp.data ?? []) as SiteSuportado[]).map((site) => ({
+      (sitesResp.data ?? []).map((site) => ({
         site,
         ultimaRunObras: porObras.get(site.nome) ?? null,
         ultimaRunCapitulos: porCapitulos.get(site.nome) ?? null,

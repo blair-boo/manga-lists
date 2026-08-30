@@ -16,6 +16,26 @@ const supabase = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_S
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
 
+const TAMANHO_PAGINA = 1000;
+
+/**
+ * Lê TODAS as linhas de uma query, paginando com .range(). O PostgREST corta
+ * em 1000 linhas em silêncio, e aqui isso é grave: as leituras abaixo montam
+ * os conjuntos de "o que já existe" pra decidir o que inserir. Truncado, o
+ * script reinsere como novo o que só não coube no recorte — `fontes` já passa
+ * de 1000 linhas. `query` precisa vir com ordem estável.
+ */
+async function fetchAllPaged(query) {
+  const todas = [];
+  for (let from = 0; ; from += TAMANHO_PAGINA) {
+    const { data, error } = await query(from, from + TAMANHO_PAGINA - 1);
+    if (error) throw error;
+    const linhas = data ?? [];
+    todas.push(...linhas);
+    if (linhas.length < TAMANHO_PAGINA) return todas;
+  }
+}
+
 function readCsv(filename) {
   const content = readFileSync(path.join(dataDir, filename), 'utf-8');
   return parse(content, { columns: true, skip_empty_lines: true, trim: true });
@@ -68,8 +88,9 @@ async function importListas() {
 
 /** Retorna Map<titulo_lowercase, obra_id> com o que já existe no banco. */
 async function fetchObrasExistentes() {
-  const { data, error } = await supabase.from('obras').select('id, titulo');
-  if (error) throw error;
+  const data = await fetchAllPaged((from, to) =>
+    supabase.from('obras').select('id, titulo').order('id').range(from, to)
+  );
   const map = new Map();
   for (const o of data) map.set(o.titulo.trim().toLowerCase(), o.id);
   return map;
@@ -119,8 +140,9 @@ async function importObras() {
 async function importFontes(refParaId) {
   const rows = readCsv('fontes_import.csv');
 
-  const { data: fontesExistentes, error: fetchError } = await supabase.from('fontes').select('obra_id, url');
-  if (fetchError) throw fetchError;
+  const fontesExistentes = await fetchAllPaged((from, to) =>
+    supabase.from('fontes').select('obra_id, url').order('obra_id').range(from, to)
+  );
   const chavesExistentes = new Set(fontesExistentes.map((f) => `${f.obra_id}::${f.url}`));
 
   const novas = [];

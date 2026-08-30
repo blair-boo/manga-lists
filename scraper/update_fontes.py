@@ -18,6 +18,7 @@ from adapter_base import fetch_http
 from adapters import REGISTRY, STATUS_OK, carregar_designacoes, resolver_access_strategy
 from common import (
     SITES_NEXTJS_CMS,
+    buscar_todas,
     extrair_maior_capitulo,
     finalizar_run,
     get_supabase,
@@ -148,13 +149,18 @@ def executar(supabase) -> None:
     preenchido (link avulso fora de domínio suportado) formam um grupo residual
     com site_dominio nulo, preservando o comportamento antigo só pra elas.
     """
-    fontes = supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").execute().data
+    # Paginado: são mais de 1000 fontes aprovadas, e um .select() cru pararia
+    # em 1000 sem avisar, deixando o resto sem nunca ser verificado (ver
+    # buscar_todas). Ordem estável por id pra as páginas se complementarem.
+    fontes = buscar_todas(
+        lambda: supabase.table("fontes").select("*").eq("status_aprovacao", "aprovado").order("id")
+    )
     print(f"{len(fontes)} fontes aprovadas para verificar.")
 
     designacoes = carregar_designacoes(supabase)
 
     # Base por site, para resolver fontes salvas com URL relativa (ex.: '/series/x').
-    sites = supabase.table("sites_suportados").select("nome, url_base").execute().data
+    sites = buscar_todas(lambda: supabase.table("sites_suportados").select("nome, url_base").order("nome"))
     base_por_site = {s["nome"]: s.get("url_base") for s in sites}
     for nome, cfg in SITES_NEXTJS_CMS.items():
         base_por_site.setdefault(nome, cfg["site"])
