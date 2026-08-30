@@ -3,7 +3,9 @@
 import json
 import os
 import re
+import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -193,6 +195,52 @@ def carregar_config_match(supabase) -> dict:
     return default
 
 
+# Chave em `configuracoes_scraper` onde vive o alerta de "os providers de
+# scraping fazem falta". A aba Updates lê essa linha e mostra o aviso.
+CHAVE_ALERTA_SCRAPING_API = "scraping_api_alerta"
+
+
+def registrar_alerta_scraping_api(supabase, origem: str) -> dict[str, str]:
+    """
+    Fecha o ciclo do stand-by: grava (ou limpa) o alerta de que o caminho pago
+    de scraping é necessário de novo.
+
+    Os hosts vêm de `scraping_api.necessidades()`, preenchido durante a run
+    toda vez que um domínio configurado leva bloqueio no acesso direto. Com os
+    providers em stand-by, esse é o único sinal de que as chaves precisam
+    voltar — sem ele o scraper simplesmente pararia de achar capítulo naquele
+    site, em silêncio.
+
+    O registro é por `origem` ('capitulos', 'obras', ...): cada run sobrescreve
+    só a própria chave, então uma run limpa não apaga o alerta que outro
+    estágio acabou de levantar. Devolve os hosts que precisaram do caminho pago
+    (vazio = nada a renovar).
+
+    Best-effort: falha aqui (tabela ausente, RLS) não derruba a run — o alerta
+    é diagnóstico, não o trabalho.
+    """
+    hosts = scraping_api.necessidades()
+    try:
+        resp = supabase.table("configuracoes_scraper").select("valor").eq("chave", CHAVE_ALERTA_SCRAPING_API).execute()
+        atual = resp.data[0]["valor"] if resp.data and isinstance(resp.data[0].get("valor"), dict) else {}
+        atual[origem] = {"hosts": hosts, "em": datetime.now(timezone.utc).isoformat()}
+        supabase.table("configuracoes_scraper").upsert(
+            {"chave": CHAVE_ALERTA_SCRAPING_API, "valor": atual}
+        ).execute()
+    except Exception as exc:  # noqa: BLE001 - diagnóstico não pode derrubar a run
+        print(f"  aviso: não consegui gravar o alerta de scraping_api: {exc}", file=sys.stderr)
+
+    if hosts:
+        print(
+            "\nATENÇÃO: estes domínios ficaram bloqueados no acesso direto e precisam "
+            "das APIs de scraping (renove as secrets):",
+            file=sys.stderr,
+        )
+        for host, diag in hosts.items():
+            print(f"  - {host}: {diag}", file=sys.stderr)
+    return hosts
+
+
 def carregar_dominios_bloqueados(supabase) -> set[str]:
     """Conjunto de domínios em blacklist (dominios_bloqueados). Vazio se a tabela não existir."""
     try:
@@ -204,8 +252,6 @@ def carregar_dominios_bloqueados(supabase) -> set[str]:
 
 def finalizar_run(supabase, run_id: str, status: str, mensagem: str | None = None, resumo: dict | None = None) -> None:
     """status: 'concluido' | 'erro'. resumo: contadores estruturados (ex.: {"verificadas": n, "falhas": n})."""
-    from datetime import datetime, timezone
-
     registro = {"status": status, "finalizado_em": datetime.now(timezone.utc).isoformat(), "mensagem": mensagem}
     if resumo is not None:
         try:

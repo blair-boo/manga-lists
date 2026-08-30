@@ -32,6 +32,15 @@ jobs:
           # Roteamento por API de scraping (ScraperAPI/ScrapingBee/scrape.do) pros hosts
           # atrás de challenge JS do Cloudflare (comix.to). Só ativa quando a
           # secret da chave existe; sem ela, é no-op. Ver scraper/scraping_api.py.
+          # Providers de scraping em STAND-BY: o comix.to voltou a responder no
+          # acesso direto, e as três contas (ScraperAPI/ScrapingBee/scrape.do)
+          # estão vencidas ou sem cota. O caminho pago continua no código e
+          # testado — só não é tentado, pra não gastar chamada/crédito à toa.
+          # Se algum host desta lista voltar a levar bloqueio direto, a run
+          # grava um alerta e a aba Updates pede a renovação das secrets
+          # (ver scraping_api.registrar_necessidade). Pra religar: tire esta
+          # env e reponha as secrets.
+          SCRAPING_API_STANDBY: 'true'
           SCRAPING_API_HOSTS: comix.to,comix.ws
           SCRAPING_API_ORDER: scraperapi,scrapingbee,scrapedo
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}

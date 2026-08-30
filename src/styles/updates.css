@@ -41,6 +41,37 @@
 }
 
 /* Resumo de pendências (Settings > Sources) no topo da página. */
+/* Aviso de "renove as chaves das APIs de scraping", acima das pendências.
+   Usa --warn (não --danger): é uma ação pendente da usuária, não uma falha
+   que já quebrou algo — o scraper segue rodando nos outros domínios. */
+.alerta-scraping-api {
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--bg-raised);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.alerta-scraping-api-titulo {
+  display: block;
+  color: var(--warn);
+  margin-bottom: 4px;
+}
+
+.alerta-scraping-api-texto {
+  margin: 0;
+  color: var(--text);
+}
+
+.alerta-scraping-api-texto code {
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+}
+
 .pending-approvals-bar {
   display: flex;
   flex-wrap: wrap;

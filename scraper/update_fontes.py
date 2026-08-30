@@ -19,6 +19,7 @@ from adapters import REGISTRY, STATUS_OK, carregar_designacoes, resolver_access_
 from common import (
     SITES_NEXTJS_CMS,
     buscar_todas,
+    registrar_alerta_scraping_api,
     extrair_maior_capitulo,
     finalizar_run,
     get_supabase,
@@ -211,6 +212,8 @@ def executar(supabase) -> None:
             supabase.table("obras").update({"status_publicacao": status_publicacao}).eq("id", obra_id).eq(
                 "status_publicacao_manual", False
             ).execute()
+
+    registrar_alerta_scraping_api(supabase, "capitulos")
 
     print(f"Concluído. {total_falhas} falha(s) de {len(fontes)} fontes.")
 

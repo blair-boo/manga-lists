@@ -8,6 +8,7 @@ import { ListaSitesSuportados, StatusAgregadoScraper } from '../components/Lista
 import { CsvBulkSection } from '../components/CsvBulkSection';
 import { ConciliacaoSitesSection } from '../components/ConciliacaoSitesSection';
 import { PendingApprovalsBar } from '../components/PendingApprovalsBar';
+import { AlertaScrapingApi } from '../components/AlertaScrapingApi';
 import { SecaoNovelUpdates } from '../components/SecaoNovelUpdates';
 import type { ScraperTipo } from '../types';
 
@@ -178,6 +179,7 @@ export function AtualizacoesPage() {
     <div className="atualizacao-massa">
       <h2>Updates</h2>
 
+      <AlertaScrapingApi />
       <PendingApprovalsBar sitesSuportados={sitesSuportados} />
 
       <SecaoSitesSuportados />

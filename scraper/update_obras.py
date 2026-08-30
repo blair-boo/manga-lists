@@ -20,6 +20,7 @@ from adapters import ACCESS_HTTP, REGISTRY, resolver_access_strategy
 from common import (
     buscar_todas,
     carregar_config_match,
+    registrar_alerta_scraping_api,
     finalizar_run,
     get_supabase,
     host_de_url,
@@ -173,6 +174,8 @@ def main():
         except Exception as exc:  # noqa: BLE001 - um site com erro não derruba os outros
             finalizar_run(supabase, run_id, "erro", f"{exc}\n{traceback.format_exc()}"[:2000])
             print(f"{nome}: erro — {exc}")
+
+    registrar_alerta_scraping_api(supabase, "obras")
 
     print(f"\nConcluído. {total} nova(s) fonte(s) casada(s) no total.")
 
