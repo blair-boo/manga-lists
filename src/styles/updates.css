@@ -60,6 +60,12 @@
   margin-bottom: 4px;
 }
 
+.alerta-scraping-api-hosts {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  color: var(--text);
+}
+
 .alerta-scraping-api-texto {
   margin: 0;
   color: var(--text);

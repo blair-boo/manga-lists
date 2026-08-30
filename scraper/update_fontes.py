@@ -14,6 +14,7 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
+import scraping_api
 from adapter_base import fetch_http
 from adapters import REGISTRY, STATUS_OK, carregar_designacoes, resolver_access_strategy
 from common import (
@@ -84,17 +85,24 @@ def processar_grupo(
     base_por_site: dict,
     capitulos_por_obra: dict[str, list[tuple[float, bool]]],
     status_por_obra: dict[str, str],
-) -> tuple[int, int]:
+) -> tuple[int, int, int]:
     """
     Verifica as fontes de um grupo (um domínio, ou o residual sem site) e
     acumula os capítulos encontrados em capitulos_por_obra — o recálculo de
     `ultimo_capitulo_lancado` roda uma vez só no final, sobre todos os grupos.
     Status de publicação relatado por algum adaptador (hoje só comix) acumula
     em status_por_obra do mesmo jeito, pro update em obras.status_publicacao
-    no final — não depende de ter achado capítulo. Retorna (atualizadas, falhas).
+    no final — não depende de ter achado capítulo. Retorna
+    (atualizadas, falhas, sem_capitulo).
+
+    `sem_capitulo` conta só as fontes que responderam mas não entregaram
+    número (o "aviso: não achei"), não as que estouraram exceção: é a métrica
+    que `avaliar_taxa_sem_capitulo` usa pra detectar site que parou de
+    funcionar em silêncio, e foi assim que o limiar dela foi calibrado.
     """
     falhas = 0
     atualizadas = 0
+    sem_capitulo = 0
 
     for fonte in fontes:
         try:
@@ -120,6 +128,7 @@ def processar_grupo(
                 supabase.table("fontes").update(
                     {"ultima_verificacao": agora, **_payload_tipo(fonte, tipo_detectado)}
                 ).eq("id", fonte["id"]).execute()
+                sem_capitulo += 1
                 print(f"  aviso: não achei número de capítulo em {url} ({diagnostico})")
                 if fonte["ultimo_capitulo_detectado"] is not None:
                     capitulos_por_obra.setdefault(fonte["obra_id"], []).append(
@@ -139,7 +148,7 @@ def processar_grupo(
                     (fonte["ultimo_capitulo_detectado"], fonte["atualizado_por_scraper"])
                 )
 
-    return atualizadas, falhas
+    return atualizadas, falhas, sem_capitulo
 
 
 def executar(supabase) -> None:
@@ -185,8 +194,15 @@ def executar(supabase) -> None:
         print(f"\n{rotulo}: {len(grupo)} fonte(s).")
         run_id = iniciar_run(supabase, "capitulos", site_dominio=dominio)
         try:
-            _, falhas = processar_grupo(supabase, grupo, designacoes, base_por_site, capitulos_por_obra, status_por_obra)
+            _, falhas, sem_capitulo = processar_grupo(
+                supabase, grupo, designacoes, base_por_site, capitulos_por_obra, status_por_obra
+            )
             total_falhas += falhas
+            # Domínio roteável que parou de entregar capítulo em massa entra no
+            # alerta mesmo sem ter havido bloqueio explícito (ver
+            # avaliar_taxa_sem_capitulo). Nos demais domínios é no-op.
+            if dominio:
+                scraping_api.avaliar_taxa_sem_capitulo(dominio, len(grupo), sem_capitulo)
             status = "concluido" if falhas == 0 else "erro"
             mensagem = None if falhas == 0 else f"{falhas} fonte(s) falharam ao verificar"
             finalizar_run(supabase, run_id, status, mensagem, resumo={"verificadas": len(grupo), "falhas": falhas})

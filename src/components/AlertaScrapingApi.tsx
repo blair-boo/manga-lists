@@ -55,11 +55,17 @@ export function AlertaScrapingApi() {
   return (
     <div className="alerta-scraping-api" role="alert">
       <strong className="alerta-scraping-api-titulo">Scraping API keys need renewing</strong>
+      <ul className="alerta-scraping-api-hosts">
+        {alerta.hosts.map(({ host, motivo }) => (
+          <li key={host}>
+            <strong>{host}</strong> — {motivo}
+          </li>
+        ))}
+      </ul>
       <p className="alerta-scraping-api-texto">
-        {alerta.hosts.join(', ')} {alerta.hosts.length === 1 ? 'is' : 'are'} blocking direct access again, so the
-        scraper can't read {alerta.hosts.length === 1 ? 'it' : 'them'} without the paid providers. Renew the
-        ScraperAPI / ScrapingBee / scrape.do secrets and remove <code>SCRAPING_API_STANDBY</code> from the scraper
-        workflows to switch the paid path back on.
+        The scraper can't read {alerta.hosts.length === 1 ? 'this site' : 'these sites'} through direct access
+        anymore. Renew the ScraperAPI / ScrapingBee / scrape.do secrets and remove{' '}
+        <code>SCRAPING_API_STANDBY</code> from the scraper workflows to switch the paid path back on.
         {alerta.detectadoEm && <> Detected {formatarDeteccao(alerta.detectadoEm)}.</>}
       </p>
     </div>
