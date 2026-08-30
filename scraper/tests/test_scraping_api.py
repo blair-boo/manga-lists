@@ -457,3 +457,54 @@ def test_necessidade_guarda_o_primeiro_diagnostico_por_host(monkeypatch):
 def test_necessidades_vazio_quando_nada_bloqueou(monkeypatch):
     monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
     assert scraping_api.necessidades() == {}
+
+
+# --- limiar de "parou de achar capítulo" -------------------------------------
+
+
+def test_taxa_sem_capitulo_acima_do_limiar_registra(monkeypatch):
+    """O caso silencioso: o site responde 200 mas parou de entregar capítulo."""
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 273, 273) is True
+    assert "273 de 273" in scraping_api.necessidades()["comix.to"]
+    assert "100%" in scraping_api.necessidades()["comix.to"]
+
+
+def test_taxa_sem_capitulo_na_linha_de_base_nao_registra(monkeypatch):
+    """
+    comix saudável fica em ~4,7% sem capítulo (obras ainda sem capítulo
+    publicado). Isso não pode acender o alerta.
+    """
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 430, 20) is False
+    assert scraping_api.necessidades() == {}
+
+
+def test_taxa_sem_capitulo_pega_quebra_parcial(monkeypatch):
+    """Cloudflare barrando metade das requisições já é hora de renovar."""
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 200, 120) is True
+
+
+def test_taxa_sem_capitulo_ignora_dominio_nao_configurado(monkeypatch):
+    """
+    31 dos 55 domínios do log real ficam em 100% sem capítulo de forma
+    permanente (webtoons, manta, tappytoon...): o scraper nunca conseguiu ler
+    esses sites. Alertar neles encheria o banner de ruído no primeiro dia.
+    """
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("webtoons.com", 28, 28) is False
+    assert scraping_api.necessidades() == {}
+
+
+def test_taxa_sem_capitulo_exige_amostra_minima(monkeypatch):
+    """Num domínio com 2 fontes, uma obra sem capítulo já daria 50%."""
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 2, 2) is False
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 9, 9) is False
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 10, 10) is True
+
+
+def test_taxa_sem_capitulo_dominio_limpo_nao_registra(monkeypatch):
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.avaliar_taxa_sem_capitulo("comix.to", 430, 0) is False

@@ -45,6 +45,11 @@ Desenho:
   desligar o roteamento trocaria "gasta crédito à toa" por "para de funcionar
   em silêncio".
 
+  Dois sinais alimentam esse alerta, porque um só não cobre tudo:
+  `registrar_necessidade()` pega o bloqueio explícito (403/challenge), e
+  `avaliar_taxa_sem_capitulo()` pega o caso silencioso — o site responde 200
+  mas para de entregar capítulo (mudou o HTML, passou a exigir JS).
+
 - **Disjuntor por processo.** Se os providers falharem em bloco
   `_LIMITE_FALHAS_SEGUIDAS` vezes seguidas, o roteamento é desligado pelo
   resto do processo (`deve_rotear` passa a devolver False) e tudo segue
@@ -154,6 +159,51 @@ def registrar_necessidade(url: str, diagnostico: str | None = None) -> None:
 def necessidades() -> dict[str, str]:
     """Hosts que precisaram do caminho pago nesta run (host -> diagnóstico)."""
     return dict(_necessidades)
+
+
+# Fração de fontes sem capítulo, num domínio, a partir da qual a run entende
+# que o site parou de responder de verdade — e não que algumas obras
+# simplesmente ainda não têm capítulo publicado.
+#
+# Calibrado no log real da run de 29/08: o comix saudável fica em ~4,7% sem
+# capítulo (20 de 430 obras sem capítulo publicado) e, bloqueado, foi a 100%.
+# 50% é 10x a linha de base e ainda pega quebra PARCIAL — o Cloudflare costuma
+# barrar de forma intermitente, e esperar 90% deixaria meia base quebrada em
+# silêncio.
+LIMIAR_SEM_CAPITULO = 0.5
+
+# Piso de fontes avaliadas pra a fração significar alguma coisa: num domínio
+# com 2 fontes, uma obra sem capítulo já daria 50%.
+MINIMO_FONTES_AVALIADAS = 10
+
+
+def avaliar_taxa_sem_capitulo(host: str, avaliadas: int, sem_capitulo: int) -> bool:
+    """
+    Fecha o buraco que o sinal de bloqueio não cobre: um site pode responder
+    200 e ainda assim não entregar capítulo nenhum (mudou o HTML, passou a
+    exigir JS, devolve página vazia pra quem não passa no challenge). Nesse
+    caso `fetch_http` nunca marca 'acesso_bloqueado' e o alerta jamais subiria.
+
+    Só vale pra host configurado em SCRAPING_API_HOSTS, como
+    `registrar_necessidade`. Aplicar isso a qualquer domínio seria ruído: no
+    log real, 31 dos 55 domínios ficam em 100% sem capítulo de forma
+    permanente (webtoons, manta, tappytoon, mangadex…) — o scraper nunca
+    conseguiu ler esses sites, não é regressão.
+
+    Devolve True quando registrou.
+    """
+    if not host or host.lower().removeprefix("www.") not in _hosts_configurados():
+        return False
+    if avaliadas < MINIMO_FONTES_AVALIADAS or sem_capitulo <= 0:
+        return False
+    fracao = sem_capitulo / avaliadas
+    if fracao < LIMIAR_SEM_CAPITULO:
+        return False
+    _necessidades.setdefault(
+        host.lower().removeprefix("www."),
+        f"{sem_capitulo} de {avaliadas} fontes ({fracao:.0%}) sem capítulo",
+    )
+    return True
 
 
 def _env_flag(nome: str, padrao: bool = False) -> bool:

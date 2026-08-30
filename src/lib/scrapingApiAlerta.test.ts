@@ -17,7 +17,10 @@ describe('interpretarAlerta', () => {
     const alerta = interpretarAlerta({
       capitulos: { hosts: { 'comix.to': 'HTTP 403 (possível Cloudflare)' }, em: '2026-08-30T12:00:00Z' },
     });
-    expect(alerta).toEqual({ hosts: ['comix.to'], detectadoEm: '2026-08-30T12:00:00Z' });
+    expect(alerta).toEqual({
+      hosts: [{ host: 'comix.to', motivo: 'HTTP 403 (possível Cloudflare)' }],
+      detectadoEm: '2026-08-30T12:00:00Z',
+    });
   });
 
   it('junta hosts de estágios diferentes, sem repetir', () => {
@@ -25,7 +28,7 @@ describe('interpretarAlerta', () => {
       capitulos: { hosts: { 'comix.to': 'x' }, em: '2026-08-30T12:00:00Z' },
       obras: { hosts: { 'comix.to': 'x', 'comix.ws': 'y' }, em: '2026-08-30T13:00:00Z' },
     });
-    expect(alerta?.hosts).toEqual(['comix.to', 'comix.ws']);
+    expect(alerta?.hosts.map((h) => h.host)).toEqual(['comix.to', 'comix.ws']);
   });
 
   it('usa a data mais recente entre os estágios que ainda acusam bloqueio', () => {
@@ -43,7 +46,28 @@ describe('interpretarAlerta', () => {
       capitulos: { hosts: { 'comix.to': 'x' }, em: '2026-08-30T12:00:00Z' },
       obras: { hosts: {}, em: '2026-08-31T09:00:00Z' },
     });
-    expect(alerta).toEqual({ hosts: ['comix.to'], detectadoEm: '2026-08-30T12:00:00Z' });
+    expect(alerta).toEqual({
+      hosts: [{ host: 'comix.to', motivo: 'x' }],
+      detectadoEm: '2026-08-30T12:00:00Z',
+    });
+  });
+
+  it('mostra o motivo de cada host — bloqueio e queda em massa são coisas diferentes', () => {
+    // Os dois sinais alimentam o mesmo alerta, mas o texto tem que dizer qual
+    // foi: um é 403/challenge, o outro é o site respondendo 200 e vazio.
+    const alerta = interpretarAlerta({
+      capitulos: {
+        hosts: {
+          'comix.to': '218 de 273 fontes (80%) sem capítulo',
+          'comix.ws': 'HTTP 403 (possível Cloudflare)',
+        },
+        em: '2026-08-30T12:00:00Z',
+      },
+    });
+    expect(alerta?.hosts).toEqual([
+      { host: 'comix.to', motivo: '218 de 273 fontes (80%) sem capítulo' },
+      { host: 'comix.ws', motivo: 'HTTP 403 (possível Cloudflare)' },
+    ]);
   });
 
   it('aguenta linha ausente ou formato inesperado', () => {
