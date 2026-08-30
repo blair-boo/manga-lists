@@ -33,6 +33,18 @@ Desenho:
   200). O roteamento continua sendo a primeira opção: se o Cloudflare voltar
   a exigir JS, os providers seguem cobrindo o caso quando tiverem crédito.
 
+- **Stand-by.** `SCRAPING_API_STANDBY=true` desliga o roteamento sem apagar
+  nada: `deve_rotear()` devolve False e tudo vai pelo acesso direto, sem
+  gastar uma chamada (nem crédito) por URL. É o estado atual do comix, que
+  voltou a responder direto. Pra religar — se o Cloudflare reaparecer — basta
+  tirar a env e repor as secrets; o caminho continua aqui, testado.
+
+  O stand-by não é cego: quando um host configurado em `SCRAPING_API_HOSTS`
+  leva bloqueio no acesso direto, `registrar_necessidade()` anota, e o fim da
+  run grava um alerta que a aba Updates mostra ("renove as chaves"). Sem isso,
+  desligar o roteamento trocaria "gasta crédito à toa" por "para de funcionar
+  em silêncio".
+
 - **Disjuntor por processo.** Se os providers falharem em bloco
   `_LIMITE_FALHAS_SEGUIDAS` vezes seguidas, o roteamento é desligado pelo
   resto do processo (`deve_rotear` passa a devolver False) e tudo segue
@@ -107,10 +119,41 @@ def _registrar_falha_total() -> None:
 
 
 def resetar_estado() -> None:
-    """Zera o disjuntor (usado nos testes; cada run de produção é um processo novo)."""
+    """Zera disjuntor e necessidades (testes; cada run de produção é processo novo)."""
     global _falhas_seguidas, _desligado_no_processo
     _falhas_seguidas = 0
     _desligado_no_processo = False
+    _necessidades.clear()
+
+
+# host -> diagnóstico do bloqueio no acesso direto. Preenchido por
+# `registrar_necessidade`; lido no fim da run pra gravar o alerta.
+_necessidades: dict[str, str] = {}
+
+
+def em_standby() -> bool:
+    """True quando o roteamento está desligado de propósito (SCRAPING_API_STANDBY)."""
+    return _env_flag("SCRAPING_API_STANDBY", False)
+
+
+def registrar_necessidade(url: str, diagnostico: str | None = None) -> None:
+    """
+    Anota que um host configurado pra roteamento levou bloqueio no acesso
+    direto — ou seja, o caminho pago faria falta aqui.
+
+    Só conta pra host listado em `SCRAPING_API_HOSTS`: bloqueio em domínio que
+    nunca foi roteado não é problema de credencial, é um site novo atrás de
+    challenge, e pedir renovação de chave nesse caso seria ruído.
+    """
+    host = _host_de(url)
+    if not host or host not in _hosts_configurados():
+        return
+    _necessidades.setdefault(host, diagnostico or "acesso bloqueado")
+
+
+def necessidades() -> dict[str, str]:
+    """Hosts que precisaram do caminho pago nesta run (host -> diagnóstico)."""
+    return dict(_necessidades)
 
 
 def _env_flag(nome: str, padrao: bool = False) -> bool:
@@ -249,10 +292,11 @@ def _provedores_ativos() -> list[tuple[str, callable]]:
 
 def deve_rotear(url: str) -> bool:
     """
-    True se o host da URL está listado, há ao menos um provider com chave E o
-    disjuntor não desligou o roteamento nesta run (ver _registrar_falha_total).
+    True se o host da URL está listado, há ao menos um provider com chave, o
+    roteamento não está em stand-by (SCRAPING_API_STANDBY) E o disjuntor não o
+    desligou nesta run (ver _registrar_falha_total).
     """
-    if _desligado_no_processo:
+    if _desligado_no_processo or em_standby():
         return False
     return _host_de(url) in _hosts_configurados() and bool(_provedores_ativos())
 

@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 import requests
 
+import scraping_api
 from common import http_get
 
 _CURL_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -89,6 +90,18 @@ def _fetch_via_curl(url: str) -> RawContent | None:
     return RawContent("ok", url, text=corpo)
 
 
+def _bloqueado(url: str, diagnostico: str) -> RawContent:
+    """
+    Monta o RawContent de acesso bloqueado e, de quebra, anota que o caminho
+    pago faria falta aqui (só conta pra host configurado em
+    SCRAPING_API_HOSTS — ver scraping_api.registrar_necessidade). É o que
+    permite deixar os providers em stand-by sem o scraper parar em silêncio:
+    o fim da run transforma essa anotação no alerta da aba Updates.
+    """
+    scraping_api.registrar_necessidade(url, diagnostico)
+    return RawContent("acesso_bloqueado", url, diagnostico=diagnostico)
+
+
 def fetch_http(url: str) -> RawContent:
     """
     Acesso HTTP direto (cliente Cloudflare-aware do common). Se o cliente
@@ -103,12 +116,13 @@ def fetch_http(url: str) -> RawContent:
             via_curl = _fetch_via_curl(url)
             if via_curl is not None:
                 return via_curl
-        return RawContent("acesso_bloqueado" if bloqueado else "erro", url, diagnostico=str(exc))
+            return _bloqueado(url, str(exc))
+        return RawContent("erro", url, diagnostico=str(exc))
     if _parece_cloudflare(resp):
         via_curl = _fetch_via_curl(url)
         if via_curl is not None:
             return via_curl
-        return RawContent("acesso_bloqueado", url, diagnostico=f"HTTP {resp.status_code} (possível Cloudflare)")
+        return _bloqueado(url, f"HTTP {resp.status_code} (possível Cloudflare)")
     if not resp.ok:
         return RawContent("erro", url, diagnostico=f"HTTP {resp.status_code}")
     return RawContent("ok", url, text=resp.text)

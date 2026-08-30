@@ -419,3 +419,41 @@ def test_http_get_usa_o_provider_quando_ele_responde(monkeypatch):
 
     assert common.http_get("https://comix.to/title/x") is via_provider
     assert sessao.gets_diretos == []
+
+
+# --- stand-by e registro de necessidade -------------------------------------
+
+
+def test_standby_desliga_o_roteamento(monkeypatch):
+    """Com host e chave configurados, o stand-by ainda assim manda tudo direto."""
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    monkeypatch.setenv("SCRAPERAPI_KEY", "K")
+    assert scraping_api.deve_rotear("https://comix.to/x") is True
+
+    monkeypatch.setenv("SCRAPING_API_STANDBY", "true")
+    assert scraping_api.deve_rotear("https://comix.to/x") is False
+
+
+def test_registrar_necessidade_so_vale_pra_host_configurado(monkeypatch):
+    """
+    Bloqueio em domínio que nunca foi roteado não é problema de credencial —
+    pedir renovação de chave nesse caso seria ruído.
+    """
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    scraping_api.registrar_necessidade("https://outro.site/x", "HTTP 403")
+    assert scraping_api.necessidades() == {}
+
+    scraping_api.registrar_necessidade("https://comix.to/title/x", "HTTP 403 (possível Cloudflare)")
+    assert scraping_api.necessidades() == {"comix.to": "HTTP 403 (possível Cloudflare)"}
+
+
+def test_necessidade_guarda_o_primeiro_diagnostico_por_host(monkeypatch):
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    scraping_api.registrar_necessidade("https://comix.to/a", "primeiro")
+    scraping_api.registrar_necessidade("https://comix.to/b", "segundo")
+    assert scraping_api.necessidades() == {"comix.to": "primeiro"}
+
+
+def test_necessidades_vazio_quando_nada_bloqueou(monkeypatch):
+    monkeypatch.setenv("SCRAPING_API_HOSTS", "comix.to")
+    assert scraping_api.necessidades() == {}
