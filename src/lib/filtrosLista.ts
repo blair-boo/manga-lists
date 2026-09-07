@@ -24,11 +24,22 @@ function estadoFiltroValido(v: unknown): EstadoFiltro {
   return v === 'incluir' || v === 'excluir' ? v : 'off';
 }
 
+/** Notas (1-5) selecionadas no filtro de rating — descarta qualquer valor fora
+ * da faixa (dado salvo corrompido/de versão futura). */
+function scoresSelValidos(v: unknown): number[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((n): n is number => typeof n === 'number' && n >= 1 && n <= 5);
+}
+
 /** Status de leitura renomeado (Complete -> Finished). Remapeia filtros salvos
  * antes da renomeação, senão o chip fica órfão e nunca casa com nada. */
 const STATUS_LEITURA_RENOMEADOS: Record<string, string> = { Complete: 'Finished' };
 
-export type Ordenacao = 'titulo' | 'atualizado' | 'score' | 'atrasados' | 'criado';
+/** 'aleatorio': modo de embaralhar da Lista Principal (botão dedicado, não uma
+ * opção do select de Sort — por isso fica fora de ORDENACOES) e nunca é
+ * persistido em localStorage['ordenacao'] (lerOrdenacaoSalva só valida contra
+ * ORDENACOES, então cairia no default 'titulo' se por acaso fosse salvo). */
+export type Ordenacao = 'titulo' | 'atualizado' | 'score' | 'atrasados' | 'criado' | 'aleatorio';
 
 /** Ordenação renomeada (nota -> score). Remapeia o valor salvo antes da
  * renomeação, senão cai no default silenciosamente (ver lerOrdenacaoSalva). */
@@ -83,6 +94,14 @@ export interface FiltrosSalvos {
   filtroSemNu: EstadoFiltro;
   filtroSemNota: EstadoFiltro;
   filtroSemTipo: EstadoFiltro;
+  /** Classificação de conteúdo (Content rating), chips independentes por valor. */
+  filtroR15: EstadoFiltro;
+  filtroR18: EstadoFiltro;
+  /** Filtro de nota (1-5): multi-seleção simples, sem estado de exclusão. */
+  scoresSel: number[];
+  /** Toggle "Include unrated": inclui obras sem nota junto do que bater scoresSel
+   * (independente do gap-chip filtroSemNota, que é um "somente sem nota" exclusivo). */
+  incluirSemNota: boolean;
 }
 
 export const FILTROS_PADRAO: FiltrosSalvos = {
@@ -100,6 +119,10 @@ export const FILTROS_PADRAO: FiltrosSalvos = {
   filtroSemNu: 'off',
   filtroSemNota: 'off',
   filtroSemTipo: 'off',
+  filtroR15: 'off',
+  filtroR18: 'off',
+  scoresSel: [],
+  incluirSemNota: false,
 };
 
 export function lerFiltrosSalvos(): FiltrosSalvos {
@@ -126,6 +149,10 @@ export function lerFiltrosSalvos(): FiltrosSalvos {
       filtroSemNu: estadoFiltroValido(dados.filtroSemNu),
       filtroSemNota: estadoFiltroValido(dados.filtroSemNota),
       filtroSemTipo: estadoFiltroValido(dados.filtroSemTipo),
+      filtroR15: estadoFiltroValido(dados.filtroR15),
+      filtroR18: estadoFiltroValido(dados.filtroR18),
+      scoresSel: scoresSelValidos(dados.scoresSel),
+      incluirSemNota: typeof dados.incluirSemNota === 'boolean' ? dados.incluirSemNota : FILTROS_PADRAO.incluirSemNota,
     };
   } catch {
     return FILTROS_PADRAO;
@@ -147,7 +174,11 @@ export function temFiltroAtivo(f: FiltrosSalvos): boolean {
     f.filtroSemCapa !== 'off' ||
     f.filtroSemNu !== 'off' ||
     f.filtroSemNota !== 'off' ||
-    f.filtroSemTipo !== 'off'
+    f.filtroSemTipo !== 'off' ||
+    f.filtroR15 !== 'off' ||
+    f.filtroR18 !== 'off' ||
+    f.scoresSel.length > 0 ||
+    f.incluirSemNota
   );
 }
 
@@ -193,6 +224,16 @@ export function obrasFiltradasOrdenadas(
   ) as [string, EstadoFiltro][];
   const semFonte = (o: Obra) => (fontesPorObra.get(o.id)?.length ?? 0) === 0;
 
+  /** Nota (score) + toggle "incluir sem nota": independente do gap-chip
+   * filtroSemNota (que é um "somente sem nota" exclusivo) — os dois podem
+   * coexistir sem conflito. */
+  function passaFiltroScore(o: Obra): boolean {
+    if (filtros.scoresSel.length === 0 && !filtros.incluirSemNota) return true;
+    const bateEstrela = o.score != null && filtros.scoresSel.includes(o.score);
+    const bateSemNota = filtros.incluirSemNota && o.score == null;
+    return bateEstrela || bateSemNota;
+  }
+
   function passaTodosOsFiltros(o: Obra): boolean {
     return (
       (!buscaLower ||
@@ -210,7 +251,10 @@ export function obrasFiltradasOrdenadas(
       passaFiltro(filtros.filtroSemCapa, semCapa(o)) &&
       passaFiltro(filtros.filtroSemNu, !o.novelupdates_url) &&
       passaFiltro(filtros.filtroSemNota, o.score == null) &&
-      passaFiltro(filtros.filtroSemTipo, !o.tipo)
+      passaFiltro(filtros.filtroSemTipo, !o.tipo) &&
+      passaFiltro(filtros.filtroR15, o.classificacao === 'R-15') &&
+      passaFiltro(filtros.filtroR18, o.classificacao === 'R-18') &&
+      passaFiltroScore(o)
     );
   }
 

@@ -45,7 +45,7 @@ import { FavoritoBotao } from '../components/FavoritoBotao';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { ModalBase } from '../components/ModalBase';
-import { IconeDisquete, IconeGrip, IconeLimparFiltros, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
+import { IconeDisquete, IconeEmbaralhar, IconeGrip, IconeLimparFiltros, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
 import { familiaDeTipo } from '../lib/obra';
 import {
   lerFiltrosSalvos,
@@ -305,6 +305,29 @@ export function DetalheObraPage() {
     return ordenadas[indice + 1];
   }, [todasObras, todasFontes, id]);
 
+  // Botão de obra aleatória: mesmo pipeline filtrado/ordenado do "Next",
+  // restrito ao mesmo grupo de tipo da obra atual (mangá/manhwa/manhua contam
+  // como um grupo só, novel é o outro — familiaDeTipo já faz essa distinção).
+  const obraAleatoriaMesmaFamilia = useMemo(() => {
+    if (!todasObras || !todasFontes || !id || !obra) return null;
+    const fontesPorObra = new Map<string, Fonte[]>();
+    for (const f of todasFontes) {
+      const lista = fontesPorObra.get(f.obra_id) ?? [];
+      lista.push(f);
+      fontesPorObra.set(f.obra_id, lista);
+    }
+    const familiaAtual = familiaDeTipo(obra.tipo);
+    const candidatas = obrasFiltradasOrdenadas(todasObras, fontesPorObra, lerFiltrosSalvos(), lerOrdenacaoSalva()).filter(
+      (o) => o.id !== id && familiaDeTipo(o.tipo) === familiaAtual
+    );
+    if (candidatas.length === 0) return null;
+    return candidatas[Math.floor(Math.random() * candidatas.length)];
+  }, [todasObras, todasFontes, id, obra]);
+
+  function irParaObraAleatoria() {
+    if (obraAleatoriaMesmaFamilia) navigate(`/obra/${obraAleatoriaMesmaFamilia.id}`, { replace: true });
+  }
+
   const tipos = useListasPorCategoria('tipo');
   const statusLeituraOpcoes = useListasPorCategoria('status_leitura');
   const statusPublicacaoOpcoes = useListasPorCategoria('status_publicacao');
@@ -532,17 +555,30 @@ export function DetalheObraPage() {
         value={busca}
         onChange={alterarBusca}
         acaoDireita={
-          filtroAtivo ? (
-            <button
-              type="button"
-              className="btn-icone"
-              onClick={handleLimparFiltros}
-              aria-label="Clear filters"
-              title="Clear filters"
-            >
-              <IconeLimparFiltros />
-            </button>
-          ) : null
+          <>
+            {filtroAtivo && (
+              <button
+                type="button"
+                className="btn-icone"
+                onClick={handleLimparFiltros}
+                aria-label="Clear filters"
+                title="Clear filters"
+              >
+                <IconeLimparFiltros />
+              </button>
+            )}
+            {obraAleatoriaMesmaFamilia && (
+              <button
+                type="button"
+                className="btn-icone"
+                onClick={irParaObraAleatoria}
+                aria-label="Random work"
+                title="Random work (same type)"
+              >
+                <IconeEmbaralhar />
+              </button>
+            )}
+          </>
         }
       />
 

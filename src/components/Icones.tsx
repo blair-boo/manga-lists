@@ -106,6 +106,13 @@ export function IconeRefresh() {
   return <IconeMascarado arquivo="refresh.svg" />;
 }
 
+/** Embaralhar/aleatório — botão de ordem aleatória (Lista Principal) e de obra
+ * aleatória (tela da obra), SVG fornecido pela usuária (Supabase storage
+ * icons/infinite-border-icon.svg), 20px fixo, colorido via mask. */
+export function IconeEmbaralhar() {
+  return <IconeMascarado arquivo="infinite-border-icon.svg" />;
+}
+
 // Cache module-level do texto dos SVGs buscados do Storage — os dois ratos
 // aparecem em vários lugares ao mesmo tempo (header, botão flutuante) e não
 // precisam refazer o fetch a cada montagem.

@@ -22,18 +22,8 @@
 
 .busca-linha .busca-topo {
   flex: 1;
-  min-width: 0;
+  min-width: 60px;
   margin-bottom: 0;
-}
-
-@media (max-width: 400px) {
-  .busca-linha {
-    flex-wrap: wrap;
-  }
-
-  .busca-linha .busca-input-wrap {
-    flex-basis: 100%;
-  }
 }
 
 .busca-topo {
@@ -183,6 +173,35 @@
   border-color: rgba(201, 138, 18, 0.6);
 }
 
+/* Classificação de conteúdo (Content rating): mesmas cores dos badges
+   .badge-r15/.badge-r18 já usados em outras telas. */
+.status-chip-r15.ativo {
+  background: rgba(201, 138, 18, 0.16);
+  border-color: rgba(201, 138, 18, 0.6);
+}
+
+.status-chip-r18.ativo {
+  background: rgba(209, 38, 79, 0.16);
+  border-color: rgba(209, 38, 79, 0.6);
+}
+
+/* Filtro de nota (1-5 estrelas) dentro do painel de Filtros: mesmo
+   status-chip, sua própria classe de estado (multi-seleção simples, sem
+   estado de exclusão). */
+.filtros-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-basis: 100%;
+}
+
+.filtros-score-estrela.selecionada {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
 .status-chip-contagem {
   font-size: 11px;
   background: var(--bg);
@@ -204,6 +223,13 @@
   background: rgba(209, 38, 79, 0.1);
   border-color: rgba(209, 38, 79, 0.5);
   opacity: 0.7;
+}
+
+/* Botão de embaralhar (Shuffle): mesmo btn-icone, "ativo" enquanto a lista
+   está em modo de ordem aleatória. */
+.embaralhar-botao.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
 }
 
 .lista-vazia {
