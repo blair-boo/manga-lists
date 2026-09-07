@@ -5,7 +5,7 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { BuscaObras } from '../components/BuscaObras';
 import { useModoEdicao } from '../components/ModoEdicaoContext';
-import { IconeColorido, IconeSairModoEdicao, IconeVoltarTopo } from '../components/Icones';
+import { IconeColorido, IconeEmbaralhar, IconeSairModoEdicao, IconeVoltarTopo } from '../components/Icones';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
@@ -101,7 +101,15 @@ export function ListaPrincipalPage() {
   const [filtroSemNu, setFiltroSemNu] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemNu);
   const [filtroSemNota, setFiltroSemNota] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemNota);
   const [filtroSemTipo, setFiltroSemTipo] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroSemTipo);
+  const [filtroR15, setFiltroR15] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroR15);
+  const [filtroR18, setFiltroR18] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroR18);
+  const [scoresSel, setScoresSel] = useState<number[]>(() => lerFiltrosSalvos().scoresSel);
+  const [incluirSemNota, setIncluirSemNota] = useState(() => lerFiltrosSalvos().incluirSemNota);
   const [ordenacao, setOrdenacao] = useState<Ordenacao>(lerOrdenacaoSalva);
+  // Chaves de embaralhamento (Shuffle): geradas só ao clicar em "embaralhar",
+  // não a cada render — senão a lista pularia sozinha a cada re-render/filtro
+  // alterado enquanto o modo aleatório está ativo.
+  const [chavesAleatorias, setChavesAleatorias] = useState<Map<string, number>>(new Map());
   const [viewMode, setViewMode] = useState<ViewMode>(lerViewModeSalvo);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [mostrarBotaoTopo, setMostrarBotaoTopo] = useState(false);
@@ -134,6 +142,10 @@ export function ListaPrincipalPage() {
       filtroSemNu,
       filtroSemNota,
       filtroSemTipo,
+      filtroR15,
+      filtroR18,
+      scoresSel,
+      incluirSemNota,
     };
     salvarFiltros(dados);
   }, [
@@ -151,6 +163,10 @@ export function ListaPrincipalPage() {
     filtroSemNu,
     filtroSemNota,
     filtroSemTipo,
+    filtroR15,
+    filtroR18,
+    scoresSel,
+    incluirSemNota,
   ]);
 
   function alternarViewMode(modo: ViewMode) {
@@ -170,19 +186,8 @@ export function ListaPrincipalPage() {
     }));
   }
 
-  // Dropdown "Reading status (all)" no painel de Filters: continua um seletor
-  // único (sem noção de excluir), então só reflete/produz o caso em que
-  // exatamente um chip está em 'incluir' e nenhum está em 'excluir'.
-  const statusLeituraDropdownValor = useMemo(() => {
-    const incluidos = Object.entries(statusLeituraFiltros)
-      .filter(([, v]) => v === 'incluir')
-      .map(([k]) => k);
-    const temExcluido = Object.values(statusLeituraFiltros).some((v) => v === 'excluir');
-    return incluidos.length === 1 && !temExcluido ? incluidos[0] : '';
-  }, [statusLeituraFiltros]);
-
-  function selecionarStatusLeituraDropdown(valor: string) {
-    setStatusLeituraFiltros(valor ? { [valor]: 'incluir' } : {});
+  function alternarScoreChip(valor: number) {
+    setScoresSel((atual) => (atual.includes(valor) ? atual.filter((v) => v !== valor) : [...atual, valor]));
   }
 
   const fontesPorObra = useMemo(() => {
@@ -230,6 +235,8 @@ export function ListaPrincipalPage() {
   );
   const contagemSemNota = useMemo(() => (obras ?? []).filter((o) => o.score == null).length, [obras]);
   const contagemSemTipo = useMemo(() => (obras ?? []).filter((o) => !o.tipo).length, [obras]);
+  const contagemR15 = useMemo(() => (obras ?? []).filter((o) => o.classificacao === 'R-15').length, [obras]);
+  const contagemR18 = useMemo(() => (obras ?? []).filter((o) => o.classificacao === 'R-18').length, [obras]);
 
   const chipsLacuna: ChipLacunaConfig[] = [
     { key: 'unsourced', classe: 'status-chip-unsourced', label: 'Unsourced', contagem: contagemUnsourced, estado: filtroUnsourced, setEstado: setFiltroUnsourced },
@@ -239,7 +246,7 @@ export function ListaPrincipalPage() {
     { key: 'sem-tipo', classe: 'status-chip-sem-tipo', label: 'No type', contagem: contagemSemTipo, estado: filtroSemTipo, setEstado: setFiltroSemTipo },
   ];
 
-  const filtradas = useMemo(() => {
+  const filtradasBase = useMemo(() => {
     if (!obras) return [];
     const filtros: FiltrosSalvos = {
       busca,
@@ -256,8 +263,21 @@ export function ListaPrincipalPage() {
       filtroSemNu,
       filtroSemNota,
       filtroSemTipo,
+      filtroR15,
+      filtroR18,
+      scoresSel,
+      incluirSemNota,
     };
-    return obrasFiltradasOrdenadas(obras, fontesPorObra, filtros, ordenacao, obraFixada);
+    // Base estável mesmo em modo aleatório ('aleatorio' não é um Ordenacao que
+    // comparar() sabe ordenar de fato) — a reordenação aleatória acontece a
+    // seguir, por cima do resultado já filtrado.
+    return obrasFiltradasOrdenadas(
+      obras,
+      fontesPorObra,
+      filtros,
+      ordenacao === 'aleatorio' ? 'titulo' : ordenacao,
+      obraFixada
+    );
   }, [
     obras,
     busca,
@@ -274,10 +294,34 @@ export function ListaPrincipalPage() {
     filtroSemNu,
     filtroSemNota,
     filtroSemTipo,
+    filtroR15,
+    filtroR18,
+    scoresSel,
+    incluirSemNota,
     fontesPorObra,
     ordenacao,
     obraFixada,
   ]);
+
+  // Embaralhar (Shuffle): só reordena quando ordenacao === 'aleatorio', usando
+  // as chaves geradas no último clique em "embaralhar" (embaralhar() abaixo).
+  // Obras sem chave ainda (passaram a bater os filtros depois do último clique)
+  // vão pro final, em vez de reembaralhar tudo sozinho a cada mudança de filtro.
+  const filtradas = useMemo(() => {
+    if (ordenacao !== 'aleatorio') return filtradasBase;
+    return [...filtradasBase].sort(
+      (a, b) => (chavesAleatorias.get(a.id) ?? Infinity) - (chavesAleatorias.get(b.id) ?? Infinity)
+    );
+  }, [filtradasBase, ordenacao, chavesAleatorias]);
+
+  function embaralhar() {
+    setOrdenacao('aleatorio'); // não passa por alternarOrdenacao — não persiste no localStorage
+    setChavesAleatorias((atual) => {
+      const novo = new Map(atual);
+      for (const o of filtradasBase) novo.set(o.id, Math.random());
+      return novo;
+    });
+  }
 
   const temFiltroAtivo = calcularTemFiltroAtivo({
     busca,
@@ -294,6 +338,10 @@ export function ListaPrincipalPage() {
     filtroSemNu,
     filtroSemNota,
     filtroSemTipo,
+    filtroR15,
+    filtroR18,
+    scoresSel,
+    incluirSemNota,
   });
 
   function limparFiltros() {
@@ -311,6 +359,10 @@ export function ListaPrincipalPage() {
     setFiltroSemNu('off');
     setFiltroSemNota('off');
     setFiltroSemTipo('off');
+    setFiltroR15('off');
+    setFiltroR18('off');
+    setScoresSel([]);
+    setIncluirSemNota(false);
     limparFiltrosSalvos();
   }
 
@@ -360,6 +412,15 @@ export function ListaPrincipalPage() {
         </button>
         <button
           type="button"
+          className={`btn-icone embaralhar-botao${ordenacao === 'aleatorio' ? ' ativo' : ''}`}
+          onClick={embaralhar}
+          title="Shuffle results"
+          aria-label="Shuffle results"
+        >
+          <IconeEmbaralhar />
+        </button>
+        <button
+          type="button"
           className={`status-chip status-chip-novo ${classeEstadoFiltro(filtroNovoCapitulo)}`}
           onClick={() => setFiltroNovoCapitulo(proximoEstadoFiltro)}
           title={tituloEstadoFiltro(filtroNovoCapitulo)}
@@ -388,6 +449,24 @@ export function ListaPrincipalPage() {
             <span className="status-chip-contagem">{contagemStatus.get(v) ?? 0}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className={`status-chip status-chip-r15 ${classeEstadoFiltro(filtroR15)}`}
+          onClick={() => setFiltroR15(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroR15)}
+        >
+          R-15
+          <span className="status-chip-contagem">{contagemR15}</span>
+        </button>
+        <button
+          type="button"
+          className={`status-chip status-chip-r18 ${classeEstadoFiltro(filtroR18)}`}
+          onClick={() => setFiltroR18(proximoEstadoFiltro)}
+          title={tituloEstadoFiltro(filtroR18)}
+        >
+          R-18
+          <span className="status-chip-contagem">{contagemR18}</span>
+        </button>
         {/* Os cinco chips de lacuna ficam direto aqui só durante o Edit mode
             (uso frequente ao arrumar o acervo); no modo normal moram dentro
             do painel "Filters" — ver chipsLacuna mais abaixo. */}
@@ -413,17 +492,31 @@ export function ListaPrincipalPage() {
 
       {filtrosAbertos && (
         <div className="filtros filtros-aberto">
+          {/* Fora do Edit mode os chips de lacuna ficam aqui — uso ocasional,
+              não precisam de espaço fixo nos chips de status. */}
+          {!modoEdicao && <div className="filtros-chips-lacuna">{chipsLacuna.map(renderChipLacuna)}</div>}
+          <div className="filtros-score">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`status-chip filtros-score-estrela${scoresSel.includes(n) ? ' selecionada' : ''}`}
+                onClick={() => alternarScoreChip(n)}
+              >
+                {n}★
+              </button>
+            ))}
+            <button
+              type="button"
+              className={`status-chip${incluirSemNota ? ' ativo' : ''}`}
+              onClick={() => setIncluirSemNota((v) => !v)}
+            >
+              Include unrated
+            </button>
+          </div>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
             <option value="">Type (all)</option>
             {tipos.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-          <select value={statusLeituraDropdownValor} onChange={(e) => selecionarStatusLeituraDropdown(e.target.value)}>
-            <option value="">Reading status (all)</option>
-            {statusLeituraOpcoes.map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
@@ -439,9 +532,6 @@ export function ListaPrincipalPage() {
           </select>
           <TagPicker label="Genres" value={generosSel} options={generos} onChange={setGenerosSel} />
           <TagPicker label="Tags" value={tagsSel} options={tags} onChange={setTagsSel} />
-          {/* Fora do Edit mode os chips de lacuna ficam aqui — uso ocasional,
-              não precisam de espaço fixo nos chips de status. */}
-          {!modoEdicao && <div className="filtros-chips-lacuna">{chipsLacuna.map(renderChipLacuna)}</div>}
         </div>
       )}
 
