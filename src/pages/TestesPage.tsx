@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { mensagemDeErro } from '../lib/erros';
-import { IconeRefresh } from '../components/Icones';
+import { IconeRefresh, normalizarSvgCurrentColor } from '../components/Icones';
 import { SeletorCor } from '../components/SeletorCor';
 import '../styles/seletor-cor.css';
 
 const BUCKET = 'icons';
 const PASTA_COR_ORIGINAL = 'w-color';
+const PASTA_DUAS_CORES = '2-colors';
 const TAMANHO_PADRAO = 16;
 const TAMANHO_MIN = 10;
 const TAMANHO_MAX = 64;
@@ -14,6 +15,10 @@ const TAMANHO_MAX = 64;
 interface IconeArquivo {
   nome: string;
   url: string;
+}
+
+interface IconeDuasCores extends IconeArquivo {
+  svg: string | null;
 }
 
 async function listarIcones(pasta: string): Promise<IconeArquivo[]> {
@@ -29,6 +34,26 @@ async function listarIcones(pasta: string): Promise<IconeArquivo[]> {
 }
 
 /**
+ * Ícones com cor própria + currentColor (pasta "2-colors"): além de listar,
+ * busca o texto de cada SVG pra injetar inline (ver seção "Icons (2-colors)")
+ * — mask tingiria o ícone inteiro e <img> isola o SVG, matando o currentColor.
+ * Falha ao buscar um arquivo específico não deve derrubar os demais.
+ */
+async function listarIconesDuasCores(): Promise<IconeDuasCores[]> {
+  const arquivos = await listarIcones(PASTA_DUAS_CORES);
+  return Promise.all(
+    arquivos.map(async (arquivo) => {
+      try {
+        const texto = await fetch(arquivo.url).then((r) => r.text());
+        return { ...arquivo, svg: normalizarSvgCurrentColor(texto) };
+      } catch {
+        return { ...arquivo, svg: null };
+      }
+    }),
+  );
+}
+
+/**
  * Tela de testes (depois da aba Add): permite conferir fonte e ícones (da
  * pasta "icons" do Supabase Storage) num tamanho ajustável — um controle só,
  * em vez de duplicar blocos fixos por tamanho.
@@ -36,6 +61,7 @@ async function listarIcones(pasta: string): Promise<IconeArquivo[]> {
 export function TestesPage() {
   const [tamanho, setTamanho] = useState(TAMANHO_PADRAO);
   const [icones, setIcones] = useState<IconeArquivo[]>([]);
+  const [iconesDuasCores, setIconesDuasCores] = useState<IconeDuasCores[]>([]);
   const [iconesCorOriginal, setIconesCorOriginal] = useState<IconeArquivo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -52,8 +78,13 @@ export function TestesPage() {
     setCarregando(true);
     setErro(null);
     try {
-      const [raiz, corOriginal] = await Promise.all([listarIcones(''), listarIcones(PASTA_COR_ORIGINAL)]);
+      const [raiz, duasCores, corOriginal] = await Promise.all([
+        listarIcones(''),
+        listarIconesDuasCores(),
+        listarIcones(PASTA_COR_ORIGINAL),
+      ]);
       setIcones(raiz);
+      setIconesDuasCores(duasCores);
       setIconesCorOriginal(corOriginal);
     } catch (err) {
       setErro(mensagemDeErro(err));
@@ -150,6 +181,33 @@ export function TestesPage() {
                     WebkitMaskImage: `url(${icone.url})`,
                     maskImage: `url(${icone.url})`,
                   }}
+                />
+                <span className="testes-icone-nome">{icone.nome}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="testes-secao">
+          <h2>Icons (2-colors) — {tamanho}px</h2>
+          {erro && <p className="testes-erro">Could not load icons: {erro}</p>}
+          {!erro && !carregando && iconesDuasCores.length === 0 && (
+            <p>
+              No icons found in the "{BUCKET}/{PASTA_DUAS_CORES}" folder.
+            </p>
+          )}
+          <div className="testes-icones-grid">
+            {iconesDuasCores.map((icone) => (
+              <div key={icone.nome} className="testes-icone-item">
+                {/* Injetado inline (não mask/img): a cor própria do arquivo
+                    fica fixa, só a parte em currentColor segue a cor do
+                    seletor (ver .testes-icone-svg-duas-cores em testes.css). */}
+                <span
+                  className="testes-icone-svg-duas-cores"
+                  role="img"
+                  aria-label={icone.nome}
+                  style={{ width: tamanho, height: tamanho }}
+                  dangerouslySetInnerHTML={icone.svg ? { __html: icone.svg } : undefined}
                 />
                 <span className="testes-icone-nome">{icone.nome}</span>
               </div>
