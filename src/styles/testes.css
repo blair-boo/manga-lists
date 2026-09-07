@@ -154,3 +154,18 @@
   display: inline-block;
   object-fit: contain;
 }
+
+/* Ícone com DUAS cores (pasta "2-colors"): SVG injetado inline no DOM (não
+   mask nem <img>) pra a cor própria embutida no arquivo ficar fixa e só a
+   parte em currentColor seguir --testes-cor-preview (mesma ideia de
+   .testes-icone-svg, mas via `color` em vez de `background-color` + mask). */
+.testes-icone-svg-duas-cores {
+  display: inline-flex;
+  color: var(--testes-cor-preview, var(--text-h));
+}
+
+.testes-icone-svg-duas-cores svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

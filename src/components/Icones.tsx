@@ -142,6 +142,13 @@ function buscarSvgTexto(arquivo: string): Promise<string> {
   return pendente;
 }
 
+/** Defensivo: "current color" (com espaço) não é uma cor CSS válida — normaliza
+ * pra currentColor. "currentcolor" (minúsculo, sem espaço) já é válido
+ * (palavras-chave CSS não diferenciam maiúscula/minúscula). */
+export function normalizarSvgCurrentColor(texto: string): string {
+  return texto.replace(/current\s*color/gi, 'currentColor');
+}
+
 /**
  * Ícone do Supabase Storage injetado INLINE no DOM (não via <img>), pra cores
  * `currentColor`/`fill="currentcolor"` dentro do arquivo herdarem a cor do
@@ -162,10 +169,7 @@ function IconeSvgInline({ arquivo, largura, altura }: { arquivo: string; largura
     let cancelado = false;
     void buscarSvgTexto(arquivo).then((texto) => {
       if (cancelado) return;
-      // Defensivo: "current color" (com espaço) não é uma cor CSS válida —
-      // normaliza pra currentColor. "currentcolor" (minúsculo, sem espaço) já
-      // é válido (palavras-chave CSS não diferenciam maiúscula/minúscula).
-      setSvg(texto.replace(/current\s*color/gi, 'currentColor'));
+      setSvg(normalizarSvgCurrentColor(texto));
     });
     return () => {
       cancelado = true;
