@@ -106,6 +106,21 @@ export function IconeRefresh() {
   return <IconeMascarado arquivo="refresh.svg" />;
 }
 
+/** Aprovar — fila de aprovações de scraper (Supabase storage icons/approve.svg). */
+export function IconeAprovar() {
+  return <IconeMascarado arquivo="approve.svg" />;
+}
+
+/** Blacklist ("proibido") — fila de aprovações de scraper. */
+export function IconeBlacklist() {
+  return (
+    <svg {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m5.5 5.5 13 13" />
+    </svg>
+  );
+}
+
 // Cache module-level do texto dos SVGs buscados do Storage — os dois ratos
 // aparecem em vários lugares ao mesmo tempo (header, botão flutuante) e não
 // precisam refazer o fetch a cada montagem.

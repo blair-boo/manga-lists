@@ -21,6 +21,50 @@
   gap: 8px;
 }
 
+/* Fila de aprovações (Works/New sources): card por obra, com as fontes
+   agrupadas dentro dele. Classes próprias — não reaproveitam
+   .fontes-pendentes-grupo/.fontes-pendentes-titulo (usadas por
+   FilaTipoDivergente no formato antigo, sem card por obra). */
+.fila-obra-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.fila-obra-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.fila-obra-titulo {
+  font-weight: 600;
+  color: var(--text-h);
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fila-obra-tipo {
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  opacity: 0.8;
+}
+
+.fila-obra-card ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 
 /* Atualização em massa */
 
@@ -549,6 +593,74 @@
   align-items: flex-start;
 }
 
+/* Fila de aprovações (Works/New sources): item de fonte em 3 linhas fixas,
+   sem card/borda próprio — as fontes de uma obra dividem o card da obra
+   (.fila-obra-card), separadas por um divisor entre si. Classe própria (em
+   vez de reaproveitar .fonte-aprovacao) porque esse layout é específico da
+   fila reformulada; ConciliacaoSitesSection, FilaTipoDivergente e
+   SecaoNovelUpdates continuam usando .fonte-aprovacao no formato antigo. */
+.fila-fonte-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 4px;
+  border: none;
+  border-radius: 0;
+  padding: 8px 0;
+}
+
+.fila-obra-card .fila-fonte-item + .fila-fonte-item {
+  border-top: 1px solid var(--border);
+}
+
+.fila-fonte-linha1,
+.fila-fonte-linha2,
+.fila-fonte-linha3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fila-fonte-linha1 .fonte-site {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fila-fonte-linha1 .fonte-acoes {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+
+.fila-fonte-linha2 .fonte-titulo-site {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.fila-fonte-linha2 .fonte-tipo-select {
+  flex-shrink: 0;
+}
+
+.fila-fonte-linha3 .fonte-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.fila-fonte-linha3 .scraper-data {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* Ações em massa na fila (A5) */
 .fila-acoes-massa {
   position: sticky;
@@ -576,6 +688,10 @@
   font-size: 12px;
   padding: 0;
   margin: 0 0 8px 10px;
+}
+
+.fila-obra-cabecalho .fila-selecionar-grupo {
+  margin: 0 0 0 auto;
 }
 
 .fonte-selecao {

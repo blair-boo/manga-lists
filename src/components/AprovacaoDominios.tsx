@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useDialogos } from './Dialogo';
+import { IconeAprovar, IconeX } from './Icones';
 import { aprovarDominio, listarDominiosPendentes, rejeitarDominio, type DominioPendente } from '../lib/scraperConfig';
 
 function formatarData(iso: string | null): string {
@@ -116,11 +117,25 @@ export function AprovacaoDominios() {
                     <span className="dominio-data">requested {formatarData(d.criado_em)}</span>
                   </div>
                   <div className="fonte-acoes">
-                    <button type="button" onClick={() => handleAprovar(d)} disabled={processando === d.id}>
-                      {processando === d.id ? 'Please wait…' : 'Approve'}
+                    <button
+                      type="button"
+                      className="btn-icone btn-icone-sucesso"
+                      onClick={() => handleAprovar(d)}
+                      disabled={processando === d.id}
+                      title="Approve"
+                      aria-label="Approve"
+                    >
+                      <IconeAprovar />
                     </button>
-                    <button type="button" onClick={() => handleRejeitar(d)} disabled={processando === d.id}>
-                      Reject
+                    <button
+                      type="button"
+                      className="btn-icone btn-icone-perigo"
+                      onClick={() => handleRejeitar(d)}
+                      disabled={processando === d.id}
+                      title="Reject"
+                      aria-label="Reject"
+                    >
+                      <IconeX />
                     </button>
                   </div>
                 </li>
