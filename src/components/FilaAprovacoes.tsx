@@ -7,6 +7,7 @@ import { mensagemDeErro } from '../lib/erros';
 import { tituloNoSite } from '../lib/site';
 import { fontePertenceAoEscopo } from '../lib/fontesAprovacao';
 import { useDialogos } from './Dialogo';
+import { IconeAprovar, IconeBlacklist, IconeX } from './Icones';
 import {
   adicionarDominioBloqueado,
   dominioDeUrl,
@@ -15,8 +16,6 @@ import {
   type DominioBloqueado,
 } from '../lib/scraperConfig';
 import type { FamiliaTipo, Fonte, Obra, StatusAprovacao } from '../types';
-
-type Acao = 'aprovar' | 'rejeitar' | 'blacklist' | 'tipo';
 
 const TIPO_FONTE_OPCOES: { valor: FamiliaTipo; rotulo: string }[] = [
   { valor: 'manga', rotulo: 'Manga' },
@@ -52,7 +51,6 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
   const [filtro, setFiltro] = useState<Filtro>('pendente');
   const [blacklist, setBlacklist] = useState<DominioBloqueado[]>([]);
   const [processando, setProcessando] = useState<string | null>(null);
-  const [acaoProcessando, setAcaoProcessando] = useState<Acao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [progressoLote, setProgressoLote] = useState<{ rotulo: string; feito: number; total: number } | null>(null);
@@ -109,9 +107,8 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
       .sort((a, b) => a.obra.titulo.localeCompare(b.obra.titulo));
   }, [fontes, obras, filtro, pertence]);
 
-  async function handleAprovacao(fonteId: string, status: StatusAprovacao, acao: Acao) {
+  async function handleAprovacao(fonteId: string, status: StatusAprovacao) {
     setProcessando(fonteId);
-    setAcaoProcessando(acao);
     setErro(null);
     try {
       await setFonteAprovacao(fonteId, status);
@@ -119,13 +116,11 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
       setErro(mensagemDeErro(err));
     } finally {
       setProcessando(null);
-      setAcaoProcessando(null);
     }
   }
 
   async function handleTipo(fonteId: string, tipo: FamiliaTipo | null) {
     setProcessando(fonteId);
-    setAcaoProcessando('tipo');
     setErro(null);
     try {
       await setFonteTipo(fonteId, tipo);
@@ -133,7 +128,6 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
       setErro(mensagemDeErro(err));
     } finally {
       setProcessando(null);
-      setAcaoProcessando(null);
     }
   }
 
@@ -148,7 +142,6 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
     });
     if (!ok) return;
     setProcessando(fonteId);
-    setAcaoProcessando('blacklist');
     setErro(null);
     try {
       await adicionarDominioBloqueado(dominio, 'Blacklisted from approvals queue');
@@ -158,7 +151,6 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
       setErro(mensagemDeErro(err));
     } finally {
       setProcessando(null);
-      setAcaoProcessando(null);
     }
   }
 
@@ -287,84 +279,108 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
             <p className="fontes-vazio">Nothing here.</p>
           ) : (
             grupos.map(({ obra, fontes: lista }) => (
-              <div key={obra.id} className="fontes-pendentes-grupo">
-                <Link to={`/obra/${obra.id}`} className="fontes-pendentes-titulo">
-                  {obra.titulo}
-                </Link>
-                {filtro === 'pendente' && (
-                  <button
-                    type="button"
-                    className="fila-selecionar-grupo"
-                    onClick={() => alternarGrupo(lista)}
-                    disabled={loteEmAndamento}
+              <div key={obra.id} className="fila-obra-card">
+                <div className="fila-obra-cabecalho">
+                  <Link
+                    to={`/obra/${obra.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="fila-obra-titulo"
                   >
-                    {lista.every((f) => selecionadas.has(f.id)) ? 'Deselect all' : 'Select all'}
-                  </button>
-                )}
+                    {obra.titulo}
+                  </Link>
+                  {obra.tipo && <span className="fila-obra-tipo">{obra.tipo}</span>}
+                  {filtro === 'pendente' && (
+                    <button
+                      type="button"
+                      className="fila-selecionar-grupo"
+                      onClick={() => alternarGrupo(lista)}
+                      disabled={loteEmAndamento}
+                    >
+                      {lista.every((f) => selecionadas.has(f.id)) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  )}
+                </div>
                 <ul>
                   {lista.map((f) => (
-                    <li key={f.id} className="fonte-item fonte-aprovacao">
-                      {filtro === 'pendente' && (
-                        <input
-                          type="checkbox"
-                          className="fonte-selecao"
-                          checked={selecionadas.has(f.id)}
-                          onChange={() => alternarSelecao(f.id)}
-                          disabled={loteEmAndamento}
-                          aria-label={`Select ${f.url}`}
-                        />
-                      )}
-                      <div className="fonte-aprovacao-info">
-                        <span className="fonte-site-titulo">
-                          {f.site ?? dominioDeUrl(f.url)}: {tituloNoSite(f.url) || '—'}
+                    <li key={f.id} className="fonte-item fila-fonte-item">
+                      <div className="fila-fonte-linha1">
+                        {filtro === 'pendente' && (
+                          <input
+                            type="checkbox"
+                            className="fonte-selecao"
+                            checked={selecionadas.has(f.id)}
+                            onChange={() => alternarSelecao(f.id)}
+                            disabled={loteEmAndamento}
+                            aria-label={`Select ${f.url}`}
+                          />
+                        )}
+                        <span className="fonte-site">{f.site ?? dominioDeUrl(f.url)}</span>
+                        <div className="fonte-acoes">
+                          {f.status_aprovacao !== 'aprovado' && (
+                            <button
+                              type="button"
+                              className="btn-icone btn-icone-sucesso"
+                              onClick={() => handleAprovacao(f.id, 'aprovado')}
+                              disabled={processando === f.id || loteEmAndamento}
+                              title="Approve"
+                              aria-label="Approve"
+                            >
+                              <IconeAprovar />
+                            </button>
+                          )}
+                          {f.status_aprovacao !== 'rejeitado' && (
+                            <button
+                              type="button"
+                              className="btn-icone btn-icone-perigo"
+                              onClick={() => handleAprovacao(f.id, 'rejeitado')}
+                              disabled={processando === f.id || loteEmAndamento}
+                              title="Reject"
+                              aria-label="Reject"
+                            >
+                              <IconeX />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn-icone"
+                            onClick={() => handleBlacklist(f.url, f.id)}
+                            disabled={processando === f.id || loteEmAndamento}
+                            title="Blacklist domain"
+                            aria-label="Blacklist domain"
+                          >
+                            <IconeBlacklist />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="fila-fonte-linha2">
+                        <span className="fonte-titulo-site" title={tituloNoSite(f.url) || undefined}>
+                          {tituloNoSite(f.url) || '—'}
                         </span>
-                        <a href={f.url} target="_blank" rel="noreferrer" className="fonte-link" title={f.url}>
+                        <select
+                          className="fonte-tipo-select"
+                          value={f.tipo_detectado ?? ''}
+                          onChange={(e) => handleTipo(f.id, (e.target.value || null) as FamiliaTipo | null)}
+                          title="Source type (manga/novel) — adjust before approving if the auto-detection got it wrong"
+                          disabled={processando === f.id || loteEmAndamento}
+                        >
+                          <option value="">Type?</option>
+                          {TIPO_FONTE_OPCOES.map((o) => (
+                            <option key={o.valor} value={o.valor}>
+                              {o.rotulo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="fila-fonte-linha3">
+                        <a href={f.url} target="_blank" rel="noreferrer" className="fonte-link">
                           {f.url}
                         </a>
                         {f.ultimo_capitulo_detectado != null && (
-                          <span className="scraper-data">detected ch. {f.ultimo_capitulo_detectado}</span>
+                          <span className="scraper-data">ch. {f.ultimo_capitulo_detectado}</span>
                         )}
-                      </div>
-                      <select
-                        className="fonte-tipo-select"
-                        value={f.tipo_detectado ?? ''}
-                        onChange={(e) => handleTipo(f.id, (e.target.value || null) as FamiliaTipo | null)}
-                        title="Source type (manga/novel) — adjust before approving if the auto-detection got it wrong"
-                        disabled={processando === f.id || loteEmAndamento}
-                      >
-                        <option value="">Type?</option>
-                        {TIPO_FONTE_OPCOES.map((o) => (
-                          <option key={o.valor} value={o.valor}>
-                            {o.rotulo}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="fonte-acoes">
-                        {f.status_aprovacao !== 'aprovado' && (
-                          <button
-                            type="button"
-                            onClick={() => handleAprovacao(f.id, 'aprovado', 'aprovar')}
-                            disabled={processando === f.id || loteEmAndamento}
-                          >
-                            {processando === f.id && acaoProcessando === 'aprovar' ? 'Please wait…' : 'Approve'}
-                          </button>
-                        )}
-                        {f.status_aprovacao !== 'rejeitado' && (
-                          <button
-                            type="button"
-                            onClick={() => handleAprovacao(f.id, 'rejeitado', 'rejeitar')}
-                            disabled={processando === f.id || loteEmAndamento}
-                          >
-                            {processando === f.id && acaoProcessando === 'rejeitar' ? 'Please wait…' : 'Reject'}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleBlacklist(f.url, f.id)}
-                          disabled={processando === f.id || loteEmAndamento}
-                        >
-                          {processando === f.id && acaoProcessando === 'blacklist' ? 'Please wait…' : 'Blacklist'}
-                        </button>
                       </div>
                     </li>
                   ))}
