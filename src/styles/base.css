@@ -309,6 +309,15 @@ label {
   color: var(--danger);
 }
 
+.btn-icone-sucesso {
+  color: var(--ok);
+}
+
+.btn-icone:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Botões do rato (Edit mode: header e flutuante): sem padding (o resto do
    comportamento — sem contorno em nenhum estado — já é o padrão do .btn-icone). */
 .rato-botao {
