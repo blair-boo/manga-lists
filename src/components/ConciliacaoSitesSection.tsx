@@ -23,8 +23,7 @@ import {
 } from '../lib/scraperConfig';
 import { mensagemDeErro } from '../lib/erros';
 import { StatusImportacaoView } from './StatusImportacaoView';
-import { LimiaresFieldset } from './ConfigMatchTitulo';
-import { IconeBlacklistTitulo, IconeMatchSettings, IconeSalvar } from './Icones';
+import { IconeBlacklistTitulo, IconeLixeira, IconeMatchSettings, IconeSalvar } from './Icones';
 import { useToast } from './Toast';
 import {
   ROTULO_TIPO,
@@ -48,14 +47,13 @@ function MatchSettingsConciliacao() {
   const { mostrarToast } = useToast();
   const [config, setConfig] = useState<MatchConfig | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [aberto, setAberto] = useState(false);
 
   useEffect(() => {
     getMatchConfig()
       .then(setConfig)
       .catch(() => setConfig(MATCH_CONFIG_PADRAO));
   }, []);
-
-  if (!config) return <p className="execucao-status">Loading settings…</p>;
 
   function setCampo(chave: keyof LimiaresOperacao, valor: string) {
     const n = valor === '' ? 0 : Number(valor);
@@ -76,26 +74,52 @@ function MatchSettingsConciliacao() {
   }
 
   return (
-    <div className="config-match">
-      <div className="config-match-grupos">
-        <LimiaresFieldset
-          titulo="Match Settings"
-          icone={<IconeMatchSettings />}
-          valor={config.conciliacao_csv}
-          onChange={setCampo}
-        >
-          <button
-            type="button"
-            className="btn-icone"
-            onClick={salvar}
-            disabled={salvando}
-            aria-label={salvando ? 'Saving…' : 'Save settings'}
-            title={salvando ? 'Saving…' : 'Save settings'}
-          >
-            <IconeSalvar />
-          </button>
-        </LimiaresFieldset>
-      </div>
+    <div className="fila-aprovacoes">
+      <button type="button" className="fila-aprovacoes-toggle" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
+        <IconeMatchSettings /> Match Settings
+      </button>
+      {aberto && (
+        <div className="fila-aprovacoes-corpo">
+          {!config ? (
+            <p className="execucao-status">Loading settings…</p>
+          ) : (
+            <div className="match-settings-campos">
+              <label>
+                Auto-approve ≥
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  value={config.conciliacao_csv.limiar_auto_aprovacao}
+                  onChange={(e) => setCampo('limiar_auto_aprovacao', e.target.value)}
+                />
+              </label>
+              <label>
+                Send to review ≥
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="1"
+                  value={config.conciliacao_csv.limiar_minimo_pendencia}
+                  onChange={(e) => setCampo('limiar_minimo_pendencia', e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn-icone"
+                onClick={salvar}
+                disabled={salvando}
+                aria-label={salvando ? 'Saving…' : 'Save settings'}
+                title={salvando ? 'Saving…' : 'Save settings'}
+              >
+                <IconeSalvar />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -520,8 +544,14 @@ export function ConciliacaoSitesSection() {
                       </a>
                     </div>
                     <div className="fonte-acoes">
-                      <button type="button" onClick={() => handleRemoverBlacklist(b.id)}>
-                        Remove
+                      <button
+                        type="button"
+                        className="btn-icone btn-icone-perigo"
+                        onClick={() => handleRemoverBlacklist(b.id)}
+                        aria-label="Remove"
+                        title="Remove"
+                      >
+                        <IconeLixeira />
                       </button>
                     </div>
                   </li>

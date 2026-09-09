@@ -454,6 +454,9 @@
 /* Domínios sem adaptador (modo diagnóstico) */
 .dominios-sem-adaptador {
   margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .dominios-sem-adaptador .botao-secundario {
@@ -551,9 +554,14 @@
   margin: 0;
 }
 
-/* Fila de aprovações reutilizável */
+/* Fila de aprovações reutilizável — cabeçalho (toggle) + corpo dentro do
+   mesmo cartão (a borda mora no wrapper, não no botão), pra o conteúdo
+   expandido não parecer solto fora do card. */
 .fila-aprovacoes {
   margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .fila-aprovacoes-toggle {
@@ -561,7 +569,8 @@
   align-items: center;
   gap: 6px;
   background: none;
-  border: 1px solid var(--border);
+  border: none;
+  padding: 0;
   font-size: 13px;
   width: 100%;
   text-align: left;
@@ -569,6 +578,8 @@
 
 .fila-aprovacoes-corpo {
   margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .fila-filtros {
@@ -787,6 +798,32 @@
 }
 
 .config-match-grupo .btn-icone {
+  align-self: flex-start;
+}
+
+/* Match Settings de "Sources reconciliation" — mora dentro de um
+   .fila-aprovacoes-corpo (já tem o cartão/borda), então os campos aqui não
+   repetem o fieldset com borda de .config-match-grupo. */
+.match-settings-campos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.match-settings-campos label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.match-settings-campos input {
+  width: 80px;
+}
+
+.match-settings-campos .btn-icone {
   align-self: flex-start;
 }
 
