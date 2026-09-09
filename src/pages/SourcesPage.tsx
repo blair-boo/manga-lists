@@ -115,7 +115,11 @@ export function SourcesPage() {
         >
           <IconeMatchSettings /> Match settings
         </button>
-        {matchAberto && <ConfigMatchTitulo />}
+        {matchAberto && (
+          <div className="fila-aprovacoes-corpo">
+            <ConfigMatchTitulo />
+          </div>
+        )}
       </section>
     </div>
   );
