@@ -100,14 +100,6 @@
   font-size: 13px;
 }
 
-/* Linha do botão de filtros + limpar filtros */
-.filtros-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
 .filtros-toggle-dot {
   width: 7px;
   height: 7px;

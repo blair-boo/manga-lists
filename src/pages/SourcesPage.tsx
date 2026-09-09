@@ -113,7 +113,7 @@ export function SourcesPage() {
           onClick={() => setMatchAberto((v) => !v)}
           aria-expanded={matchAberto}
         >
-          {matchAberto ? '▾' : '▸'} <IconeMatchSettings /> Match settings
+          <IconeMatchSettings /> Match settings
         </button>
         {matchAberto && <ConfigMatchTitulo />}
       </section>

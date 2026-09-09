@@ -85,9 +85,9 @@ export function IconeTrocar() {
 }
 
 /** Limpar filtros — SVG fornecido pela usuária (Supabase storage
- * icons/clear_filter.svg), 20px fixo, colorido via mask. */
+ * icons/filter-clear.svg), 20px fixo, colorido via mask. */
 export function IconeLimparFiltros() {
-  return <IconeMascarado arquivo="clear_filter.svg" />;
+  return <IconeMascarado arquivo="filter-clear.svg" />;
 }
 
 /** Mostrar filtros (painel fechado) — Supabase storage icons/filter+.svg. */
@@ -128,6 +128,18 @@ export function IconeMatchSettings() {
  * icons/blacklist-icon.svg. */
 export function IconeBlacklistTitulo() {
   return <IconeMascarado arquivo="blacklist-icon.svg" />;
+}
+
+/** Alternar pra visualização em grade (Lista Principal). Supabase storage
+ * icons/menu-grid3.svg. */
+export function IconeGradeView() {
+  return <IconeMascarado arquivo="menu-grid3.svg" />;
+}
+
+/** Alternar pra visualização em lista (Lista Principal). Supabase storage
+ * icons/menu-list.svg. */
+export function IconeListaView() {
+  return <IconeMascarado arquivo="menu-list.svg" />;
 }
 
 /** Recarregar — botão "Refresh icons" da aba Tests (Supabase storage
