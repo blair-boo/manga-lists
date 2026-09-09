@@ -10,7 +10,9 @@ import {
   IconeEmbaralhar,
   IconeEsconderFiltros,
   IconeFiltros,
+  IconeGradeView,
   IconeLimparFiltros,
+  IconeListaView,
   IconeSairModoEdicao,
   IconeVoltarTopo,
 } from '../components/Icones';
@@ -479,9 +481,9 @@ export function ListaPrincipalPage() {
             (uso frequente ao arrumar o acervo); no modo normal moram dentro
             do painel "Filters" — ver chipsLacuna mais abaixo. */}
         {modoEdicao && chipsLacuna.map(renderChipLacuna)}
-      </div>
 
-      <div className="filtros-toggle-row">
+        {/* Toggle do painel "Filters" + limpar filtros: sempre depois do
+            último chip que não fica escondido dentro do painel. */}
         <button
           type="button"
           className="btn-icone"
@@ -569,19 +571,21 @@ export function ListaPrincipalPage() {
           <div className="view-toggle">
             <button
               type="button"
-              className={viewMode === 'grid' ? 'ativo' : ''}
+              className={`btn-icone${viewMode === 'grid' ? ' ativo' : ''}`}
               onClick={() => alternarViewMode('grid')}
               aria-label="Grid view"
+              title="Grid view"
             >
-              Grid
+              <IconeGradeView />
             </button>
             <button
               type="button"
-              className={viewMode === 'list' ? 'ativo' : ''}
+              className={`btn-icone${viewMode === 'list' ? ' ativo' : ''}`}
               onClick={() => alternarViewMode('list')}
               aria-label="List view"
+              title="List view"
             >
-              List
+              <IconeListaView />
             </button>
           </div>
         </div>

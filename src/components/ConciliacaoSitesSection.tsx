@@ -83,18 +83,19 @@ function MatchSettingsConciliacao() {
           icone={<IconeMatchSettings />}
           valor={config.conciliacao_csv}
           onChange={setCampo}
-        />
+        >
+          <button
+            type="button"
+            className="btn-icone"
+            onClick={salvar}
+            disabled={salvando}
+            aria-label={salvando ? 'Saving…' : 'Save settings'}
+            title={salvando ? 'Saving…' : 'Save settings'}
+          >
+            <IconeSalvar />
+          </button>
+        </LimiaresFieldset>
       </div>
-      <button
-        type="button"
-        className="btn-icone"
-        onClick={salvar}
-        disabled={salvando}
-        aria-label={salvando ? 'Saving…' : 'Save settings'}
-        title={salvando ? 'Saving…' : 'Save settings'}
-      >
-        <IconeSalvar />
-      </button>
     </div>
   );
 }
@@ -502,7 +503,7 @@ export function ConciliacaoSitesSection() {
           onClick={() => setBlacklistAberta((v) => !v)}
           aria-expanded={blacklistAberta}
         >
-          {blacklistAberta ? '▾' : '▸'} <IconeBlacklistTitulo /> Blacklist ({blacklist.length})
+          <IconeBlacklistTitulo /> Blacklist ({blacklist.length})
         </button>
         {blacklistAberta && (
           <div className="fila-aprovacoes-corpo">

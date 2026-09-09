@@ -27,11 +27,13 @@ export function LimiaresFieldset({
   icone,
   valor,
   onChange,
+  children,
 }: {
   titulo: string;
   icone?: ReactNode;
   valor: LimiaresOperacao;
   onChange: (chave: keyof LimiaresOperacao, valor: string) => void;
+  children?: ReactNode;
 }) {
   return (
     <fieldset className="config-match-grupo">
@@ -61,6 +63,7 @@ export function LimiaresFieldset({
           onChange={(e) => onChange('limiar_minimo_pendencia', e.target.value)}
         />
       </label>
+      {children}
     </fieldset>
   );
 }

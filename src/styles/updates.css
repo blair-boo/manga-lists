@@ -557,6 +557,9 @@
 }
 
 .fila-aprovacoes-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: 1px solid var(--border);
   font-size: 13px;
@@ -781,6 +784,10 @@
 
 .config-match-grupo input {
   width: 80px;
+}
+
+.config-match-grupo .btn-icone {
+  align-self: flex-start;
 }
 
 
