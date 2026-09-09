@@ -24,6 +24,7 @@ import {
 import { mensagemDeErro } from '../lib/erros';
 import { StatusImportacaoView } from './StatusImportacaoView';
 import { LimiaresFieldset } from './ConfigMatchTitulo';
+import { IconeBlacklistTitulo, IconeMatchSettings, IconeSalvar } from './Icones';
 import { useToast } from './Toast';
 import {
   ROTULO_TIPO,
@@ -77,10 +78,22 @@ function MatchSettingsConciliacao() {
   return (
     <div className="config-match">
       <div className="config-match-grupos">
-        <LimiaresFieldset titulo="Match Settings" valor={config.conciliacao_csv} onChange={setCampo} />
+        <LimiaresFieldset
+          titulo="Match Settings"
+          icone={<IconeMatchSettings />}
+          valor={config.conciliacao_csv}
+          onChange={setCampo}
+        />
       </div>
-      <button type="button" onClick={salvar} disabled={salvando}>
-        {salvando ? 'Saving…' : 'Save settings'}
+      <button
+        type="button"
+        className="btn-icone"
+        onClick={salvar}
+        disabled={salvando}
+        aria-label={salvando ? 'Saving…' : 'Save settings'}
+        title={salvando ? 'Saving…' : 'Save settings'}
+      >
+        <IconeSalvar />
       </button>
     </div>
   );
@@ -489,7 +502,7 @@ export function ConciliacaoSitesSection() {
           onClick={() => setBlacklistAberta((v) => !v)}
           aria-expanded={blacklistAberta}
         >
-          {blacklistAberta ? '▾' : '▸'} Blacklist ({blacklist.length})
+          {blacklistAberta ? '▾' : '▸'} <IconeBlacklistTitulo /> Blacklist ({blacklist.length})
         </button>
         {blacklistAberta && (
           <div className="fila-aprovacoes-corpo">

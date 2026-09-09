@@ -5,7 +5,15 @@ import { ObraCard } from '../components/ObraCard';
 import { TagPicker } from '../components/TagPicker';
 import { BuscaObras } from '../components/BuscaObras';
 import { useModoEdicao } from '../components/ModoEdicaoContext';
-import { IconeColorido, IconeEmbaralhar, IconeSairModoEdicao, IconeVoltarTopo } from '../components/Icones';
+import {
+  IconeColorido,
+  IconeEmbaralhar,
+  IconeEsconderFiltros,
+  IconeFiltros,
+  IconeLimparFiltros,
+  IconeSairModoEdicao,
+  IconeVoltarTopo,
+} from '../components/Icones';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useSitesAtivos } from '../hooks/useSitesAtivos';
 import { familiaDeTipo, temNovoCapitulo } from '../lib/obra';
@@ -476,16 +484,24 @@ export function ListaPrincipalPage() {
       <div className="filtros-toggle-row">
         <button
           type="button"
-          className="filtros-toggle"
+          className="btn-icone"
           onClick={() => setFiltrosAbertos((v) => !v)}
           aria-expanded={filtrosAbertos}
+          aria-label={filtrosAbertos ? 'Hide filters' : 'Filters'}
+          title={filtrosAbertos ? 'Hide filters' : 'Filters'}
         >
-          {filtrosAbertos ? 'Hide filters' : 'Filters'}
+          {filtrosAbertos ? <IconeEsconderFiltros /> : <IconeFiltros />}
           {temFiltroAtivo && <span className="filtros-toggle-dot" />}
         </button>
         {temFiltroAtivo && (
-          <button type="button" className="filtros-limpar" onClick={limparFiltros}>
-            Clear filters
+          <button
+            type="button"
+            className="btn-icone"
+            onClick={limparFiltros}
+            aria-label="Clear filters"
+            title="Clear filters"
+          >
+            <IconeLimparFiltros />
           </button>
         )}
       </div>
@@ -585,8 +601,14 @@ export function ListaPrincipalPage() {
             <>
               <p>No works match the filters.</p>
               {temFiltroAtivo && (
-                <button type="button" onClick={limparFiltros}>
-                  Clear filters
+                <button
+                  type="button"
+                  className="btn-icone"
+                  onClick={limparFiltros}
+                  aria-label="Clear filters"
+                  title="Clear filters"
+                >
+                  <IconeLimparFiltros />
                 </button>
               )}
             </>

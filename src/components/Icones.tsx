@@ -1,6 +1,6 @@
-// SVGs inline reutilizados (Blocos E e F): disquete (salvar), X (cancelar),
-// grip/tracinhos (handle de arraste e botão de editar ordem). Sem biblioteca
-// de ícones só pra isso. currentColor herda a cor do botão.
+// SVGs inline reutilizados (Blocos E e F): X (cancelar), grip/tracinhos
+// (handle de arraste e botão de editar ordem). Sem biblioteca de ícones só
+// pra isso. currentColor herda a cor do botão.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
@@ -41,16 +41,6 @@ const base = {
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
 };
-
-export function IconeDisquete() {
-  return (
-    <svg {...base}>
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <path d="M17 21v-8H7v8" />
-      <path d="M7 3v5h8" />
-    </svg>
-  );
-}
 
 export function IconeX() {
   return (
@@ -98,6 +88,46 @@ export function IconeTrocar() {
  * icons/clear_filter.svg), 20px fixo, colorido via mask. */
 export function IconeLimparFiltros() {
   return <IconeMascarado arquivo="clear_filter.svg" />;
+}
+
+/** Mostrar filtros (painel fechado) — Supabase storage icons/filter+.svg. */
+export function IconeFiltros() {
+  return <IconeMascarado arquivo="filter+.svg" />;
+}
+
+/** Esconder filtros (painel aberto) — Supabase storage icons/filter-.svg. */
+export function IconeEsconderFiltros() {
+  return <IconeMascarado arquivo="filter-.svg" />;
+}
+
+/** Lixeira — excluir obra ("Delete work") e "Discard and leave" nos modais
+ * de alterações não salvas. Supabase storage icons/trash3.svg. */
+export function IconeLixeira() {
+  return <IconeMascarado arquivo="trash3.svg" />;
+}
+
+/** Vassoura — descartar alterações (Genres/Tags). Supabase storage
+ * icons/broomstick.svg. */
+export function IconeDescartar() {
+  return <IconeMascarado arquivo="broomstick.svg" />;
+}
+
+/** Salvar — todos os botões "Save" do app. Supabase storage icons/save2.svg. */
+export function IconeSalvar() {
+  return <IconeMascarado arquivo="save2.svg" />;
+}
+
+/** Prefixo dos títulos "Match Settings". Supabase storage
+ * icons/match-settings.svg. */
+export function IconeMatchSettings() {
+  return <IconeMascarado arquivo="match-settings.svg" />;
+}
+
+/** Prefixo dos títulos/chips de "Blacklist" (distinto do IconeBlacklist
+ * abaixo, usado no botão de ação "Blacklist domain"). Supabase storage
+ * icons/blacklist-icon.svg. */
+export function IconeBlacklistTitulo() {
+  return <IconeMascarado arquivo="blacklist-icon.svg" />;
 }
 
 /** Recarregar — botão "Refresh icons" da aba Tests (Supabase storage

@@ -108,19 +108,6 @@
   margin-bottom: 12px;
 }
 
-/* O botão "Filters" abre/fecha o painel completo em qualquer tamanho de tela
-   (a busca e os chips de status ficam sempre visíveis, fora do painel). */
-.filtros-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.filtros-limpar {
-  font-size: 13px;
-}
-
 .filtros-toggle-dot {
   width: 7px;
   height: 7px;

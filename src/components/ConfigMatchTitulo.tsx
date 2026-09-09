@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import {
   getMatchConfig,
@@ -6,6 +7,7 @@ import {
   type LimiaresOperacao,
   type MatchConfig,
 } from '../lib/scraperConfig';
+import { IconeSalvar } from './Icones';
 import { useToast } from './Toast';
 
 // 'conciliacao_csv' não entra aqui: seu fieldset mora em ConciliacaoSitesSection
@@ -22,16 +24,21 @@ const OPERACOES: { chave: keyof MatchConfig; rotulo: string }[] = [
  * ConciliacaoSitesSection (conciliacao_csv). */
 export function LimiaresFieldset({
   titulo,
+  icone,
   valor,
   onChange,
 }: {
   titulo: string;
+  icone?: ReactNode;
   valor: LimiaresOperacao;
   onChange: (chave: keyof LimiaresOperacao, valor: string) => void;
 }) {
   return (
     <fieldset className="config-match-grupo">
-      <legend>{titulo}</legend>
+      <legend>
+        {icone}
+        {titulo}
+      </legend>
       <label>
         Auto-approve ≥
         <input
@@ -108,8 +115,15 @@ export function ConfigMatchTitulo() {
         ))}
       </div>
 
-      <button type="button" onClick={salvar} disabled={salvando}>
-        {salvando ? 'Saving…' : 'Save settings'}
+      <button
+        type="button"
+        className="btn-icone"
+        onClick={salvar}
+        disabled={salvando}
+        aria-label={salvando ? 'Saving…' : 'Save settings'}
+        title={salvando ? 'Saving…' : 'Save settings'}
+      >
+        <IconeSalvar />
       </button>
     </div>
   );

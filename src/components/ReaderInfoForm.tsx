@@ -5,6 +5,7 @@ import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useListasPorCategoria } from '../hooks/useListas';
 import { useToast } from './Toast';
 import { TagPicker } from './TagPicker';
+import { IconeSalvar } from './Icones';
 import type { CampoInfoReader, Obra, ReaderObra } from '../types';
 import type { NovaReaderObra } from '../db/repo';
 
@@ -161,8 +162,15 @@ export function ReaderInfoForm({ reader, obra }: Props) {
       </label>
 
       <div className="reader-info-acoes">
-        <button type="button" onClick={() => void salvar.executar()} disabled={salvar.executando}>
-          {salvar.executando ? 'Saving…' : 'Save information'}
+        <button
+          type="button"
+          className="btn-icone"
+          onClick={() => void salvar.executar()}
+          disabled={salvar.executando}
+          aria-label={salvar.executando ? 'Saving…' : 'Save information'}
+          title={salvar.executando ? 'Saving…' : 'Save information'}
+        >
+          <IconeSalvar />
         </button>
         {salvar.erro && <span className="reader-erro">{salvar.erro}</span>}
       </div>
