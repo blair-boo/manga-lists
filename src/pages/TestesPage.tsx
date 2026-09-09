@@ -155,9 +155,9 @@ export function TestesPage() {
         <section className="testes-secao">
           <h2>Font — {tamanho}px</h2>
           <div className="testes-fonte-amostra" style={{ fontSize: tamanho }}>
-            <p>Regular — The quick brown fox jumps over the lazy dog.</p>
-            <p style={{ fontWeight: 600 }}>Bold (600) — The quick brown fox jumps over the lazy dog.</p>
-            <p style={{ fontStyle: 'italic' }}>Italic — The quick brown fox jumps over the lazy dog.</p>
+            <p>Regular — All work and no play makes Jack a dull boy.</p>
+            <p style={{ fontWeight: 600 }}>Bold (600) — All work and no play makes Jack a dull boy.</p>
+            <p style={{ fontStyle: 'italic' }}>Italic — All work and no play makes Jack a dull boy.</p>
             <p className="testes-fonte-muted">Muted (opacity 0.7) — hints and captions.</p>
           </div>
         </section>
