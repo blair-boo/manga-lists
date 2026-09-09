@@ -100,13 +100,6 @@
   font-size: 13px;
 }
 
-.filtros-toggle-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
 /* Chips de status de leitura com contagem */
 .status-chips {
   display: flex;

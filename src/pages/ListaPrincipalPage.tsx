@@ -493,7 +493,6 @@ export function ListaPrincipalPage() {
           title={filtrosAbertos ? 'Hide filters' : 'Filters'}
         >
           {filtrosAbertos ? <IconeEsconderFiltros /> : <IconeFiltros />}
-          {temFiltroAtivo && <span className="filtros-toggle-dot" />}
         </button>
         {temFiltroAtivo && (
           <button
