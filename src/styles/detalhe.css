@@ -71,13 +71,6 @@
   gap: 8px;
 }
 
-.excluir-obra {
-  align-self: flex-start;
-  background: rgba(209, 38, 79, 0.1);
-  border-color: rgba(209, 38, 79, 0.5);
-  color: var(--danger);
-}
-
 /* Delete work movido pro fim absoluto da página (Bloco C), separado das Sources. */
 .detalhe-obra-rodape {
   margin-top: 48px;

@@ -7,7 +7,7 @@ import { mensagemDeErro } from '../lib/erros';
 import { tituloNoSite } from '../lib/site';
 import { fontePertenceAoEscopo } from '../lib/fontesAprovacao';
 import { useDialogos } from './Dialogo';
-import { IconeAprovar, IconeBlacklist, IconeX } from './Icones';
+import { IconeAprovar, IconeBlacklist, IconeBlacklistTitulo, IconeX } from './Icones';
 import {
   adicionarDominioBloqueado,
   dominioDeUrl,
@@ -231,6 +231,7 @@ export function FilaAprovacoes({ titulo, sitesSuportados, escopo, comBlacklist }
                 className={`fila-filtro ${filtro === f.valor ? 'ativo' : ''}`}
                 onClick={() => setFiltro(f.valor)}
               >
+                {f.valor === 'blacklist' && <IconeBlacklistTitulo />}
                 {f.rotulo}
                 <span className="status-chip-contagem">
                   {f.valor === 'blacklist' ? blacklist.length : contagemPorStatus.get(f.valor) ?? 0}

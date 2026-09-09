@@ -11,6 +11,7 @@ import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
 import { FilaTipoDivergente } from '../components/FilaTipoDivergente';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
+import { IconeMatchSettings } from '../components/Icones';
 
 function SecaoScraperApprovals({ sitesSuportados }: { sitesSuportados: string[] }) {
   return (
@@ -112,7 +113,7 @@ export function SourcesPage() {
           onClick={() => setMatchAberto((v) => !v)}
           aria-expanded={matchAberto}
         >
-          {matchAberto ? '▾' : '▸'} Match settings
+          {matchAberto ? '▾' : '▸'} <IconeMatchSettings /> Match settings
         </button>
         {matchAberto && <ConfigMatchTitulo />}
       </section>

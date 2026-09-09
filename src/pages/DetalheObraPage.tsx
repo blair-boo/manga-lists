@@ -45,7 +45,16 @@ import { FavoritoBotao } from '../components/FavoritoBotao';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { ModalBase } from '../components/ModalBase';
-import { IconeDisquete, IconeEmbaralhar, IconeGrip, IconeLimparFiltros, IconeMais, IconeTrocar, IconeX } from '../components/Icones';
+import {
+  IconeEmbaralhar,
+  IconeGrip,
+  IconeLimparFiltros,
+  IconeLixeira,
+  IconeMais,
+  IconeSalvar,
+  IconeTrocar,
+  IconeX,
+} from '../components/Icones';
 import { familiaDeTipo } from '../lib/obra';
 import {
   lerFiltrosSalvos,
@@ -948,7 +957,7 @@ export function DetalheObraPage() {
               aria-label="Save notes"
               title="Save notes"
             >
-              <IconeDisquete />
+              <IconeSalvar />
             </button>
             <button
               type="button"
@@ -971,7 +980,7 @@ export function DetalheObraPage() {
               <>
                 {ordemAlterou && (
                   <button type="button" className="btn-icone" onClick={salvarOrdem} aria-label="Save order" title="Save order">
-                    <IconeDisquete />
+                    <IconeSalvar />
                   </button>
                 )}
                 <button
@@ -1032,8 +1041,14 @@ export function DetalheObraPage() {
 
       {/* Delete work movido pro fim absoluto da página (Bloco C), separado das Sources. */}
       <div className="detalhe-obra-rodape">
-        <button type="button" className="excluir-obra" onClick={handleExcluirObra}>
-          Delete work
+        <button
+          type="button"
+          className="btn-icone btn-icone-perigo"
+          onClick={handleExcluirObra}
+          aria-label="Delete work"
+          title="Delete work"
+        >
+          <IconeLixeira />
         </button>
       </div>
 
@@ -1046,21 +1061,27 @@ export function DetalheObraPage() {
           <div className="modal-acoes">
             <button
               type="button"
+              className="btn-icone"
               onClick={async () => {
                 await handleSalvarObservacoes();
                 blocker.proceed();
               }}
+              aria-label="Save and leave"
+              title="Save and leave"
             >
-              Save and leave
+              <IconeSalvar />
             </button>
             <button
               type="button"
+              className="btn-icone btn-icone-perigo"
               onClick={() => {
                 handleCancelarObservacoes();
                 blocker.proceed();
               }}
+              aria-label="Discard and leave"
+              title="Discard and leave"
             >
-              Discard and leave
+              <IconeLixeira />
             </button>
             <button type="button" onClick={() => blocker.reset()}>
               Keep editing

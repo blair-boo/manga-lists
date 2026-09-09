@@ -17,7 +17,7 @@ import { useToast } from './Toast';
 import { useDialogos } from './Dialogo';
 import { useUploadCapa } from './CapaUploader';
 import { useModoEdicao } from './ModoEdicaoContext';
-import { IconeCopiar, IconeLivro } from './Icones';
+import { IconeCopiar, IconeLivro, IconeSalvar } from './Icones';
 import type { Categoria, Classificacao, Fonte, Obra, StatusLeitura, StatusPublicacao, Tipo } from '../types';
 
 /**
@@ -121,8 +121,14 @@ function ModalTitulo({ obra, onFechar }: { obra: Obra; onFechar: () => void }) {
         <TagPicker label="Associated Names" value={alternativos} options={[]} onChange={setAlternativos} />
 
         <div className="modal-acoes">
-          <button type="submit" disabled={!titulo.trim() || bloqueado || salvando}>
-            {salvando ? 'Saving…' : 'Save'}
+          <button
+            type="submit"
+            className="btn-icone"
+            disabled={!titulo.trim() || bloqueado || salvando}
+            aria-label={salvando ? 'Saving…' : 'Save'}
+            title={salvando ? 'Saving…' : 'Save'}
+          >
+            <IconeSalvar />
           </button>
           <button type="button" className="botao-secundario" onClick={onFechar}>
             Cancel
@@ -352,8 +358,8 @@ function ModalNovelUpdates({ obra, onFechar }: { obra: Obra; onFechar: () => voi
           />
         </label>
         <div className="modal-acoes">
-          <button type="submit" disabled={!url.trim()}>
-            Save
+          <button type="submit" className="btn-icone" disabled={!url.trim()} aria-label="Save" title="Save">
+            <IconeSalvar />
           </button>
           {obra.novelupdates_url && (
             <button type="button" className="botao-perigoso" onClick={handleRemover}>
@@ -720,8 +726,8 @@ function ModalSources({ obra, onFechar }: { obra: Obra; onFechar: () => void }) 
           o card não some no meio da edição mesmo que ela deixe de bater um
           filtro ativo (ex.: sair de "Unsourced" ao ganhar a primeira fonte). */}
       <div className="modal-acoes">
-        <button type="button" onClick={onFechar}>
-          Save
+        <button type="button" className="btn-icone" onClick={onFechar} aria-label="Save" title="Save">
+          <IconeSalvar />
         </button>
       </div>
     </ModalBase>

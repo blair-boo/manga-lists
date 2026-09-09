@@ -8,6 +8,7 @@ import { useListaItensPorCategoria } from '../hooks/useListas';
 import { useDialogos } from '../components/Dialogo';
 import { useToast } from '../components/Toast';
 import { ModalBase } from '../components/ModalBase';
+import { IconeDescartar, IconeLixeira, IconeSalvar } from '../components/Icones';
 import type { Categoria, ListaItem } from '../types';
 
 type Pendente = { tipo: 'renomear'; valorNovo: string } | { tipo: 'excluir' };
@@ -418,11 +419,25 @@ export function GenerosTagsPage() {
                 Saving {progresso.feito}/{progresso.total}…
               </span>
             )}
-            <button type="button" onClick={descartar} disabled={!haAlteracoes || desabilitarAcoes}>
-              Discard
+            <button
+              type="button"
+              className="btn-icone"
+              onClick={descartar}
+              disabled={!haAlteracoes || desabilitarAcoes}
+              aria-label="Discard"
+              title="Discard"
+            >
+              <IconeDescartar />
             </button>
-            <button type="button" onClick={() => void salvar()} disabled={!haAlteracoes || desabilitarAcoes}>
-              {salvando ? 'Saving…' : 'Save'}
+            <button
+              type="button"
+              className="btn-icone"
+              onClick={() => void salvar()}
+              disabled={!haAlteracoes || desabilitarAcoes}
+              aria-label={salvando ? 'Saving…' : 'Save'}
+              title={salvando ? 'Saving…' : 'Save'}
+            >
+              <IconeSalvar />
             </button>
           </div>
         </div>
@@ -479,21 +494,27 @@ export function GenerosTagsPage() {
           <div className="modal-acoes">
             <button
               type="button"
+              className="btn-icone"
               onClick={async () => {
                 const ok = await salvar();
                 if (ok) blocker.proceed();
               }}
+              aria-label="Save and leave"
+              title="Save and leave"
             >
-              Save and leave
+              <IconeSalvar />
             </button>
             <button
               type="button"
+              className="btn-icone btn-icone-perigo"
               onClick={() => {
                 descartar();
                 blocker.proceed();
               }}
+              aria-label="Discard and leave"
+              title="Discard and leave"
             >
-              Discard and leave
+              <IconeLixeira />
             </button>
             <button type="button" onClick={() => blocker.reset()}>
               Keep editing
