@@ -24,6 +24,33 @@ export async function adicionarValorLista(categoria: Categoria, valor: string): 
 }
 
 /**
+ * Promove pro catálogo (`listas`) os valores de generos/tags que uma obra
+ * acabou de gravar mas que ainda não existem lá (comparação sem diferenciar
+ * maiúsc/minúsc) — cobre o caso de digitar um valor novo direto no TagPicker
+ * de Cadastrar/Detalhe, que sem isso ficava só em obras.generos/tags,
+ * invisível em Settings > Genres/Tags e nas sugestões de outras obras.
+ * Best-effort: uma falha aqui nunca deve derrubar o salvamento da obra.
+ */
+export async function sincronizarCatalogoDeObra(
+  categoria: Categoria,
+  valores: string[] | null | undefined
+): Promise<void> {
+  if (!valores || valores.length === 0) return;
+  const existentes = await db.listas.where('categoria').equals(categoria).toArray();
+  const conhecidos = new Set(existentes.map((i) => i.valor.toLowerCase()));
+  for (const valor of valores) {
+    const limpo = valor.trim();
+    if (!limpo || conhecidos.has(limpo.toLowerCase())) continue;
+    conhecidos.add(limpo.toLowerCase());
+    try {
+      await adicionarValorLista(categoria, limpo);
+    } catch (err) {
+      console.warn('Falha ao sincronizar valor novo no catálogo (listas)', categoria, limpo, err);
+    }
+  }
+}
+
+/**
  * Renomeia um valor do catálogo (categoria/valor) via RPC, que também
  * atualiza `obras.generos`/`obras.tags` em todas as obras que o usam (as
  * colunas são arrays soltos, sem FK — a propagação é responsabilidade do

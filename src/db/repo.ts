@@ -2,6 +2,7 @@ import { db, enqueueMutation } from './localDb';
 import { newId } from '../lib/id';
 import { deriveSite } from '../lib/site';
 import { escolherDuplicata, type ObraDuplicada } from '../lib/duplicatas';
+import { sincronizarCatalogoDeObra } from '../lib/listas';
 import { syncNow } from '../sync/sync';
 import type {
   FamiliaTipo,
@@ -26,6 +27,8 @@ export async function createObra(input: NovaObra, dispararSync = true): Promise<
   await db.obras.put(obra);
   await enqueueMutation({ entity: 'obras', op: 'insert', recordId: obra.id, payload: obra });
   if (dispararSync) triggerBackgroundSync();
+  void sincronizarCatalogoDeObra('genero', obra.generos);
+  void sincronizarCatalogoDeObra('tag', obra.tags);
   return obra;
 }
 
@@ -72,6 +75,8 @@ export async function updateObra(id: string, changes: Partial<NovaObra>): Promis
   if (!full) return;
   await enqueueMutation({ entity: 'obras', op: 'update', recordId: id, payload: full });
   triggerBackgroundSync();
+  if ('generos' in changes) void sincronizarCatalogoDeObra('genero', changes.generos as string[] | null);
+  if ('tags' in changes) void sincronizarCatalogoDeObra('tag', changes.tags as string[] | null);
 
   // Espelha os quatro campos (título, títulos alternativos, gêneros, tags) pra
   // obra vinculada (manga<->novel da mesma história). espelharCampos grava direto
