@@ -2,13 +2,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { db } from '../db/localDb';
-import { removerValorLista, renomearValorLista } from '../lib/listas';
+import { adicionarValorLista, removerValorLista, renomearValorLista, sincronizarCatalogoDeObra } from '../lib/listas';
 import { mensagemDeErro } from '../lib/erros';
 import { useListaItensPorCategoria } from '../hooks/useListas';
 import { useDialogos } from '../components/Dialogo';
 import { useToast } from '../components/Toast';
 import { ModalBase } from '../components/ModalBase';
-import { IconeDescartar, IconeLixeira, IconeSalvar } from '../components/Icones';
+import { IconeDescartar, IconeLixeira, IconeMais, IconeRefresh, IconeSalvar } from '../components/Icones';
 import type { Categoria, ListaItem } from '../types';
 
 type Pendente = { tipo: 'renomear'; valorNovo: string } | { tipo: 'excluir' };
@@ -36,6 +36,7 @@ interface SecaoProps {
   onDesfazerExcluir: (id: string) => void;
   onAlternarSelecao: (id: string) => void;
   onExcluirSelecionados: () => void;
+  onAdicionar: () => void;
 }
 
 /** Uma seção (Genres ou Tags): grid de 2 colunas com seleção em lote e edição inline. */
@@ -57,6 +58,7 @@ function Secao({
   onDesfazerExcluir,
   onAlternarSelecao,
   onExcluirSelecionados,
+  onAdicionar,
 }: SecaoProps) {
   const q = busca.trim().toLowerCase();
   const visiveis = itens
@@ -77,6 +79,16 @@ function Secao({
     <section className="generos-tags-secao">
       <h2>
         {titulo} <span className="generos-tags-secao-contagem">({itens.length})</span>
+        <button
+          type="button"
+          className="btn-icone generos-tags-secao-adicionar"
+          onClick={onAdicionar}
+          disabled={loteEmAndamento}
+          title={`Add ${titulo.toLowerCase().replace(/s$/, '')}`}
+          aria-label={`Add new ${titulo.toLowerCase()}`}
+        >
+          <IconeMais />
+        </button>
       </h2>
 
       {selecionados.size > 0 && (
@@ -202,7 +214,7 @@ function alternarSelecao(setter: Dispatch<SetStateAction<Set<string>>>, id: stri
  * local por item, indexado pelo id da linha em `listas`).
  */
 export function GenerosTagsPage() {
-  const { confirmar } = useDialogos();
+  const { confirmar, pedirTexto } = useDialogos();
   const { mostrarToast } = useToast();
 
   const generos = useListaItensPorCategoria('genero');
@@ -218,6 +230,7 @@ export function GenerosTagsPage() {
   const [salvando, setSalvando] = useState(false);
   const [progresso, setProgresso] = useState<{ feito: number; total: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
 
   const haAlteracoes = Object.keys(pendentes).length > 0;
 
@@ -325,6 +338,54 @@ export function GenerosTagsPage() {
     setErro(null);
   }
 
+  async function adicionarNovoValor(categoria: Categoria) {
+    const rotulo = categoria === 'genero' ? 'genre' : 'tag';
+    const texto = await pedirTexto({
+      titulo: `New ${rotulo}`,
+      mensagem: `Name of the new ${rotulo}:`,
+      confirmarRotulo: 'Add',
+    });
+    if (texto === null) return;
+    const limpo = texto.trim();
+    if (!limpo) return;
+    const itens = categoria === 'genero' ? generos : tags;
+    if (itens.some((i) => i.valor.toLowerCase() === limpo.toLowerCase())) {
+      mostrarToast(`"${limpo}" already exists`, 'info');
+      return;
+    }
+    try {
+      await adicionarValorLista(categoria, limpo);
+      mostrarToast(`"${limpo}" added`);
+    } catch (err) {
+      mostrarToast(mensagemDeErro(err), 'erro');
+    }
+  }
+
+  async function sincronizar() {
+    setSincronizando(true);
+    try {
+      const todasObras = obras ?? [];
+      const generosUsados = new Set<string>();
+      const tagsUsadas = new Set<string>();
+      for (const obra of todasObras) {
+        for (const g of obra.generos ?? []) if (g.trim()) generosUsados.add(g.trim());
+        for (const t of obra.tags ?? []) if (t.trim()) tagsUsadas.add(t.trim());
+      }
+      const antesGeneros = generos.length;
+      const antesTags = tags.length;
+      await sincronizarCatalogoDeObra('genero', [...generosUsados]);
+      await sincronizarCatalogoDeObra('tag', [...tagsUsadas]);
+      const depoisGeneros = await db.listas.where('categoria').equals('genero').count();
+      const depoisTags = await db.listas.where('categoria').equals('tag').count();
+      const adicionados = depoisGeneros - antesGeneros + (depoisTags - antesTags);
+      mostrarToast(adicionados > 0 ? `${adicionados} item(s) synced` : 'Everything already synced');
+    } catch (err) {
+      mostrarToast(mensagemDeErro(err), 'erro');
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
   const salvar = useCallback(async (): Promise<boolean> => {
     const todosItens = [...generos, ...tags];
     const porId = new Map(todosItens.map((i) => [i.id, i]));
@@ -422,6 +483,16 @@ export function GenerosTagsPage() {
             <button
               type="button"
               className="btn-icone"
+              onClick={() => void sincronizar()}
+              disabled={sincronizando || desabilitarAcoes}
+              aria-label={sincronizando ? 'Syncing…' : 'Sync catalog with works'}
+              title={sincronizando ? 'Syncing…' : 'Sync catalog with works'}
+            >
+              <IconeRefresh />
+            </button>
+            <button
+              type="button"
+              className="btn-icone"
               onClick={descartar}
               disabled={!haAlteracoes || desabilitarAcoes}
               aria-label="Discard"
@@ -464,6 +535,7 @@ export function GenerosTagsPage() {
           onDesfazerExcluir={desfazerExcluir}
           onAlternarSelecao={(id) => alternarSelecao(setSelecionadosGeneros, id)}
           onExcluirSelecionados={() => excluirSelecionados(selecionadosGeneros, () => setSelecionadosGeneros(new Set()))}
+          onAdicionar={() => void adicionarNovoValor('genero')}
         />
         <Secao
           titulo="Tags"
@@ -483,6 +555,7 @@ export function GenerosTagsPage() {
           onDesfazerExcluir={desfazerExcluir}
           onAlternarSelecao={(id) => alternarSelecao(setSelecionadosTags, id)}
           onExcluirSelecionados={() => excluirSelecionados(selecionadosTags, () => setSelecionadosTags(new Set()))}
+          onAdicionar={() => void adicionarNovoValor('tag')}
         />
       </div>
 
