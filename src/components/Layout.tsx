@@ -15,6 +15,22 @@ function formatHora(date: Date | null): string {
 }
 
 /**
+ * Força o browser a reconferir o service worker (bypassa o throttle de ~24h
+ * do check automático) e recarrega a aba se uma versão nova assumir o
+ * controle. O SW gerado (registerType: 'autoUpdate') já faz skipWaiting +
+ * clientsClaim sozinho — só faltava algo chamando update() e reagindo ao
+ * controllerchange. Sem toast quando não há nada novo: o botão de sync já é
+ * clicado com frequência, e o próprio reload já é o feedback inequívoco.
+ */
+async function checarAtualizacaoApp(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return;
+  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+  await reg.update();
+}
+
+/**
  * Botão do Edit mode, na extremidade direita da linha das abas. Aparece em
  * TODAS as abas pra a linha não mudar de altura nem de composição ao navegar;
  * fora da aba List (e nela no Grid) fica "só a sombra". O disabled cobre
@@ -65,6 +81,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { online, syncing, lastSyncAt, lastError, syncAgora } = useSync();
   const { tema, ciclarTema } = useTema();
 
+  function sincronizar() {
+    syncAgora();
+    void checarAtualizacaoApp();
+  }
+
   return (
     <DialogosProvider>
       <ModoEdicaoProvider>
@@ -81,7 +102,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 {TEMA_INFO[tema].icone}
               </button>
               <span className={`sync-dot ${online ? 'online' : 'offline'}`} title={online ? 'Online' : 'Offline'} />
-              <button type="button" onClick={syncAgora} disabled={syncing || !online} className="sync-button">
+              <button
+                type="button"
+                onClick={sincronizar}
+                disabled={syncing || !online}
+                className="sync-button"
+                title="Sync data and check for app updates"
+              >
                 {syncing ? 'Syncing…' : `Synced at ${formatHora(lastSyncAt)}`}
               </button>
               {lastError !== null && <span className="sync-error" title={mensagemDeErro(lastError)}>sync error</span>}

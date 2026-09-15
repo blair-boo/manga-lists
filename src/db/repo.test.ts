@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// `repo.ts` importa `syncNow` de ../sync/sync, que carrega o supabaseClient e
-// esse lança no import quando VITE_SUPABASE_URL/ANON_KEY não existem. O mock
-// (içado pelo vitest antes dos imports) corta a cadeia e, de quebra, garante
-// que nenhum teste tente falar com a rede.
+// `repo.ts` importa `syncNow` de ../sync/sync e `sincronizarCatalogoDeObra` de
+// ../lib/listas — os dois carregam supabaseClient, que lança no import quando
+// VITE_SUPABASE_URL/ANON_KEY não existem. Os mocks (içados pelo vitest antes
+// dos imports) cortam as duas cadeias e, de quebra, garantem que nenhum teste
+// tente falar com a rede.
 vi.mock('../sync/sync', () => ({ syncNow: vi.fn(() => Promise.resolve()) }));
+vi.mock('../lib/listas', () => ({ sincronizarCatalogoDeObra: vi.fn(() => Promise.resolve()) }));
 
 const { createFonte, createObra, updateFonte, deleteFonte } = await import('./repo');
 const { db } = await import('./localDb');
