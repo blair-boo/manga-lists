@@ -337,19 +337,43 @@ async function pullFontes(): Promise<void> {
   const rows = await buscarTudoPaginado<Fonte>((from, to) =>
     supabase.from('fontes').select('*').order('id', { ascending: true }).range(from, to)
   );
+  await reconciliarTabela('fontes', db.fontes, rows);
+}
 
-  const pendentes = await db.syncQueue.where('entity').equals('fontes').toArray();
-  const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
+/**
+ * Espelha no Dexie o conteúdo completo de uma tabela do servidor SEM `clear()`:
+ * regrava as linhas do servidor (menos as com mutação pendente) e remove só as
+ * locais que sumiram do servidor (também menos as pendentes). O antigo
+ * clear()+bulkPut apagava e recriava a tabela inteira numa transação — uma
+ * escrita local concorrente (ex.: fonte criada no meio do ciclo) era varrida, e
+ * uma transação travada deixava o ciclo preso em "Syncing…" para sempre.
+ *
+ * A fila é lida DENTRO da transação (junto com a tabela), então uma mutação
+ * enfileirada antes dela começar é sempre vista.
+ */
+async function reconciliarTabela<T extends { id: string }>(
+  entity: 'fontes' | 'listas',
+  tabela: {
+    bulkPut: (rows: T[]) => PromiseLike<unknown>;
+    bulkDelete: (ids: string[]) => PromiseLike<unknown>;
+    toCollection: () => { primaryKeys: () => PromiseLike<unknown[]> };
+  },
+  rows: T[]
+): Promise<void> {
+  // Resposta vazia sem erro é quase sempre problema transitório (auth expirando),
+  // não "conta sem nada": não apaga o espelho local por causa dela.
+  const idsServidor = new Set(rows.map((r) => r.id));
+  await db.transaction('rw', [db[entity], db.syncQueue], async () => {
+    const pendentes = await db.syncQueue.where('entity').equals(entity).toArray();
+    const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
 
-  // Transação: sem isso, uma useLiveQuery que rode bem entre o clear() e o
-  // bulkPut() (operações separadas) veria a tabela momentaneamente vazia — ex.:
-  // a seção Sources da obra piscando "No sources yet." no meio de um sync.
-  await db.transaction('rw', db.fontes, async () => {
-    const aManter = protegidos.size > 0 ? await db.fontes.where('id').anyOf([...protegidos]).toArray() : [];
-    await db.fontes.clear();
     const aAplicar = rows.filter((r) => !protegidos.has(r.id));
-    if (aAplicar.length > 0) await db.fontes.bulkPut(aAplicar);
-    if (aManter.length > 0) await db.fontes.bulkPut(aManter);
+    if (aAplicar.length > 0) await tabela.bulkPut(aAplicar);
+
+    if (rows.length === 0) return;
+    const idsLocais = (await tabela.toCollection().primaryKeys()) as string[];
+    const remover = idsLocais.filter((id) => !idsServidor.has(id) && !protegidos.has(id));
+    if (remover.length > 0) await tabela.bulkDelete(remover);
   });
 }
 
@@ -357,10 +381,7 @@ async function pullListas(): Promise<void> {
   const rows = await buscarTudoPaginado<ListaItem>((from, to) =>
     supabase.from('listas').select('*').order('id', { ascending: true }).range(from, to)
   );
-  await db.transaction('rw', db.listas, async () => {
-    await db.listas.clear();
-    if (rows.length > 0) await db.listas.bulkPut(rows);
-  });
+  await reconciliarTabela('listas', db.listas, rows);
 }
 
 let syncEmAndamento: Promise<{ ok: boolean; error?: unknown }> | null = null;
@@ -391,8 +412,29 @@ async function executarCicloSync(): Promise<{ ok: boolean; error?: unknown }> {
   }
 }
 
+// Teto de duração de um ciclo. Sem ele, uma chamada que nunca responde (rede
+// que cai no meio, aba em segundo plano no iOS) deixava syncEmAndamento preso
+// e o app em "Syncing…" para sempre, sem nenhum novo ciclo conseguir começar.
+export const TEMPO_MAXIMO_CICLO_MS = 90_000;
+
+export function comLimiteDeTempo(
+  ciclo: Promise<{ ok: boolean; error?: unknown }>,
+  limiteMs = TEMPO_MAXIMO_CICLO_MS
+): Promise<{ ok: boolean; error?: unknown }> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.error('Sincronização excedeu o tempo limite, liberando para uma nova tentativa');
+      resolve({ ok: false, error: 'Sync timed out, will try again' });
+    }, limiteMs);
+    void ciclo.then((r) => {
+      clearTimeout(timer);
+      resolve(r);
+    });
+  });
+}
+
 function iniciarCiclo(): Promise<{ ok: boolean; error?: unknown }> {
-  const execucao = executarCicloSync().finally(() => {
+  const execucao = comLimiteDeTempo(executarCicloSync()).finally(() => {
     syncEmAndamento = null;
     if (reSyncPendente && isOnline()) {
       reSyncPendente = false;
