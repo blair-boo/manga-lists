@@ -23,6 +23,7 @@ from adapters_novos import (
     MagustoonAdapter,
     ReadhiveAdapter,
     SakurazeAdapter,
+    TempletoonsAdapter,
     _desembrulhar_resultado as comix_desembrulhar,
     _extrair_json as comix_extrair_json,
     _order as comix_order,
@@ -590,3 +591,42 @@ def test_desempate_nao_mexe_em_chave_unica():
     caps = [CapituloDetectado(chave="1", numero=1.0), CapituloDetectado(chave="2", numero=2.0)]
     desempatar_chaves(caps)
     assert [c.chave for c in caps] == ["1", "2"]
+
+
+# --- Temple Scan (templetoons.com) -------------------------------------------
+
+
+def test_templetoons_matches_so_pelo_host():
+    a = TempletoonsAdapter()
+    assert a.matches("https://templetoons.com/comic/x")
+    assert a.matches("https://www.templetoons.com/")
+    assert not a.matches("https://outrosite.com/comic/x")
+
+
+def test_templetoons_parse_ultimo_capitulo_decimal_e_status():
+    raw = RawContent("ok", "https://templetoons.com/comic/a-cheap-romance-complete-edition", text=fixture("templetoons_obra.html"))
+    r = TempletoonsAdapter().parse(raw)
+    assert r.status == STATUS_OK
+    assert r.ultimo_capitulo == 12
+    assert r.link_capitulo == "https://templetoons.com/comic/a-cheap-romance-complete-edition/15574-chapter-12"
+    assert r.titulo_site == "A cheap romance [Complete Edition]"
+    assert r.status_publicacao_detectado == "Ongoing"
+
+
+def test_templetoons_listar_capitulos_sem_duplicata_e_com_decimal():
+    raw = RawContent("ok", "https://templetoons.com/comic/a-cheap-romance-complete-edition", text=fixture("templetoons_obra.html"))
+    caps = TempletoonsAdapter().listar_capitulos(raw)
+    assert [c.numero for c in caps] == [1.0, 8.0, 8.5, 9.0, 12.0]
+    assert [c.chave for c in caps] == ["1", "8", "8.5", "9", "12"]
+    assert caps[2].url.endswith("/chapter-8-5")
+    assert caps[4].url.endswith("/15574-chapter-12")
+    assert all(not c.bloqueado for c in caps)
+
+
+def test_templetoons_bloqueado_e_fora_do_formato():
+    a = TempletoonsAdapter()
+    bloqueado = RawContent("acesso_bloqueado", "https://templetoons.com/comic/x", diagnostico="challenge")
+    assert a.parse(bloqueado).status == STATUS_BLOQUEADO
+    assert a.listar_capitulos(bloqueado) is None
+    estranho = RawContent("ok", "https://templetoons.com/comic/x", text="<html><body>nada</body></html>")
+    assert a.parse(estranho).status == STATUS_INVALIDA

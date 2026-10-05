@@ -400,6 +400,7 @@ from adapters_novos import (  # noqa: E402
     NovelsHubAdapter,
     ReadhiveAdapter,
     SakurazeAdapter,
+    TempletoonsAdapter,
     TsThemeAdapter,
     VymangaAdapter,
 )
@@ -427,6 +428,7 @@ REGISTRY = AdapterRegistry(
         VymangaAdapter(),
         MangaFoxAdapter(),
         SakurazeAdapter(),
+        TempletoonsAdapter(),
     ]
 )
 
