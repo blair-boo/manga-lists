@@ -2,16 +2,16 @@
 
 :root {
   --text: #1f1a24;
-  --text-h: #0d0712;
-  --bg: #5d7cab;
-  --bg-raised: #aab9d2;
-  --border: #435984;
-  --accent: #1e1440;
-  --accent-bg: rgba(30, 20, 64, 0.1);
-  --accent-border: rgba(30, 20, 64, 0.5);
+  --text-h: #e8f1ff;
+  --bg: #89b6f5;
+  --bg-raised: #e8f1ff;
+  --border: #3f5da8;
+  --accent: #91c0e8;
+  --accent-bg: rgba(145, 192, 232, 0.1);
+  --accent-border: rgba(145, 192, 232, 0.5);
   --danger: #911514;
   --ok: #5dac8e;
-  --warn: #cc7800;
+  --warn: #f9d266;
   --info: #98ccf0;
   --info-bg: rgba(152, 204, 240, 0.1);
   --info-border: rgba(152, 204, 240, 0.5);
@@ -71,8 +71,29 @@
   box-sizing: border-box;
 }
 
+/* Céu só no tema claro (sem máscara); o escuro volta à cor sólida. */
 body {
   margin: 0;
+}
+
+/* A imagem fica no <html> (que já tem o background do tema): é ele que vira o
+   fundo do canvas, mesmo com o body sem altura. */
+:root {
+  background-image: url('../assets/ceu.webp');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    background-image: none;
+  }
+}
+
+:root[data-theme='dark'] {
+  background-image: none;
 }
 
 h1, h2, h3 {

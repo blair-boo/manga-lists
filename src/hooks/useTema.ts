@@ -12,7 +12,7 @@ function lerTemaSalvo(): TemaPref {
 // --accent claro/escuro de src/styles/base.css, duplicado de propósito (mesmo
 // motivo do script inline em index.html, que faz a mesma coisa antes do 1º
 // paint): não dá pra ler uma custom property antes do CSS carregar.
-const ACCENT_POR_TEMA: Record<'light' | 'dark', string> = { light: '#1e1440', dark: '#6c7bc0' };
+const ACCENT_POR_TEMA: Record<'light' | 'dark', string> = { light: '#91c0e8', dark: '#6c7bc0' };
 
 function temaResolvido(pref: TemaPref): 'light' | 'dark' {
   if (pref === 'system') return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
