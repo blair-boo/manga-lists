@@ -1328,3 +1328,141 @@ class ComixAdapter(SourceAdapter):
     def url_da_fonte(self, url: str, slug: str) -> str:
         # `slug` aqui é a URL canônica relativa que a API já devolve pronta.
         return urljoin(self._base(url) + "/", slug.lstrip("/"))
+
+
+# --- Temple Scan (templetoons.com, Next.js atrás de Turnstile) --------------
+
+_TEMPLE_HOST = "templetoons.com"
+# Grupos: slug, trecho final da URL (com o id numérico à frente nas obras antigas,
+# ex. "15574-chapter-12"), número do capítulo.
+_TEMPLE_CAP_RE = re.compile(r'href="/comic/([^"/]+)/((?:\d+-)?chapter-(\d+(?:-\d+)?))"')
+_TEMPLE_SITEMAP_RE = re.compile(r"<loc>https://templetoons\.com/comic/([^/<]+)</loc>")
+_TEMPLE_STATUS = {"ongoing": "Ongoing", "completed": "Completed", "hiatus": "Hiatus", "dropped": "Canceled"}
+
+
+def _temple_numero(texto: str) -> float:
+    """'44' -> 44.0; '8-5' -> 8.5 (o site troca o ponto decimal por hífen na URL)."""
+    return float(texto.replace("-", "."))
+
+
+def _fetch_curl_cffi(url: str) -> RawContent:
+    """
+    GET impersonando o TLS do Chrome (curl_cffi). O templetoons redireciona pra
+    /challenge (Turnstile) qualquer cliente cujo fingerprint TLS não seja de
+    browser — requests, cloudscraper e curl levam 307 —, mas com a impersonação
+    a página vem direto, sem resolver captcha. Sem curl_cffi instalado, cai no
+    fetch_http (que vai devolver acesso_bloqueado, como qualquer outro).
+    """
+    try:
+        from curl_cffi import requests as cffi
+    except ImportError:
+        return fetch_http(url)
+    try:
+        resp = cffi.get(url, impersonate="chrome131", timeout=30, allow_redirects=False)
+    except Exception as exc:  # noqa: BLE001 - qualquer falha de rede vira RawContent
+        return RawContent("erro", url, diagnostico=str(exc))
+    if resp.status_code in (301, 302, 307, 308) and "/challenge" in (resp.headers.get("location") or ""):
+        return RawContent("acesso_bloqueado", url, diagnostico="redirecionado pro challenge Turnstile")
+    if resp.status_code in (403, 503):
+        return RawContent("acesso_bloqueado", url, diagnostico=f"HTTP {resp.status_code}")
+    if resp.status_code >= 400:
+        return RawContent("erro", url, diagnostico=f"HTTP {resp.status_code}")
+    return RawContent("ok", url, text=resp.text)
+
+
+class TempletoonsAdapter(SourceAdapter):
+    """
+    Temple Scan. Site único (por isso `matches` olha o host, sem request: o
+    fingerprint por conteúdo exigiria passar pelo Turnstile só pra detectar).
+
+    Verificado ao vivo em 2026-10-05 com curl_cffi: a página da obra
+    (/comic/<slug>) traz TODOS os capítulos como links
+    /comic/<slug>/chapter-<n> (44 de 44 numa obra de teste, sem buracos);
+    decimais viram hífen (chapter-8-5 = 8.5). O sitemap.xml lista o acervo
+    inteiro (285 obras) e serve de catálogo. Sem paywall nem moeda no HTML,
+    então todo capítulo entra como livre.
+    """
+
+    id = "templetoons"
+    display_name = "Temple Scan (templetoons.com, Next.js)"
+    access_strategy_padrao = ACCESS_HTTP
+
+    def matches(self, url: str) -> bool:
+        return host_de_url(url) == _TEMPLE_HOST
+
+    def fetch(self, url: str, access_strategy: str) -> RawContent:
+        # O acesso é sempre via curl_cffi; a estratégia do domínio fica 'http'
+        # pra os estágios de catálogo/descoberta (que só rodam com 'http') o usarem.
+        return _fetch_curl_cffi(url)
+
+    def parse(self, raw: RawContent) -> ParseResult:
+        if raw.status == "acesso_bloqueado":
+            return ParseResult(STATUS_BLOQUEADO, diagnostico=raw.diagnostico)
+        if raw.status != "ok" or not raw.text:
+            return ParseResult(STATUS_ERRO, diagnostico=raw.diagnostico or "sem conteúdo")
+
+        slug = urlparse(raw.url).path.strip("/").split("/")[1:2]
+        achados = [(s_, t, n) for s_, t, n in _TEMPLE_CAP_RE.findall(raw.text) if not slug or s_ == slug[0]]
+        if not achados:
+            if "/comic/" not in raw.text:
+                return ParseResult(STATUS_INVALIDA, diagnostico="não parece uma página de obra do Temple Scan")
+            return ParseResult(STATUS_VAZIA, diagnostico="página reconhecida, sem links de capítulo")
+
+        s_maior, t_maior, n_maior = max(achados, key=lambda x: _temple_numero(x[2]))
+        p = urlparse(raw.url)
+        link = f"{p.scheme}://{p.netloc}/comic/{s_maior}/{t_maior}"
+        status_pub = None
+        for chave, valor in _TEMPLE_STATUS.items():
+            if re.search(rf">\s*{chave}\s*<", raw.text, re.I):
+                status_pub = valor
+                break
+        return ParseResult(
+            STATUS_OK,
+            titulo_site=re.sub(r"\s*-\s*Temple Scan\s*$", "", extrair_titulo_pagina(raw.text)) or None,
+            ultimo_capitulo=_temple_numero(n_maior),
+            link_capitulo=link,
+            tipo_detectado=detectar_tipo(raw.url, raw.text),
+            status_publicacao_detectado=status_pub,
+        )
+
+    def listar_capitulos(self, raw: RawContent) -> list[CapituloDetectado] | None:
+        if raw.status != "ok" or not raw.text:
+            return None
+        slug = urlparse(raw.url).path.strip("/").split("/")[1:2]
+        por_numero = {n: t for s_, t, n in _TEMPLE_CAP_RE.findall(raw.text) if not slug or s_ == slug[0]}
+        numeros = sorted(por_numero, key=_temple_numero)
+        if not numeros or not slug:
+            return None
+        p = urlparse(raw.url)
+        base = f"{p.scheme}://{p.netloc}/comic/{slug[0]}"
+        capitulos = []
+        for i, texto in enumerate(numeros, start=1):
+            numero = _temple_numero(texto)
+            rotulo = f"Chapter {int(numero) if numero.is_integer() else numero}"
+            capitulos.append(
+                CapituloDetectado(
+                    chave=chave_capitulo(numero, False),
+                    numero=numero,
+                    numero_texto=rotulo,
+                    titulo=rotulo,
+                    side_story=False,
+                    url=f"{base}/{por_numero[texto]}",
+                    bloqueado=False,
+                    ordem=float(i),
+                )
+            )
+        return capitulos
+
+    # Catálogo pelo sitemap (as páginas de listagem são paginadas por JS e
+    # trazem só 15 obras por vez).
+    def listar_catalogo(self, url: str) -> list[tuple[str, str]]:
+        raw = _fetch_curl_cffi(f"https://{_TEMPLE_HOST}/sitemap.xml")
+        if raw.status != "ok" or not raw.text:
+            return []
+        return [(slug.replace("-", " ").title(), slug) for slug in dict.fromkeys(_TEMPLE_SITEMAP_RE.findall(raw.text))]
+
+    def buscar(self, url: str, titulo: str) -> list[tuple[str, str]]:
+        return self.listar_catalogo(url)
+
+    def url_da_fonte(self, url: str, slug: str) -> str:
+        return f"https://{_TEMPLE_HOST}/comic/{slug}"
