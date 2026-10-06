@@ -264,6 +264,30 @@ python scraper/reader_varredura.py --obra <uuid>  # só uma (útil pra estrear)
 duplicar. O workflow `.github/workflows/reader-varredura.yml` existe só com
 disparo manual — o cron quinzenal está comentado, pra ligar quando quiser.
 
+## 10. Backup para o Cloudflare R2
+
+O workflow `.github/workflows/backup.yml` roda todo domingo (06:00 UTC) e também sob demanda (Actions > Backup > Run workflow). O código está em `scraper/backup_supabase.py`.
+
+**Secrets necessários** (além de `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT` (`https://<ACCOUNT_ID>.r2.cloudflarestorage.com`) e `R2_BUCKET`. Use um token do R2 com permissão Object Read & Write restrita a esse bucket.
+
+**O que fica no bucket**
+
+| Caminho | Conteúdo | Retenção |
+|---|---|---|
+| `db/weekly/AAAA-MM-DD/` | um `.json` por tabela (13) + `manifest.json` | 4 mais novos |
+| `db/monthly/AAAA-MM/` | o mesmo, gravado no primeiro domingo do mês | 4 mais novos |
+| `storage/<bucket>/` | espelho das imagens/arquivos (`capas`, `icons`, `imagens-importadas`, `reader`) | ver abaixo |
+
+Semanal só substitui semanal e mensal só substitui mensal. A poda roda só depois de o envio do dia dar certo.
+
+**Imagens:** a cada execução só é baixado do Supabase o que falta no R2 (ou mudou de tamanho), pra poupar o tráfego do Supabase. Nada é apagado do R2 durante o ano, então uma exclusão acidental continua recuperável. Em janeiro e julho (primeiro domingo) o que já não existe no Supabase é removido do R2. Essa limpeza é abortada se a listagem do Supabase vier vazia ou com menos da metade do que o R2 já guarda. Limitação: um arquivo substituído por outro com exatamente o mesmo tamanho não é reenviado.
+
+**Aba Settings > Backup:** lista os backups que existem hoje (os já apagados pela retenção não aparecem), mostra o próximo backup e o tamanho do bucket. O navegador não alcança o R2, então no fim de cada execução o workflow publica esse resumo na tabela `backup_status` do Supabase e a aba lê de lá. **Rode `supabase/migrations/0025_backup_status.sql` antes** (SQL Editor ou `apply_migration`); sem ela o backup continua funcionando, mas a aba fica vazia e o workflow registra um aviso. Por isso o tamanho mostrado é o do fim do último backup, não o do instante. A data do próximo backup é calculada no app a partir do cron (`src/lib/backup.ts`); se mudar o horário em `backup.yml`, mude lá também.
+
+**Restaurar**
+- Tabela: baixe `db/weekly/<data>/<tabela>.json` (ou `monthly`) pelo painel do R2 ou com `rclone copy` e reimporte (ex.: `upsert` pela API do Supabase). Os JSON são o conteúdo cru das tabelas.
+- Imagens: `rclone copy r2:<bucket>/storage/<bucket-do-supabase> <destino>` e suba de volta pelo Storage do Supabase.
+
 ## Estrutura do repositório
 
 ```

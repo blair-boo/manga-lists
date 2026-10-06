@@ -257,3 +257,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Backup: lista dos backups existentes (Settings > Backup). */
+.backup-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.backup-item-info,
+.backup-nota,
+.backup-vazio {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.backup-erro {
+  color: var(--danger);
+  font-size: 13px;
+}

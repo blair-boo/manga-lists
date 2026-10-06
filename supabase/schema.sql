@@ -365,3 +365,19 @@ create policy "authenticated_full_access_reader_fontes" on reader_fontes
 
 create policy "authenticated_full_access_reader_capitulos" on reader_capitulos
     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- Resumo do último backup para o R2 (Settings > Backup). Ver migrations/0025_backup_status.sql.
+create table backup_status (
+    id integer primary key default 1 check (id = 1),
+    atualizado_em timestamptz not null default now(),
+    snapshots jsonb not null default '[]'::jsonb,
+    tamanho_total_bytes bigint not null default 0,
+    tamanho_db_bytes bigint not null default 0,
+    tamanho_imagens_bytes bigint not null default 0,
+    objetos_imagens integer not null default 0
+);
+
+alter table backup_status enable row level security;
+
+create policy "authenticated_read_backup_status" on backup_status
+    for select using (auth.role() = 'authenticated');
