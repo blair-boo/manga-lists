@@ -76,24 +76,30 @@ body {
   margin: 0;
 }
 
-/* A imagem fica no <html> (que já tem o background do tema): é ele que vira o
-   fundo do canvas, mesmo com o body sem altura. */
-:root {
-  background-image: url('../assets/ceu.webp');
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+/* O céu vive num pseudo-elemento fixo que cobre a viewport inteira (inclusive
+   atrás da status bar e da barra do Safari). No <html> com background-attachment:
+   fixed o iOS ignora o fixed e a imagem só cobria a altura do layout (100svh),
+   deixando faixas de cor sólida em cima e embaixo. */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100lvh;
+  z-index: -1;
+  pointer-events: none;
+  background: url('../assets/ceu.webp') center / cover no-repeat;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    background-image: none;
+  :root:not([data-theme]) body::before {
+    display: none;
   }
 }
 
-:root[data-theme='dark'] {
-  background-image: none;
+:root[data-theme='dark'] body::before {
+  display: none;
 }
 
 h1, h2, h3 {
