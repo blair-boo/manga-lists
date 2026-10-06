@@ -412,6 +412,49 @@ async function executarCicloSync(): Promise<{ ok: boolean; error?: unknown }> {
   }
 }
 
+type EntidadeReader = 'reader_obras' | 'reader_fontes' | 'reader_capitulos';
+
+/**
+ * Remove localmente linhas de uma tabela do Reader que não existem mais no
+ * servidor. O pull incremental nunca vê linhas apagadas (só obras tinham essa
+ * reconciliação), então um capítulo/fonte apagado direto no servidor ficaria
+ * como "fantasma" local para sempre. Mesmas guardas de reconciliarObrasDeletadas:
+ * falha ou resposta vazia não apaga nada, e ids com insert/update pendente na
+ * syncQueue são preservados. Só roda no Hard Sync (custo extra de buscar todos
+ * os ids não vale pagar a cada 5 min).
+ */
+async function reconciliarReaderDeletadas(
+  entity: EntidadeReader,
+  tabela: {
+    bulkDelete: (ids: string[]) => PromiseLike<unknown>;
+    toCollection: () => { primaryKeys: () => PromiseLike<unknown[]> };
+  }
+): Promise<void> {
+  let idsServidor: Set<string>;
+  try {
+    const linhas = await buscarTudoPaginado<{ id: string }>((from, to) =>
+      supabase.from(entity).select('id').order('id', { ascending: true }).range(from, to)
+    );
+    idsServidor = new Set(linhas.map((r) => r.id));
+  } catch {
+    return;
+  }
+  if (idsServidor.size === 0) return;
+
+  const idsLocais = (await tabela.toCollection().primaryKeys()) as string[];
+  const candidatos = idsLocais.filter((id) => !idsServidor.has(id));
+  if (candidatos.length === 0) return;
+
+  // Lido na hora de deletar (não antes), pra cobrir mutações enfileiradas no meio.
+  const pendentes = await db.syncQueue.where('entity').equals(entity).toArray();
+  const protegidos = new Set(pendentes.filter((m) => m.op !== 'delete').map((m) => m.recordId));
+  const remover = candidatos.filter((id) => !protegidos.has(id));
+  if (remover.length > 0) await tabela.bulkDelete(remover);
+}
+
+// Tabelas com pull incremental (watermark em meta). fontes/listas já são full refresh.
+const ENTIDADES_INCREMENTAIS: SyncEntity[] = ['obras', 'reader_obras', 'reader_fontes', 'reader_capitulos'];
+
 // Teto de duração de um ciclo. Sem ele, uma chamada que nunca responde (rede
 // que cai no meio, aba em segundo plano no iOS) deixava syncEmAndamento preso
 // e o app em "Syncing…" para sempre, sem nenhum novo ciclo conseguir começar.
@@ -463,4 +506,32 @@ export function syncNow(): Promise<{ ok: boolean; error?: unknown }> {
 
   syncEmAndamento = iniciarCiclo();
   return syncEmAndamento;
+}
+
+/**
+ * Hard Sync: zera os watermarks do pull incremental e roda um ciclo completo,
+ * re-baixando tudo do servidor, e depois remove do Reader local o que foi
+ * apagado no servidor. A syncQueue NUNCA é limpa e as guardas de pull
+ * (pullIncremental/reconciliarTabela) preservam edições locais pendentes. Se
+ * falhar no meio, os watermarks seguem ausentes e o próximo sync repete o pull
+ * completo. Offline: não apaga nada.
+ */
+export async function hardSync(): Promise<{ ok: boolean; error?: unknown }> {
+  if (!isOnline()) return { ok: false, error: 'offline' };
+  // Espera ciclos em andamento (inclusive o re-sync encadeado): um ciclo que já
+  // leu o watermark antes de ele ser zerado faria um pull só incremental.
+  while (syncEmAndamento) await syncEmAndamento;
+  await db.meta.bulkDelete(ENTIDADES_INCREMENTAIS.map((e) => `lastSyncedAt:${e}`));
+  const resultado = await syncNow();
+  // A reconciliação roda mesmo com ciclo parcial (ex.: pendência que não
+  // enviou): ela só remove ids ausentes do servidor e tem guardas próprias.
+  try {
+    await reconciliarReaderDeletadas('reader_obras', db.reader_obras);
+    await reconciliarReaderDeletadas('reader_fontes', db.reader_fontes);
+    await reconciliarReaderDeletadas('reader_capitulos', db.reader_capitulos);
+  } catch (error) {
+    console.error('Erro ao reconciliar linhas apagadas do Reader', error);
+    return resultado.ok ? { ok: false, error } : resultado;
+  }
+  return resultado;
 }
