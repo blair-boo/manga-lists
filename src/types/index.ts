@@ -132,6 +132,24 @@ export interface ScraperRun {
   resumo: Record<string, number> | null;
 }
 
+/** Um backup que existe hoje no R2 (db/weekly/<nome> ou db/monthly/<nome>). */
+export interface BackupSnapshot {
+  tipo: 'weekly' | 'monthly';
+  nome: string;
+  tamanho_bytes: number;
+  linhas: number | null;
+}
+
+/** Linha única de backup_status, publicada pelo workflow de backup. */
+export interface BackupStatus {
+  atualizado_em: string;
+  snapshots: BackupSnapshot[];
+  tamanho_total_bytes: number;
+  tamanho_db_bytes: number;
+  tamanho_imagens_bytes: number;
+  objetos_imagens: number;
+}
+
 // ---------------------------------------------------------------------------
 // Reader — download, formatação e leitura de novels.
 //

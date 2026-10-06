@@ -11,6 +11,11 @@ não gastar o tráfego (egress) do Supabase toda semana. Em janeiro e julho
 (primeiro domingo) também apaga do R2 o que já não existe no Supabase, com uma
 trava de segurança contra listagens vazias/incompletas.
 
+No fim, publica um resumo (backups existentes + tamanho do bucket) na tabela
+backup_status do Supabase, que a aba Settings > Backup do app lê (o navegador
+não alcança o R2). Essa etapa NÃO derruba o backup se falhar (ex.: migration
+0025 ainda não aplicada): o backup em si já terminou nesse ponto.
+
 Falha alto de propósito: qualquer erro sai com código != 0, pra nunca tratar um
 backup parcial como válido (e a poda de backups antigos só roda depois do envio).
 """
@@ -22,7 +27,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -83,6 +88,23 @@ def planejar_storage(supabase: dict[str, int], r2: dict[str, int]) -> tuple[list
     baixar = sorted(p for p, tam in supabase.items() if r2.get(p) != tam)
     orfaos = sorted(p for p in r2 if p not in supabase)
     return baixar, orfaos
+
+
+def montar_status(
+    snapshots: list[dict], total: tuple[int, int], db_bytes: int, imagens: tuple[int, int]
+) -> dict:
+    """Linha única de backup_status. `total`/`imagens` = (bytes, objetos).
+    Snapshots ordenados do mais novo pro mais antigo, semanais antes dos mensais."""
+    por_nome = sorted(snapshots, key=lambda x: x['nome'], reverse=True)
+    ordenados = [x for x in por_nome if x['tipo'] == 'weekly'] + [x for x in por_nome if x['tipo'] != 'weekly']
+    return {
+        'id': 1,
+        'snapshots': ordenados,
+        'tamanho_total_bytes': total[0],
+        'tamanho_db_bytes': db_bytes,
+        'tamanho_imagens_bytes': imagens[0],
+        'objetos_imagens': imagens[1],
+    }
 
 
 def caminho_local_seguro(raiz: Path, relativo: str) -> Path | None:
@@ -170,6 +192,48 @@ def listar_r2(prefixo: str) -> dict[str, int]:
     return {i['Path']: int(i['Size']) for i in json.loads(saida or '[]')}
 
 
+def tamanho_r2(prefixo: str) -> tuple[int, int]:
+    """(bytes, objetos) sob um prefixo; (0, 0) se ele ainda não existe."""
+    try:
+        d = json.loads(rclone('size', '--json', prefixo))
+    except RuntimeError:
+        return 0, 0
+    return int(d['bytes']), int(d['count'])
+
+
+def coletar_snapshots(raiz_r2: str) -> list[dict]:
+    snapshots: list[dict] = []
+    for grupo in ('weekly', 'monthly'):
+        for pasta in rclone('lsf', '--dirs-only', f'{raiz_r2}/db/{grupo}').split():
+            nome = pasta.rstrip('/')
+            caminho = f'{raiz_r2}/db/{grupo}/{nome}'
+            linhas = None
+            try:
+                linhas = sum(json.loads(rclone('cat', f'{caminho}/manifest.json'))['linhas'].values())
+            except (RuntimeError, KeyError, ValueError):
+                pass
+            snapshots.append({'tipo': grupo, 'nome': nome, 'tamanho_bytes': tamanho_r2(caminho)[0], 'linhas': linhas})
+    return snapshots
+
+
+def publicar_status(s: requests.Session, base: str, raiz_r2: str) -> None:
+    status = montar_status(
+        coletar_snapshots(raiz_r2),
+        tamanho_r2(raiz_r2),
+        tamanho_r2(f'{raiz_r2}/db')[0],
+        tamanho_r2(f'{raiz_r2}/storage'),
+    )
+    status['atualizado_em'] = datetime.now(timezone.utc).isoformat()
+    r = s.post(
+        f'{base}/rest/v1/backup_status',
+        json=status,
+        headers={'Prefer': 'resolution=merge-duplicates,return=minimal'},
+        timeout=TIMEOUT,
+    )
+    r.raise_for_status()
+    print(f'  status publicado: {len(status["snapshots"])} backups, bucket {status["tamanho_total_bytes"]} bytes')
+
+
 # --- Orquestração ------------------------------------------------------------
 
 
@@ -239,6 +303,11 @@ def main() -> int:
         enviar_banco(raiz_r2, tmp / 'db', hoje)
         print('Espelhando imagens')
         espelhar_imagens(s, base, raiz_r2, tmp, hoje)
+    print('Publicando status no Supabase')
+    try:
+        publicar_status(s, base, raiz_r2)
+    except Exception as erro:  # o backup já terminou; só o painel do app fica sem atualizar
+        print(f'::warning::Backup ok, mas não consegui publicar o status: {erro}')
     print('Backup concluído')
     return 0
 

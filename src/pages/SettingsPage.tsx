@@ -7,7 +7,7 @@ import { limparCachesApp } from '../lib/cacheApp';
 import { mensagemDeErro } from '../lib/erros';
 import { hardSync, isOnline } from '../sync/sync';
 
-/** Aba Settings: sub-nav (Tests, Genres/Tags, Sources, Images, Format) + ações Hard Sync/Empty Cache + conteúdo da sub-aba ativa. */
+/** Aba Settings: sub-nav (Tests, Genres/Tags, Sources, Images, Format, Backup) + ações Hard Sync/Empty Cache + conteúdo da sub-aba ativa. */
 export function SettingsPage() {
   const { confirmar } = useDialogos();
   const { mostrarToast } = useToast();
@@ -64,6 +64,7 @@ export function SettingsPage() {
         <NavLink to="sources">Sources</NavLink>
         <NavLink to="images">Images</NavLink>
         <NavLink to="format">Format</NavLink>
+        <NavLink to="backup">Backup</NavLink>
         <button
           type="button"
           className="btn-icone settings-acao-icone"

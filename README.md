@@ -282,6 +282,8 @@ Semanal só substitui semanal e mensal só substitui mensal. A poda roda só dep
 
 **Imagens:** a cada execução só é baixado do Supabase o que falta no R2 (ou mudou de tamanho), pra poupar o tráfego do Supabase. Nada é apagado do R2 durante o ano, então uma exclusão acidental continua recuperável. Em janeiro e julho (primeiro domingo) o que já não existe no Supabase é removido do R2. Essa limpeza é abortada se a listagem do Supabase vier vazia ou com menos da metade do que o R2 já guarda. Limitação: um arquivo substituído por outro com exatamente o mesmo tamanho não é reenviado.
 
+**Aba Settings > Backup:** lista os backups que existem hoje (os já apagados pela retenção não aparecem), mostra o próximo backup e o tamanho do bucket. O navegador não alcança o R2, então no fim de cada execução o workflow publica esse resumo na tabela `backup_status` do Supabase e a aba lê de lá. **Rode `supabase/migrations/0025_backup_status.sql` antes** (SQL Editor ou `apply_migration`); sem ela o backup continua funcionando, mas a aba fica vazia e o workflow registra um aviso. Por isso o tamanho mostrado é o do fim do último backup, não o do instante. A data do próximo backup é calculada no app a partir do cron (`src/lib/backup.ts`); se mudar o horário em `backup.yml`, mude lá também.
+
 **Restaurar**
 - Tabela: baixe `db/weekly/<data>/<tabela>.json` (ou `monthly`) pelo painel do R2 ou com `rclone copy` e reimporte (ex.: `upsert` pela API do Supabase). Os JSON são o conteúdo cru das tabelas.
 - Imagens: `rclone copy r2:<bucket>/storage/<bucket-do-supabase> <destino>` e suba de volta pelo Storage do Supabase.

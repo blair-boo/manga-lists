@@ -10,6 +10,7 @@ from backup_supabase import (
     deve_gravar_mensal,
     deve_limpar_imagens,
     limpeza_segura,
+    montar_status,
     planejar_storage,
 )
 
@@ -66,3 +67,19 @@ def test_caminho_local_seguro_bloqueia_escape_da_pasta(tmp_path: Path):
     assert caminho_local_seguro(tmp_path, 'pasta/capa.jpg') == (tmp_path / 'pasta/capa.jpg').resolve()
     assert caminho_local_seguro(tmp_path, '../fora.txt') is None
     assert caminho_local_seguro(tmp_path, 'a/../../fora.txt') is None
+
+
+def test_status_ordena_semanais_antes_dos_mensais_do_mais_novo_ao_mais_antigo():
+    snaps = [
+        {'tipo': 'monthly', 'nome': '2026-09', 'tamanho_bytes': 1, 'linhas': 1},
+        {'tipo': 'weekly', 'nome': '2026-09-20', 'tamanho_bytes': 1, 'linhas': 1},
+        {'tipo': 'monthly', 'nome': '2026-10', 'tamanho_bytes': 1, 'linhas': 1},
+        {'tipo': 'weekly', 'nome': '2026-10-04', 'tamanho_bytes': 1, 'linhas': 1},
+    ]
+    status = montar_status(snaps, (1000, 7), 100, (900, 6))
+    assert [(x['tipo'], x['nome']) for x in status['snapshots']] == [
+        ('weekly', '2026-10-04'), ('weekly', '2026-09-20'), ('monthly', '2026-10'), ('monthly', '2026-09'),
+    ]
+    assert status['id'] == 1
+    assert (status['tamanho_total_bytes'], status['tamanho_db_bytes']) == (1000, 100)
+    assert (status['tamanho_imagens_bytes'], status['objetos_imagens']) == (900, 6)
