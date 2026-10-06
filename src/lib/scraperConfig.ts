@@ -139,9 +139,15 @@ export async function aprovarDominio(id: string, nome: string): Promise<void> {
   }
 }
 
-/** Rejeita um domínio pendente: manda pra blacklist (nunca mais sugerido) e mantém inativo. */
+/**
+ * Rejeita um domínio pendente: manda pra blacklist (nunca mais sugerido) e
+ * remove o pedido de sites_suportados — sem isso a linha ativo=false continuava
+ * na fila de pendentes e o domínio nunca saía da lista.
+ */
 export async function rejeitarDominio(nome: string, motivo?: string): Promise<void> {
   await adicionarDominioBloqueado(nome, motivo ?? 'Domain approval rejected');
+  const { error } = await supabase.from('sites_suportados').delete().eq('nome', nome).eq('ativo', false);
+  if (error) throw error;
 }
 
 export type ResultadoAdicaoDominio = 'ja_aprovado' | 'ativado' | 'criado';
