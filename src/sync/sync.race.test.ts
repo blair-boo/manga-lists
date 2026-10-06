@@ -43,7 +43,7 @@ vi.mock('../lib/supabaseClient', () => {
 
 const { createObra, createFonte, criarObraComFontes } = await import('../db/repo');
 const { db } = await import('../db/localDb');
-const { syncNow, comLimiteDeTempo } = await import('./sync');
+const { syncNow, hardSync, comLimiteDeTempo } = await import('./sync');
 
 const obraBase = {
   tipo: 'Manhwa', titulo: 'T', titulos_alternativos: null, autor: null, artistas: null, capa_url: null,
@@ -71,7 +71,10 @@ async function esperar(cond: () => Promise<boolean>, ms = 3000) {
 
 beforeEach(async () => {
   for (const k of Object.keys(servidor)) servidor[k] = [];
-  await Promise.all([db.obras.clear(), db.fontes.clear(), db.syncQueue.clear(), db.meta.clear(), db.listas.clear()]);
+  await Promise.all([
+    db.obras.clear(), db.fontes.clear(), db.syncQueue.clear(), db.meta.clear(), db.listas.clear(),
+    db.reader_obras.clear(), db.reader_fontes.clear(), db.reader_capitulos.clear(),
+  ]);
 });
 
 describe('sync x escrita local concorrente', () => {
@@ -120,6 +123,50 @@ describe('sync x escrita local concorrente', () => {
     await syncNow();
     const ids = (await db.fontes.toCollection().primaryKeys()).sort();
     expect(ids).toEqual(['a', 'nova']);
+  });
+
+  it('hardSync re-baixa linha defasada, preserva pendência local e a fila', async () => {
+    servidor.obras.push(
+      { id: 'o1', titulo: 'novo', atualizado_em: '2026-01-01T00:00:00Z' },
+      { id: 'o2', titulo: 'server', atualizado_em: '2026-01-01T00:00:00Z' }
+    );
+    await syncNow();
+    // local fica defasado SEM o servidor mudar atualizado_em: o incremental nunca corrige
+    await db.obras.update('o1', { titulo: 'defasado' });
+    await syncNow();
+    expect((await db.obras.get('o1'))?.titulo).toBe('defasado');
+
+    // o2 tem edição local pendente (push nulo não chega ao servidor)
+    await db.obras.update('o2', { titulo: 'editado local' });
+    await db.syncQueue.add({ entity: 'obras', op: 'update', recordId: 'o2', payload: null as never, createdAt: 'x' });
+
+    const r = await hardSync();
+    expect(r.ok).toBe(false); // pendência não enviada reporta falha, mas o pull rodou
+    expect((await db.obras.get('o1'))?.titulo).toBe('novo');
+    expect((await db.obras.get('o2'))?.titulo).toBe('editado local');
+    expect(await db.syncQueue.count()).toBe(1);
+  });
+
+  it('hardSync remove capítulo do Reader apagado no servidor, mantém pendente e não apaga com resposta vazia', async () => {
+    servidor.reader_capitulos.push(
+      { id: 'c1', atualizado_em: '2026-01-01T00:00:00Z' },
+      { id: 'c2', atualizado_em: '2026-01-01T00:00:00Z' }
+    );
+    await syncNow();
+    expect(await db.reader_capitulos.count()).toBe(2);
+
+    await db.reader_capitulos.put({ id: 'local', atualizado_em: 'x' } as never);
+    await db.reader_capitulos.put({ id: 'pend', atualizado_em: 'x' } as never);
+    await db.syncQueue.add({ entity: 'reader_capitulos', op: 'insert', recordId: 'pend', payload: null as never, createdAt: 'x' });
+    servidor.reader_capitulos = servidor.reader_capitulos.filter((c) => c.id !== 'c2');
+
+    await hardSync();
+    const ids = (await db.reader_capitulos.toCollection().primaryKeys()).sort();
+    expect(ids).toEqual(['c1', 'pend']);
+
+    servidor.reader_capitulos = [];
+    await hardSync();
+    expect(await db.reader_capitulos.count()).toBeGreaterThan(0);
   });
 
   it('ciclo que nunca responde é liberado pelo limite de tempo', async () => {

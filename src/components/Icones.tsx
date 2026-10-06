@@ -62,6 +62,32 @@ export function IconeGrip() {
   );
 }
 
+/** Hard Sync (Settings): setas circulares. SVG inline (não mask do Supabase)
+ * pra continuar aparecendo offline, inclusive logo depois de esvaziar o cache. */
+export function IconeHardSync() {
+  return (
+    <svg {...base}>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M8 16H3v5" />
+    </svg>
+  );
+}
+
+/** Empty Cache (Settings): lixeira inline (mesmo motivo do IconeHardSync). */
+export function IconeLimparCache() {
+  return (
+    <svg {...base}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
 /** Livrinho — indicador de obra vinculada ao Novel Updates (Bloco E7).
  * SVG fornecido pela usuária (Supabase storage icons/book-stars-fill.svg), 20px fixo. */
 export function IconeLivro() {

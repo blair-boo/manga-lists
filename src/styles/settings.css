@@ -12,6 +12,12 @@
   gap: 16px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
+  align-items: center;
+}
+
+/* Hard Sync / Empty Cache: só ícone, logo depois da última aba. */
+.settings-acao-icone {
+  padding: 4px;
 }
 
 .settings-subnav a {
