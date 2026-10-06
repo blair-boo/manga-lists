@@ -9,6 +9,7 @@ import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
 import { AprovacaoDominios } from '../components/AprovacaoDominios';
 import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
+import { ListaDominiosBloqueados } from '../components/ListaDominiosBloqueados';
 import { FilaTipoDivergente } from '../components/FilaTipoDivergente';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
 import { IconeMatchSettings } from '../components/Icones';
@@ -30,7 +31,13 @@ function SecaoScraperApprovals({ sitesSuportados }: { sitesSuportados: string[] 
   );
 }
 
+type ModoWeb = 'somente' | 'excluir' | '';
+
 function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) {
+  // Nenhuma caixa marcada = busca geral (as duas famílias; web em qualquer domínio).
+  const [buscarMangas, setBuscarMangas] = useState(false);
+  const [buscarNovels, setBuscarNovels] = useState(false);
+  const [modoWeb, setModoWeb] = useState<ModoWeb>('');
   const { run, rodando, travada, carregando, erro, recarregar } = useScraperRun('fontes');
 
   // Só inicia/para manualmente por este botão (o workflow no GitHub não tem
@@ -45,22 +52,54 @@ function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) 
           await pararScraperManualmente('fontes', run.id);
         } else {
           if (travada && run) await pararScraperManualmente('fontes', run.id).catch(() => {});
-          await controlarScraper('fontes', 'start');
+          const tipos = buscarMangas === buscarNovels ? '' : buscarMangas ? 'manga' : 'novel';
+          await controlarScraper('fontes', 'start', { tipos, web_dominios: modoWeb });
         }
         await recarregar();
       } catch (err) {
         throw new Error(mensagemErroAcao(err));
       }
-    }, [rodando, travada, run, recarregar])
+    }, [rodando, travada, run, recarregar, buscarMangas, buscarNovels, modoWeb])
   );
 
   return (
     <section className="atualizacao-secao">
       <h3>Search New Sources</h3>
       <p>
-        Search for brand-new sources (outside your supported sites) for works that don't have any yet. Web results go
-        through a stricter title-match threshold and land in the approvals queue below.
+        Search for new sources for your whole library, on your supported sites and on the web. Matches go through the
+        title-match settings and land in the approvals queue below.
       </p>
+
+      <fieldset className="scraper-opcoes" disabled={rodando || acionando}>
+        <legend>Works to search (none selected = all)</legend>
+        <label>
+          <input type="checkbox" checked={buscarMangas} onChange={(e) => setBuscarMangas(e.target.checked)} /> Mangas
+          (manga, manhwa, manhua)
+        </label>
+        <label>
+          <input type="checkbox" checked={buscarNovels} onChange={(e) => setBuscarNovels(e.target.checked)} /> Novels
+        </label>
+      </fieldset>
+
+      <fieldset className="scraper-opcoes" disabled={rodando || acionando}>
+        <legend>Web search domains (none selected = any domain)</legend>
+        <label>
+          <input
+            type="checkbox"
+            checked={modoWeb === 'somente'}
+            onChange={(e) => setModoWeb(e.target.checked ? 'somente' : '')}
+          />{' '}
+          Only my approved domains without a library scraper
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={modoWeb === 'excluir'}
+            onChange={(e) => setModoWeb(e.target.checked ? 'excluir' : '')}
+          />{' '}
+          Skip those domains
+        </label>
+      </fieldset>
 
       <div className="scraper-controles">
         <button type="button" onClick={handleAcao} disabled={acionando}>
@@ -77,6 +116,7 @@ function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) 
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
 
       <FilaAprovacoes titulo="New sources" escopo="novas" sitesSuportados={sitesSuportados} comBlacklist />
+      <ListaDominiosBloqueados />
     </section>
   );
 }

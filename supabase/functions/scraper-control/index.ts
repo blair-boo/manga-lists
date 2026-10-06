@@ -4,7 +4,8 @@
 // exposto ao navegador. Exige usuária autenticada (Supabase já valida o JWT
 // antes de invocar esta função).
 //
-// Body esperado: { "acao": "start" | "stop", "alvo": "capitulos" | "obras" | "fontes" | "designar" | "novelupdates" }
+// Body esperado: { "acao": "start" | "stop", "alvo": "capitulos" | "obras" | "fontes" | "designar" | "novelupdates",
+//                  "opcoes"?: { [input do workflow]: string } }  (só no start; vira `inputs` do workflow_dispatch)
 
 const GITHUB_OWNER = 'blair-boo';
 const GITHUB_REPO = 'manga-lists';
@@ -38,8 +39,16 @@ Deno.serve(async (req: Request) => {
 
   let acao: string;
   let alvo: string;
+  let opcoes: Record<string, string> = {};
   try {
-    ({ acao, alvo } = await req.json());
+    const corpo = await req.json();
+    ({ acao, alvo } = corpo);
+    // GitHub só aceita strings em `inputs`; ignora o resto em vez de falhar o dispatch.
+    if (corpo.opcoes && typeof corpo.opcoes === 'object') {
+      for (const [k, v] of Object.entries(corpo.opcoes)) {
+        if (typeof v === 'string') opcoes[k] = v;
+      }
+    }
   } catch {
     return jsonResponse({ error: 'corpo da requisição inválido' }, 400);
   }
@@ -71,7 +80,7 @@ Deno.serve(async (req: Request) => {
         {
           method: 'POST',
           headers: { ...ghHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ref: REF }),
+          body: JSON.stringify(Object.keys(opcoes).length ? { ref: REF, inputs: opcoes } : { ref: REF }),
         }
       );
       if (!resp.ok) {
