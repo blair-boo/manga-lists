@@ -1,9 +1,19 @@
 name: Scraper - Fontes
 
 # Sem agendamento de propósito: essa busca é disparada manualmente pelo botão
-# "Iniciar busca" na aba Atualizações do app (via Supabase Edge Function).
+# "Find new sources" em Settings > Sources do app (via Supabase Edge Function),
+# que envia as opções abaixo.
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tipos:
+        description: "manga, novel ou vazio (todas)"
+        required: false
+        default: ""
+      web_dominios:
+        description: "somente, excluir ou vazio (busca web geral)"
+        required: false
+        default: ""
 
 concurrency:
   group: scraper-fontes
@@ -12,6 +22,8 @@ concurrency:
 jobs:
   discover:
     runs-on: ubuntu-latest
+    # Sem isso o teto é o padrão de 6h do GitHub, que mata o job sem gravar status.
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +41,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FONTES_TIPOS: ${{ inputs.tipos }}
+          FONTES_WEB_DOMINIOS: ${{ inputs.web_dominios }}
           # Roteamento por API de scraping (ScraperAPI/ScrapingBee/scrape.do) pros hosts
           # atrás de challenge JS do Cloudflare (comix.to). Só ativa quando a
           # secret da chave existe; sem ela, é no-op. Ver scraper/scraping_api.py.
