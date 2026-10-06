@@ -9,6 +9,7 @@ import { AdicionarDominioManual } from '../components/AdicionarDominioManual';
 import { AprovacaoDominios } from '../components/AprovacaoDominios';
 import { DominiosSemAdaptador } from '../components/DominiosSemAdaptador';
 import { FilaAprovacoes } from '../components/FilaAprovacoes';
+import { AvisosBuscaFontes } from '../components/AvisosBuscaFontes';
 import { ListaDominiosBloqueados } from '../components/ListaDominiosBloqueados';
 import { FilaTipoDivergente } from '../components/FilaTipoDivergente';
 import { ConfigMatchTitulo } from '../components/ConfigMatchTitulo';
@@ -107,11 +108,7 @@ function SecaoSearchSources({ sitesSuportados }: { sitesSuportados: string[] }) 
         </button>
       </div>
       {erroAcao && <p className="execucao-status execucao-erro">{erroAcao}</p>}
-      {travada && (
-        <p className="execucao-status execucao-erro">
-          The previous run looks stuck (never finished) — starting a new search will mark it as stopped.
-        </p>
-      )}
+      <AvisosBuscaFontes run={run} travada={travada} />
 
       <StatusExecucaoScraper run={run} carregando={carregando} erro={erro} />
 
