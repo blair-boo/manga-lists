@@ -76,7 +76,15 @@ plano (`src/sync/sync.ts`). Regras:
   `.github/workflows/backup.yml`; verificação e restauração em
   `scripts/restaurar-supabase.mjs`. Detalhes na seção 10 do README.
 
-## Ideias combinadas para depois
+## Backlog compartilhado
 
-Ver `docs/IDEIAS_FUTURAS.md` antes de propor algo novo: lá estão as sugestões que
-a usuária já aprovou para fazer mais tarde.
+O que combinamos fazer "depois", de todos os projetos, fica no documento
+compartilhado "Backlog dos projetos" (Claude Docs):
+https://claude.ai/code/artifact/16715225-4af5-4a33-8479-1837e75eb556
+Cada projeto tem um tópico (este é "manga-lists"). Regras:
+
+- Quando a usuária disser que algo fica para depois, registrar lá na hora, sem
+  ela precisar pedir. Ao fazer um item, apagar a linha.
+- Ler o tópico antes de propor algo novo, para não repetir o que já foi
+  combinado ou descartado.
+- Se não conseguir abrir o documento, avisar a usuária em vez de seguir sem ele.
