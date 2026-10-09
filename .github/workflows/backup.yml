@@ -26,6 +26,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - run: pip install requests==2.32.3
 
       - name: Instalar rclone
@@ -48,3 +52,17 @@ jobs:
           RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           RCLONE_S3_NO_CHECK_BUCKET: 'true'
         run: python backup_supabase.py
+
+      # Lê de volta do R2 o backup que acabou de ser gravado e confere a
+      # integridade (JSON legível e contagem de linhas igual à do manifest).
+      # Se falhar, o workflow fica vermelho e o GitHub avisa por e-mail.
+      - name: Verificar backup gravado
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          RCLONE_S3_NO_CHECK_BUCKET: 'true'
+        run: node scripts/restaurar-supabase.mjs --verificar
