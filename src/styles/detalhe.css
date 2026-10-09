@@ -158,6 +158,13 @@
   right: 0;
 }
 
+/* Nostalgic fica à esquerda do Favorite (botão ~24px + folga). */
+.detalhe-obra-titulo-linha .nostalgic-botao {
+  position: absolute;
+  top: 0;
+  right: 28px;
+}
+
 /* Links externos (Handout comix/favoritos): NU + 5 links de catálogo (campo
    próprio na obra) + Comix/Lehzin/Webtoon/Tapas (espelham uma fonte) — só
    ícones (sem rótulo, o nome vira title/tooltip), numa linha que quebra no

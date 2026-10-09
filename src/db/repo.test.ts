@@ -41,6 +41,7 @@ function novaObra(over: Partial<NovaObra> = {}): NovaObra {
     mangabaka_url: null,
     pdf: false,
     favorito: false,
+    nostalgic: false,
     ...over,
   };
 }

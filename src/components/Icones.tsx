@@ -277,6 +277,19 @@ export function IconeSparkle() {
   return <IconeMascarado arquivo="sparkle.svg" />;
 }
 
+/** Ampulheta: marcador Nostalgic (mangás antigos). SVG inline com currentColor,
+ * 20px como os ícones mascarados; a cor vem do CSS (cinza inativo, âmbar ativo). */
+export function IconeNostalgic() {
+  return (
+    <svg {...base} width={20} height={20}>
+      <path d="M6 3h12" />
+      <path d="M6 21h12" />
+      <path d="M7 3v3.5a5 5 0 0 0 2 4l1.5 1.5-1.5 1.5a5 5 0 0 0-2 4V21" />
+      <path d="M17 3v3.5a5 5 0 0 1-2 4L13.5 12l1.5 1.5a5 5 0 0 1 2 4V21" />
+    </svg>
+  );
+}
+
 const ARQUIVO_VOLTAR_TOPO = 'w-color/star-up-f5ae0a.svg';
 const VOLTAR_TOPO_TAMANHO = 40;
 

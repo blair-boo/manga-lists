@@ -145,6 +145,7 @@ export async function criarContraparteVinculada(obraOrigem: Obra, tipoNovo: Fami
     mangabaka_url: obraOrigem.mangabaka_url,
     pdf: false,
     favorito: false,
+    nostalgic: false,
   });
 }
 

@@ -51,7 +51,7 @@ const obraBase = {
   fim_de_temporada: false, ultimo_capitulo_lancado: null, ultimo_capitulo_via_scraper: false, score: null,
   generos: null, tags: null, observacoes: null, obra_vinculada_id: null, classificacao: null,
   novelupdates_url: null, anilist_url: null, myanimelist_url: null, mangaupdates_url: null,
-  mangadex_url: null, mangabaka_url: null, pdf: false, favorito: false,
+  mangadex_url: null, mangabaka_url: null, pdf: false, favorito: false, nostalgic: false,
 } as const;
 
 const fonteBase = (obraId: string, url: string) => ({

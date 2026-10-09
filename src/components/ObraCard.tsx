@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { StatusScraper } from './StatusScraper';
 import { IconeLivro } from './Icones';
 import { FavoritoBotao } from './FavoritoBotao';
+import { NostalgicBotao } from './NostalgicBotao';
 import {
   BotaoAdicionarSource,
   CapaEditavel,
@@ -193,6 +194,7 @@ export function ObraCard({ obra, fontes, sitesAtivos, modoEdicao }: Props) {
             </Link>
           )}
           <FavoritoBotao obra={obra} className="obra-card-favorito-botao" />
+          <NostalgicBotao obra={obra} className="obra-card-nostalgic-botao" />
         </div>
         <div className="obra-card-meta">
           {modoEdicao ? (

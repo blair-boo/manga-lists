@@ -55,6 +55,7 @@ const COLUNAS_OBRAS = new Set<keyof Obra>([
   'mangabaka_url',
   'pdf',
   'favorito',
+  'nostalgic',
   'criado_em',
   'atualizado_em',
 ]);

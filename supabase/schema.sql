@@ -24,6 +24,7 @@ create table obras (
     novelupdates_url text, -- link canônico da página no Novel Updates (NULL = não vinculada); espelhado entre vinculadas
     pdf boolean not null default false, -- a obra tem PDF? independente por obra (não espelhado)
     favorito boolean not null default false, -- marcada como favorita, independente por obra (não espelhado)
+    nostalgic boolean not null default false, -- mangá antigo e nostálgico, independente por obra (não espelhado)
     criado_em timestamptz not null default now(),
     atualizado_em timestamptz not null default now()
 );
