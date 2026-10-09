@@ -53,6 +53,8 @@ export interface Obra {
   pdf: boolean;
   /** Marcada como favorita (Handout favoritos). Independente por obra, não espelhada. */
   favorito: boolean;
+  /** Marcada como nostálgica (mangás antigos que amou). Independente por obra, não espelhada. */
+  nostalgic: boolean;
   criado_em: string;
   atualizado_em: string;
 }

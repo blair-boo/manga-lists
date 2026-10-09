@@ -36,7 +36,7 @@ const CAMPOS_TEXTO = [
 ] as const;
 const CAMPOS_NUMERO = ['capitulo_atual', 'score', 'ultimo_capitulo_lancado'] as const;
 const CAMPOS_ARRAY = ['generos', 'tags', 'titulos_alternativos'] as const;
-const CAMPOS_BOOL = ['fim_de_temporada', 'ultimo_capitulo_via_scraper', 'pdf'] as const;
+const CAMPOS_BOOL = ['fim_de_temporada', 'ultimo_capitulo_via_scraper', 'pdf', 'nostalgic'] as const;
 
 /** `observacoes` é exportado/lido sob o nome "notes" no CSV (nome do campo no
  * banco continua `observacoes`) — mais claro pra quem edita a planilha, e não

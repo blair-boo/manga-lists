@@ -405,9 +405,19 @@ label {
   color: #fecc01;
 }
 
+/* Nostalgic (ampulheta): cinza no estado inativo, âmbar quando marcado. */
+.nostalgic-botao {
+  color: var(--border);
+}
+
+.nostalgic-botao.nostalgic-ativo {
+  color: #d9822b;
+}
+
 /* Pressionar-e-segurar (useLongPress) não deve acionar o menu de contexto
    nativo nem a seleção de texto — relevante pra botões que embrulham <img>. */
 .favorito-botao,
+.nostalgic-botao,
 .link-externo-botao {
   -webkit-touch-callout: none;
   user-select: none;

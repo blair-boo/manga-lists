@@ -197,6 +197,22 @@
   opacity: 0.7;
 }
 
+/* Filtro Nostalgic: ampulheta âmbar, estado do filtro no fundo/borda do botão. */
+.nostalgic-filtro-botao {
+  color: #d9822b;
+}
+
+.nostalgic-filtro-botao.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.nostalgic-filtro-botao.excluido {
+  background: rgba(209, 38, 79, 0.1);
+  border-color: rgba(209, 38, 79, 0.5);
+  opacity: 0.7;
+}
+
 /* Botão de embaralhar (Shuffle): mesmo btn-icone, "ativo" enquanto a lista
    está em modo de ordem aleatória. */
 .embaralhar-botao.ativo {
@@ -364,6 +380,7 @@
 }
 
 .obra-card-favorito-botao,
+.obra-card-nostalgic-botao,
 .obra-card-copiar-titulo-botao {
   flex-shrink: 0;
 }

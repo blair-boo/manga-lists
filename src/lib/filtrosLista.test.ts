@@ -32,6 +32,7 @@ function obraFake(parcial: Partial<Obra>): Obra {
     mangabaka_url: null,
     pdf: false,
     favorito: false,
+    nostalgic: false,
     criado_em: '2026-01-01T00:00:00Z',
     atualizado_em: '2026-01-01T00:00:00Z',
     ...parcial,
@@ -68,6 +69,17 @@ describe('obrasFiltradasOrdenadas', () => {
     const filtros: FiltrosSalvos = { ...FILTROS_PADRAO, filtroNovel: 'incluir' };
     const resultado = obrasFiltradasOrdenadas(obras, semFontes, filtros, 'titulo');
     expect(resultado.map((o) => o.id)).toEqual(['4']);
+  });
+
+  it('filtroNostalgic: incluir só mostra marcadas, excluir esconde as marcadas', () => {
+    const obras = [
+      obraFake({ id: '1', titulo: 'A', nostalgic: true }),
+      obraFake({ id: '2', titulo: 'B', nostalgic: false }),
+    ];
+    const incluir: FiltrosSalvos = { ...FILTROS_PADRAO, filtroNostalgic: 'incluir' };
+    expect(obrasFiltradasOrdenadas(obras, semFontes, incluir, 'titulo').map((o) => o.id)).toEqual(['1']);
+    const excluir: FiltrosSalvos = { ...FILTROS_PADRAO, filtroNostalgic: 'excluir' };
+    expect(obrasFiltradasOrdenadas(obras, semFontes, excluir, 'titulo').map((o) => o.id)).toEqual(['2']);
   });
 
   it('filtroUnsourced em "excluir" some com quem não tem fonte', () => {

@@ -42,6 +42,7 @@ import { BuscaObras } from '../components/BuscaObras';
 import { LinkExterno } from '../components/LinkExterno';
 import { LinkFonte } from '../components/LinkFonte';
 import { FavoritoBotao } from '../components/FavoritoBotao';
+import { NostalgicBotao } from '../components/NostalgicBotao';
 import { useToast } from '../components/Toast';
 import { useDialogos } from '../components/Dialogo';
 import { ModalBase } from '../components/ModalBase';
@@ -613,6 +614,7 @@ export function DetalheObraPage() {
             <input type="text" value={draft.titulo} onChange={(e) => setCampo('titulo', e.target.value)} />
           </label>
           <FavoritoBotao obra={obra} />
+          <NostalgicBotao obra={obra} />
         </div>
 
         <TagPicker

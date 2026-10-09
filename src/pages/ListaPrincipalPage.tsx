@@ -13,6 +13,7 @@ import {
   IconeGradeView,
   IconeLimparFiltros,
   IconeListaView,
+  IconeNostalgic,
   IconeSairModoEdicao,
   IconeVoltarTopo,
 } from '../components/Icones';
@@ -102,6 +103,7 @@ export function ListaPrincipalPage() {
   const [generosSel, setGenerosSel] = useState<string[]>(() => lerFiltrosSalvos().generosSel);
   const [tagsSel, setTagsSel] = useState<string[]>(() => lerFiltrosSalvos().tagsSel);
   const [filtroFavorito, setFiltroFavorito] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroFavorito);
+  const [filtroNostalgic, setFiltroNostalgic] = useState<EstadoFiltro>(() => lerFiltrosSalvos().filtroNostalgic);
   const [filtroNovoCapitulo, setFiltroNovoCapitulo] = useState<EstadoFiltro>(
     () => lerFiltrosSalvos().filtroNovoCapitulo
   );
@@ -145,6 +147,7 @@ export function ListaPrincipalPage() {
       generosSel,
       tagsSel,
       filtroFavorito,
+      filtroNostalgic,
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
@@ -166,6 +169,7 @@ export function ListaPrincipalPage() {
     generosSel,
     tagsSel,
     filtroFavorito,
+    filtroNostalgic,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -266,6 +270,7 @@ export function ListaPrincipalPage() {
       generosSel,
       tagsSel,
       filtroFavorito,
+      filtroNostalgic,
       filtroNovoCapitulo,
       filtroNovel,
       filtroUnsourced,
@@ -297,6 +302,7 @@ export function ListaPrincipalPage() {
     generosSel,
     tagsSel,
     filtroFavorito,
+    filtroNostalgic,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -341,6 +347,7 @@ export function ListaPrincipalPage() {
     generosSel,
     tagsSel,
     filtroFavorito,
+    filtroNostalgic,
     filtroNovoCapitulo,
     filtroNovel,
     filtroUnsourced,
@@ -362,6 +369,7 @@ export function ListaPrincipalPage() {
     setGenerosSel([]);
     setTagsSel([]);
     setFiltroFavorito('off');
+    setFiltroNostalgic('off');
     setFiltroNovoCapitulo('off');
     setFiltroNovel('off');
     setFiltroUnsourced('off');
@@ -419,6 +427,15 @@ export function ListaPrincipalPage() {
           aria-label="Favorites filter"
         >
           <IconeColorido arquivo="w-color/stars-FECC01.svg" />
+        </button>
+        <button
+          type="button"
+          className={`btn-icone nostalgic-filtro-botao ${classeEstadoFiltro(filtroNostalgic)}`}
+          onClick={() => setFiltroNostalgic(proximoEstadoFiltro)}
+          title={`Nostalgic - ${tituloEstadoFiltro(filtroNostalgic)}`}
+          aria-label="Nostalgic filter"
+        >
+          <IconeNostalgic />
         </button>
         <button
           type="button"
