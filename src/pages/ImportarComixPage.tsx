@@ -23,22 +23,10 @@ function urlComparavel(url: string): string {
   return url.split('?')[0].replace(/\/+$/, '');
 }
 
-/** URL do Novel Updates comparável: sem query, sem barra final, minúscula. */
-function urlNuComparavel(url: string | null | undefined): string {
-  return urlComparavel(url ?? '').toLowerCase();
-}
-
 function encontrarObraPorFonteComix(fontes: Fonte[], obras: Obra[], hid: string): { obra: Obra } | null {
   const fonte = fontes.find((f) => urlComparavel(f.url).includes(`/title/${hid}`));
   if (!fonte) return null;
   const obra = obras.find((o) => o.id === fonte.obra_id);
-  return obra ? { obra } : null;
-}
-
-/** Acha a obra que já aponta para a mesma página do Novel Updates (match por campo, não por fonte). */
-function encontrarObraPorNovelUpdates(obras: Obra[], url: string): { obra: Obra } | null {
-  const alvo = urlNuComparavel(url);
-  const obra = obras.find((o) => o.novelupdates_url && urlNuComparavel(o.novelupdates_url) === alvo);
   return obra ? { obra } : null;
 }
 
@@ -98,11 +86,6 @@ export function ImportarComixPage() {
   const [comixObra, setComixObra] = useState<ComixObra | null>(null);
   const [urlInput, setUrlInput] = useState('');
 
-  // Origem do payload: 'novelupdates' grava a url em novelupdates_url (campo),
-  // 'comix' (padrão) grava como fonte. O resto do fluxo é idêntico.
-  const ehNu = (comixObra?.origem ?? 'comix') === 'novelupdates';
-  const nomeFonte = ehNu ? 'Novel Updates' : 'comix.to';
-
   // Fragmento #d=... (extensão/bookmarklet, Bloco E3/G): lido uma vez, depois
   // limpo da barra de endereços pra não ficar no histórico.
   useEffect(() => {
@@ -146,13 +129,10 @@ export function ImportarComixPage() {
       setMotivoMatch(null);
       return;
     }
-    const nuMatch = (comixObra.origem ?? 'comix') === 'novelupdates';
-    const porLink = nuMatch
-      ? encontrarObraPorNovelUpdates(obrasRaw, comixObra.url)
-      : encontrarObraPorFonteComix(fontesRaw, obrasRaw, comixObra.hid);
-    if (porLink) {
-      setObraSelecionadaId(porLink.obra.id);
-      setMotivoMatch(nuMatch ? 'Matched by existing Novel Updates link' : 'Matched by existing source');
+    const porFonte = encontrarObraPorFonteComix(fontesRaw, obrasRaw, comixObra.hid);
+    if (porFonte) {
+      setObraSelecionadaId(porFonte.obra.id);
+      setMotivoMatch('Matched by existing source');
       return;
     }
     const porTitulo = encontrarObraPorTitulo(obrasRaw, comixObra);
@@ -241,16 +221,9 @@ export function ImportarComixPage() {
       mb: !!comixObra.links.mangabaka_url,
     });
 
-    if ((comixObra.origem ?? 'comix') === 'novelupdates') {
-      // Novel Updates: aceita salvar o link, exceto quando a obra já aponta
-      // exatamente para esta mesma página.
-      const jaTemEsse = !criandoNova && urlNuComparavel(obraAlvo?.novelupdates_url) === urlNuComparavel(comixObra.url);
-      setAceitarFonte(!jaTemEsse);
-    } else {
-      const fontesDoAlvo = obraAlvo ? (fontesRaw ?? []).filter((f) => f.obra_id === obraAlvo.id) : [];
-      const fonteComix = fontesDoAlvo.find((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
-      setAceitarFonte(criandoNova || !fonteComix || fonteComix.ultimo_capitulo_detectado !== comixObra.ultimoCapitulo);
-    }
+    const fontesDoAlvo = obraAlvo ? (fontesRaw ?? []).filter((f) => f.obra_id === obraAlvo.id) : [];
+    const fonteComix = fontesDoAlvo.find((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
+    setAceitarFonte(criandoNova || !fonteComix || fonteComix.ultimo_capitulo_detectado !== comixObra.ultimoCapitulo);
     setMostrarTodosAltTitulos(false);
     setNovosValoresAbertos(false);
     setLinksAbertos(false);
@@ -348,7 +321,7 @@ export function ImportarComixPage() {
         observacoes: null,
         obra_vinculada_id: null,
         classificacao: classificacaoEscolhida,
-        novelupdates_url: ehNu && aceitarFonte ? comixObra.url : null,
+        novelupdates_url: null,
         anilist_url: aceitarLinks.al ? comixObra.links.anilist_url : null,
         myanimelist_url: aceitarLinks.mal ? comixObra.links.myanimelist_url : null,
         mangaupdates_url: aceitarLinks.mu ? comixObra.links.mangaupdates_url : null,
@@ -398,11 +371,6 @@ export function ImportarComixPage() {
       if (aceitarLinks.mu) patch.mangaupdates_url = comixObra.links.mangaupdates_url;
       if (aceitarLinks.md) patch.mangadex_url = comixObra.links.mangadex_url;
       if (aceitarLinks.mb) patch.mangabaka_url = comixObra.links.mangabaka_url;
-      // Novel Updates: grava a url no campo novelupdates_url (não como fonte).
-      // salvarCamposObra -> updateObra espelha o link na contraparte vinculada (E6).
-      if (ehNu && aceitarFonte && urlNuComparavel(obra.novelupdates_url) !== urlNuComparavel(comixObra.url)) {
-        patch.novelupdates_url = comixObra.url;
-      }
 
       if (Object.keys(patch).length > 0) {
         await salvarCamposObra(obra, patch, (mensagem) => mostrarToast(`Could not rename cover: ${mensagem}`, 'erro'));
@@ -435,14 +403,13 @@ export function ImportarComixPage() {
         await updateObra(obraId, { capa_url: novaCapaUrl });
         await deletarCapaAntigaSeDiferente(capaAntiga, novaCapaUrl);
       } catch (err) {
-        const contexto = capaManual ? 'Could not upload cover' : `Could not download ${nomeFonte} cover`;
+        const contexto = capaManual ? 'Could not upload cover' : 'Could not download comix.to cover';
         mostrarToast(`${contexto}: ${mensagemDeErro(err)}`, 'erro');
       }
     }
 
-    // 4. Fonte: só no fluxo comix. No Novel Updates a url já foi gravada em
-    // novelupdates_url (campo, não fonte), no patch/criação acima.
-    if (!ehNu && aceitarFonte) {
+    // 4. Fonte
+    if (aceitarFonte) {
       const fontesAtuais = criandoNova ? [] : (fontesRaw ?? []).filter((f) => f.obra_id === obraId);
       const fonteExistente = fontesAtuais.find((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
       const fonte = fonteExistente ?? (await adicionarFonteNaObra(obraId, comixObra.url, tipoFinal, fontesAtuais));
@@ -477,7 +444,7 @@ export function ImportarComixPage() {
 
   return (
     <div className="importar-page">
-      <h2>Import from {nomeFonte}</h2>
+      <h2>Import from comix.to</h2>
 
       {!comixObra && (
         <>
@@ -556,7 +523,7 @@ export function ImportarComixPage() {
                         checked={acaoTitulo === 'usarComix'}
                         onChange={() => setAcaoTitulo('usarComix')}
                       />
-                      Use the {nomeFonte} title and keep "{obraAlvo!.titulo}" as an alternative title
+                      Use the comix.to title and keep "{obraAlvo!.titulo}" as an alternative title
                     </label>
                     <label className="importar-linha">
                       <input
@@ -719,7 +686,7 @@ export function ImportarComixPage() {
                       ) : (
                         <img
                           src={comixObra.capaBase64 ?? comixObra.capaUrl ?? undefined}
-                          alt={`${nomeFonte} cover`}
+                          alt="comix.to cover"
                           onError={() => setCapaAutoFalhou(true)}
                         />
                       )}
@@ -731,13 +698,9 @@ export function ImportarComixPage() {
                       target="_blank"
                       rel="noreferrer"
                       className="importar-capa-comix-link"
-                      title={`Open on ${nomeFonte} to save the cover image`}
+                      title="Open on comix.to to save the cover image"
                     >
-                      {ehNu ? (
-                        <span>Open on {nomeFonte}</span>
-                      ) : (
-                        <img src="/icons/comix.svg" alt="comix.to" />
-                      )}
+                      <img src="/icons/comix.svg" alt="comix.to" />
                     </a>
                   )}
                   <input ref={capaManualInputRef} type="file" accept="image/*" hidden onChange={selecionarCapaManual} />
@@ -877,62 +840,50 @@ export function ImportarComixPage() {
                 </section>
               )}
 
-              {/* 8. External links: escondida quando não há nenhum (ex.: Novel Updates) */}
-              {LINKS_INFO.some((info) => comixObra.links[info.campo]) && (
-                <section className="importar-secao">
-                  <button
-                    type="button"
-                    className="importar-secao-toggle"
-                    onClick={() => setLinksAbertos((v) => !v)}
-                    aria-expanded={linksAbertos}
-                  >
-                    {linksAbertos ? '▾' : '▸'} External links
-                  </button>
-                  {linksAbertos && (
-                    <div className="importar-secao-corpo">
-                      {LINKS_INFO.filter((info) => comixObra.links[info.campo]).map((info) => (
-                        <label key={info.chave} className="importar-linha">
-                          <input
-                            type="checkbox"
-                            checked={aceitarLinks[info.chave]}
-                            onChange={(e) => setAceitarLinks((atual) => ({ ...atual, [info.chave]: e.target.checked }))}
-                          />
-                          {info.rotulo}: <span className="importar-valor-novo">{comixObra.links[info.campo]}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {/* 9. Source (comix) / Novel Updates link */}
+              {/* 8. External links */}
               <section className="importar-secao">
-                <h3>{ehNu ? 'Novel Updates' : 'Source'}</h3>
+                <button
+                  type="button"
+                  className="importar-secao-toggle"
+                  onClick={() => setLinksAbertos((v) => !v)}
+                  aria-expanded={linksAbertos}
+                >
+                  {linksAbertos ? '▾' : '▸'} External links
+                </button>
+                {linksAbertos && (
+                  <div className="importar-secao-corpo">
+                    {LINKS_INFO.filter((info) => comixObra.links[info.campo]).map((info) => (
+                      <label key={info.chave} className="importar-linha">
+                        <input
+                          type="checkbox"
+                          checked={aceitarLinks[info.chave]}
+                          onChange={(e) => setAceitarLinks((atual) => ({ ...atual, [info.chave]: e.target.checked }))}
+                        />
+                        {info.rotulo}: <span className="importar-valor-novo">{comixObra.links[info.campo]}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* 9. Source */}
+              <section className="importar-secao">
+                <h3>Source</h3>
                 <label className="importar-linha">
                   <input type="checkbox" checked={aceitarFonte} onChange={(e) => setAceitarFonte(e.target.checked)} />
-                  {ehNu
-                    ? (() => {
-                        const atual = !criandoNova ? obraAlvo?.novelupdates_url : null;
-                        if (atual && urlNuComparavel(atual) === urlNuComparavel(comixObra.url)) {
-                          return 'Novel Updates link already matches this page';
-                        }
-                        return atual
-                          ? 'Replace the existing Novel Updates link with this page'
-                          : 'Save this page as the Novel Updates link';
-                      })()
-                    : (() => {
-                        const fontesDoAlvo = obraAlvo ? (fontesRaw ?? []).filter((f) => f.obra_id === obraAlvo.id) : [];
-                        const jaTem = fontesDoAlvo.some((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
-                        return jaTem
-                          ? `Update the existing comix.to source to chapter ${comixObra.ultimoCapitulo ?? '—'}`
-                          : `Add comix.to as a source (chapter ${comixObra.ultimoCapitulo ?? '—'})`;
-                      })()}
+                  {(() => {
+                    const fontesDoAlvo = obraAlvo ? (fontesRaw ?? []).filter((f) => f.obra_id === obraAlvo.id) : [];
+                    const jaTem = fontesDoAlvo.some((f) => urlComparavel(f.url).includes(`/title/${comixObra.hid}`));
+                    return jaTem
+                      ? `Update the existing comix.to source to chapter ${comixObra.ultimoCapitulo ?? '—'}`
+                      : `Add comix.to as a source (chapter ${comixObra.ultimoCapitulo ?? '—'})`;
+                  })()}
                 </label>
               </section>
 
               <div className="importar-resumo">
                 {camposEscalaresAceitos} field(s) will change, {altSelecionados.size} alternative title(s) added,{' '}
-                {aceitarFonte ? 1 : 0} {ehNu ? 'Novel Updates link set' : 'source(s) added'}
+                {aceitarFonte ? 1 : 0} source(s) added
               </div>
 
               <button type="button" disabled={nadaMarcado || salvando} onClick={() => void executarConfirmar()}>

@@ -5,6 +5,7 @@ import { DetalheObraPage } from './pages/DetalheObraPage';
 import { CadastrarPage } from './pages/CadastrarPage';
 import { AtualizacoesPage } from './pages/AtualizacoesPage';
 import { ImportarComixPage } from './pages/ImportarComixPage';
+import { ImportarNovelUpdatesPage } from './pages/ImportarNovelUpdatesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TestesPage } from './pages/TestesPage';
 import { GenerosTagsPage } from './pages/GenerosTagsPage';
@@ -25,6 +26,7 @@ export const router = createBrowserRouter(
         { path: 'cadastrar', element: <CadastrarPage /> },
         { path: 'reader', element: <ReaderPage /> },
         { path: 'importar', element: <ImportarComixPage /> },
+        { path: 'importar-novelupdates', element: <ImportarNovelUpdatesPage /> },
         {
           path: 'settings',
           element: <SettingsPage />,

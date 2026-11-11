@@ -1,64 +1,70 @@
 # Bookmarklet de importação do Novel Updates
 
-Mesmo mecanismo do bookmarklet do comix.to (`docs/EXTENSAO_COMIX.md`), com uma
-única diferença no destino do link: aqui a URL da série **não** vira fonte, e sim
-o campo `novelupdates_url` da obra. O resto do fluxo de importação (`/importar`,
-fragmento `#d=<payload>`, conferência campo a campo) é idêntico.
+Bookmarklet próprio do Novel Updates, separado do comix.to. Ele lê a página de
+série no navegador da usuária (o Cloudflare do NU devolve 403 para IP de
+servidor, confirmado em `scraper/probe_novelupdates.py`), monta um payload e
+abre a rota `/importar-novelupdates#d=<payload>`, atendida por
+`src/pages/ImportarNovelUpdatesPage.tsx`.
 
-## Por que bookmarklet, e não fetch pela URL
+Peças no app (nenhuma compartilhada com o comix):
 
-A tela `/importar` tem um campo "Fetch by URL" que só funciona pro comix.to
-(Edge Function `comix-fetch`). Pro Novel Updates esse caminho não existe: o
-Cloudflare do NU devolve 403 para requisições vindas de servidor/datacenter
-(confirmado pela sonda do scraper, `scraper/probe_novelupdates.py`, e pelos
-comentários em `scraper/novelupdates.py`). As páginas de série são servidas
-normalmente **dentro do navegador da usuária** (IP residencial), então o
-bookmarklet lê a página ali e manda o resultado pronto pro PWA.
+- `src/lib/novelupdatesImport.ts`: tipo `NovelImportada`, `codificarNovel`/
+  `decodificarNovel`, e a lógica de alvo (`acharAlvoInicial`, `planoDoAlvo`).
+- `src/pages/ImportarNovelUpdatesPage.tsx`: a tela de conferência e importação.
+- Rota `/importar-novelupdates` em `src/router.tsx`.
 
-## O que o payload carrega
+## O que a tela faz com o link e o vínculo
 
-O bookmarklet monta o mesmo objeto `ComixObra` de `src/lib/comix.ts`, marcado com
-`origem: 'novelupdates'`. A tela `/importar` usa esse campo pra decidir onde
-gravar o link:
+O destino do link não é uma fonte: a URL da série vai para o campo
+`novelupdates_url` da obra. E, pelo que a dona pediu, a tela decide o alvo assim
+(tudo trocável à mão por um campo de busca de obra):
 
-- `origem` ausente ou `'comix'`: a `url` é adicionada como **fonte** da obra.
-- `origem: 'novelupdates'`: a `url` é gravada em **`novelupdates_url`** (campo,
-  não fonte), e espelhada na contraparte vinculada manga<->novel (via
-  `updateObra`/`salvarCamposObra`, `CAMPOS_ESPELHADOS` em `src/db/repo.ts`).
+- **Obra nova:** nenhuma obra casa por título. Cria uma Novel nova e solta.
+- **Já existe como Novel:** casa com uma Novel. Atualiza essa obra e grava o
+  `novelupdates_url`.
+- **Já existe como mangá e semelhantes** (Manga/Manhwa/Manhua): cria a Novel como
+  **obra correspondente** (contraparte manga<->novel) ligada ao mangá. Se o mangá
+  já tiver uma Novel vinculada, atualiza a vinculada em vez de criar outra.
 
-Campos lidos da página de série (todos melhor-esforço, degradam pra vazio se o
-NU mudar o DOM):
+A seção "Target" mostra qual obra ficou escolhida e o que vai acontecer, com um
+campo pra trocar o alvo ou limpar (importar solta). Depois da importação é só
+abrir a obra: a tela da obra tem "Corresponding work" (conferir, trocar,
+desvincular) e o link do Novel Updates (editar, remover).
 
-| Campo do app          | Origem no DOM do Novel Updates                         |
-| --------------------- | ------------------------------------------------------ |
+O `novelupdates_url` é espelhado na contraparte vinculada (`CAMPOS_ESPELHADOS`
+em `src/db/repo.ts`), igual ao que o scraper já faz.
+
+## Campos lidos da página de série (melhor esforço)
+
+| Campo do app          | Origem no DOM do Novel Updates                          |
+| --------------------- | ------------------------------------------------------- |
 | `titulo`              | `<meta property="og:title">` (cai pra `.seriestitlenu`) |
-| `url`                 | `<meta property="og:url">`                             |
+| `url`                 | `<meta property="og:url">`                              |
 | `capaUrl`             | `<meta property="og:image">` (cai pra `.seriesimg img`) |
 | `titulosAlternativos` | `#editassociated` (Associated Names, separados por `<br>`) |
-| `statusPublicacao`    | `#editstatus` (Status in COO), mapeado por heurística  |
-| `autores`             | `#showauthors`                                         |
-| `artistas`            | `#showartists`                                         |
-| `generos`             | `#seriesgenre`                                         |
-| `tags`                | `#showtags`                                            |
-| `tipo`                | fixo em `Novel` (o NU só hospeda novels)               |
+| `statusPublicacao`    | `#editstatus` (Status in COO), mapeado por heurística   |
+| `autores`             | `#showauthors`                                          |
+| `artistas`            | `#showartists`                                          |
+| `generos`             | `#seriesgenre`                                          |
+| `tags`                | `#showtags`                                             |
 
-`og:title`, `og:url`, `og:image` e `#editassociated` são o esqueleto confiável
-(os mesmos que o scraper Python já usa). Autor/artista/gênero/tag dependem dos
-IDs acima do NU; se algum sumir, aquele campo chega vazio e a importação segue.
+O tipo da obra é sempre `Novel` (o NU só hospeda novels). `og:title`, `og:url`,
+`og:image` e `#editassociated` são o esqueleto confiável (os mesmos que o scraper
+Python usa). Autor/artista/gênero/tag dependem dos IDs acima; se algum sumir,
+aquele campo chega vazio e a importação segue.
 
-Mapeamento de status (Status in COO contém texto livre tipo "120 Chapters
-(Completed)"): `complet*` -> `Completed`, `hiatus` -> `Hiatus`, `ongoing` ->
-`Ongoing`, `cancel*/discontinu*/drop*` -> `Canceled`. Sem match, o valor bruto
-aparece entre parênteses na tela, igual ao comix.
+Mapeamento de status (o "Status in COO" vem como texto livre, ex.: "120 Chapters
+(Completed)"): `complet*` vira `Completed`, `hiatus` vira `Hiatus`, `ongoing`
+vira `Ongoing`, `cancel*/discontinu*/drop*` vira `Canceled`. Sem match, o valor
+bruto aparece entre parênteses na tela.
 
 ## Capa
 
-O bookmarklet tenta buscar a capa (`og:image`) e embutir como `capaBase64`
-(mesma técnica do comix). Se o host da imagem (ex.: `cdn.novelupdates.com`)
-bloquear a leitura dos bytes por CORS, o `fetch` falha e o payload segue só com
-`capaUrl`: a tela mostra a imagem por `<img>` normal. Quando até o `<img>`
-falha, a seção "Cover" oferece o seletor manual de arquivo (botão direito na
-capa do NU -> salvar imagem -> escolher o arquivo), igual ao fluxo do comix.
+O bookmarklet tenta embutir a capa (`og:image`) como `capaBase64`. Se o host da
+imagem bloquear a leitura dos bytes por CORS, o payload segue só com `capaUrl` e
+a tela mostra por `<img>` normal; quando até o `<img>` falha, a seção "Cover"
+oferece o seletor manual de arquivo (botão direito na capa do NU, salvar imagem,
+escolher o arquivo).
 
 ## Fonte legível (pra regenerar a versão minificada quando o DOM do NU mudar)
 
@@ -99,24 +105,18 @@ capa do NU -> salvar imagem -> escolher o arquivo), igual ao fluxo do comix.
     var capaUrl = meta('og:image');
     if (!capaUrl) { var img = document.querySelector('.seriesimg img'); capaUrl = img ? img.src : null; }
 
-    var obra = {
-      origem: 'novelupdates',
-      hid: slug,
+    var novel = {
+      slug: slug,
       titulo: titulo,
       titulosAlternativos: altsLimpos,
-      tipo: 'Novel',
-      tipoBruto: null,
       statusPublicacao: status,
       statusPublicacaoBruto: status ? null : (statusTxt || null),
-      contentRating: null,
       capaUrl: capaUrl,
-      ultimoCapitulo: null,
       url: ogUrl,
       autores: linksDe('showauthors'),
       artistas: linksDe('showartists'),
       generos: linksDe('seriesgenre'),
-      tags: linksDe('showtags'),
-      links: { anilist_url: null, myanimelist_url: null, mangaupdates_url: null, mangadex_url: null, mangabaka_url: null }
+      tags: linksDe('showtags')
     };
 
     if (capaUrl) {
@@ -124,16 +124,16 @@ capa do NU -> salvar imagem -> escolher o arquivo), igual ao fluxo do comix.
         var resp = await fetch(capaUrl);
         if (resp.ok) {
           var blob = await resp.blob();
-          obra.capaBase64 = await new Promise(function(res){ var fr = new FileReader(); fr.onloadend = function(){ res(fr.result); }; fr.readAsDataURL(blob); });
+          novel.capaBase64 = await new Promise(function(res){ var fr = new FileReader(); fr.onloadend = function(){ res(fr.result); }; fr.readAsDataURL(blob); });
         }
       } catch (fe) { /* segue sem capaBase64 */ }
     }
 
-    var json = JSON.stringify(obra);
+    var json = JSON.stringify(novel);
     var bytes = new TextEncoder().encode(json);
     var bin = ''; bytes.forEach(function(b){ bin += String.fromCharCode(b); });
     var b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    location.href = 'https://blair-boo.github.io/manga-lists/importar#d=' + b64;
+    location.href = 'https://blair-boo.github.io/manga-lists/importar-novelupdates#d=' + b64;
   } catch (e) {
     alert('Erro no bookmarklet: ' + (e && e.message || e));
   }
@@ -143,11 +143,10 @@ capa do NU -> salvar imagem -> escolher o arquivo), igual ao fluxo do comix.
 ## Versão minificada em uma linha só (colar no campo "URL" de um favorito)
 
 O navegador faz o percent-decode do URI `javascript:` antes de executar, então os
-`%20` voltam a ser espaços na hora de rodar (mesma técnica do bookmarklet do
-comix). Cole exatamente como está:
+`%20` voltam a ser espaços na hora de rodar. Cole exatamente como está:
 
 ```
-javascript:(()=>{(async%20function(){try{let%20r=function(e){var%20t=document.querySelector('meta[property="'+e+'"]');return%20t&&t.content?t.content.trim():null},s=function(e){return%20e?e.textContent.trim():""},i=function(e){var%20t=document.getElementById(e);if(!t)return[];var%20o=[];return%20t.querySelectorAll("a").forEach(function(k){var%20w=k.textContent.trim();w&&o.push(w)}),o},m=function(e){return(e||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"%20").trim()};var%20N=r,q=s,A=i,H=m,u=r("og:url")||location.href.split("#")[0].split("?")[0],l=r("og:title")||s(document.querySelector(".seriestitlenu"));if(!l||!/\/series\//i.test(u)){alert("Nao%20achei%20uma%20pagina%20de%20serie%20do%20Novel%20Updates.%20Abra%20uma%20pagina%20/series/...%20e%20tente%20de%20novo.");return}var%20E=(u.match(/\/series\/([^\/?#]+)/i)||[])[1]||l,d=[],f=document.getElementById("editassociated");f&&f.innerHTML.split(/<br\s*\/?>/i).forEach(function(e){var%20t=document.createElement("div");t.innerHTML=e;var%20o=t.textContent.trim();o&&d.push(o)});var%20c={};c[m(l)]=!0;var%20g=[];d.forEach(function(e){var%20t=m(e);e&&t&&!c[t]&&(c[t]=!0,g.push(e))});var%20n=s(document.getElementById("editstatus")),v=/complet/i.test(n)?"Completed":/hiatus/i.test(n)?"Hiatus":/ongoing/i.test(n)?"Ongoing":/cancel|discontinu|drop/i.test(n)?"Canceled":null,a=r("og:image");if(!a){var%20h=document.querySelector(".seriesimg%20img");a=h?h.src:null}var%20p={origem:"novelupdates",hid:E,titulo:l,titulosAlternativos:g,tipo:"Novel",tipoBruto:null,statusPublicacao:v,statusPublicacaoBruto:v?null:n||null,contentRating:null,capaUrl:a,ultimoCapitulo:null,url:u,autores:i("showauthors"),artistas:i("showartists"),generos:i("seriesgenre"),tags:i("showtags"),links:{anilist_url:null,myanimelist_url:null,mangaupdates_url:null,mangadex_url:null,mangabaka_url:null}};if(a)try{var%20y=await%20fetch(a);if(y.ok){var%20C=await%20y.blob();p.capaBase64=await%20new%20Promise(function(e){var%20t=new%20FileReader;t.onloadend=function(){e(t.result)},t.readAsDataURL(C)})}}catch{}var%20B=JSON.stringify(p),S=new%20TextEncoder().encode(B),b="";S.forEach(function(e){b+=String.fromCharCode(e)});var%20_=btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");location.href="https://blair-boo.github.io/manga-lists/importar#d="+_}catch(r){alert("Erro%20no%20bookmarklet:%20"+(r&&r.message||r))}})();})();
+javascript:(()=>{(async%20function(){try{let%20r=function(e){var%20t=document.querySelector('meta[property="'+e+'"]');return%20t&&t.content?t.content.trim():null},l=function(e){return%20e?e.textContent.trim():""},i=function(e){var%20t=document.getElementById(e);if(!t)return[];var%20o=[];return%20t.querySelectorAll("a").forEach(function(A){var%20w=A.textContent.trim();w&&o.push(w)}),o},m=function(e){return(e||"").normalize("NFKD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"%20").trim()};var%20N=r,k=l,H=i,I=m,u=r("og:url")||location.href.split("#")[0].split("?")[0],c=r("og:title")||l(document.querySelector(".seriestitlenu"));if(!c||!/\/series\//i.test(u)){alert("Nao%20achei%20uma%20pagina%20de%20serie%20do%20Novel%20Updates.%20Abra%20uma%20pagina%20/series/...%20e%20tente%20de%20novo.");return}var%20E=(u.match(/\/series\/([^\/?#]+)/i)||[])[1]||c,d=[],f=document.getElementById("editassociated");f&&f.innerHTML.split(/<br\s*\/?>/i).forEach(function(e){var%20t=document.createElement("div");t.innerHTML=e;var%20o=t.textContent.trim();o&&d.push(o)});var%20s={};s[m(c)]=!0;var%20v=[];d.forEach(function(e){var%20t=m(e);e&&t&&!s[t]&&(s[t]=!0,v.push(e))});var%20a=l(document.getElementById("editstatus")),g=/complet/i.test(a)?"Completed":/hiatus/i.test(a)?"Hiatus":/ongoing/i.test(a)?"Ongoing":/cancel|discontinu|drop/i.test(a)?"Canceled":null,n=r("og:image");if(!n){var%20h=document.querySelector(".seriesimg%20img");n=h?h.src:null}var%20p={slug:E,titulo:c,titulosAlternativos:v,statusPublicacao:g,statusPublicacaoBruto:g?null:a||null,capaUrl:n,url:u,autores:i("showauthors"),artistas:i("showartists"),generos:i("seriesgenre"),tags:i("showtags")};if(n)try{var%20y=await%20fetch(n);if(y.ok){var%20C=await%20y.blob();p.capaBase64=await%20new%20Promise(function(e){var%20t=new%20FileReader;t.onloadend=function(){e(t.result)},t.readAsDataURL(C)})}}catch{}var%20S=JSON.stringify(p),B=new%20TextEncoder().encode(S),b="";B.forEach(function(e){b+=String.fromCharCode(e)});var%20q=btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");location.href="https://blair-boo.github.io/manga-lists/importar-novelupdates#d="+q}catch(r){alert("Erro%20no%20bookmarklet:%20"+(r&&r.message||r))}})();})();
 ```
 
 URL do PWA hardcoded acima: `https://blair-boo.github.io/manga-lists/`. Se mudar,
@@ -167,5 +166,5 @@ npx esbuild src.js --minify --format=iife
 
 Depois, no resultado: trocar o range literal de marcas combinantes por
 `[̀-ͯ]` e substituir espaços por `%20` para o URI `javascript:`. Se
-`src/lib/comix.ts` mudar a forma do `ComixObra`, conferir se os campos acima
-continuam batendo.
+`NovelImportada` em `src/lib/novelupdatesImport.ts` mudar, conferir se os campos
+acima continuam batendo.
