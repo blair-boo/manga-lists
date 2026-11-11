@@ -6,6 +6,7 @@ import {
   extrairDetalheDoHtml,
   normalizarComix,
   validarUrlComix,
+  type ComixObra,
 } from './comix';
 import detalheFixture from './__fixtures__/comix-detalhe.json';
 
@@ -94,6 +95,35 @@ describe('codificarPayload / decodificarPayload', () => {
 
   it('payload inválido lança erro legível', () => {
     expect(() => decodificarPayload('###não é base64###')).toThrow('Invalid comix.to payload');
+  });
+
+  it('preserva origem "novelupdates" no round-trip (payload do bookmarklet do NU)', () => {
+    const obra: ComixObra = {
+      origem: 'novelupdates',
+      hid: 's-class-except-me',
+      titulo: 'S-Class, Except Me',
+      titulosAlternativos: ['S급, 나 빼고'],
+      tipo: 'Novel',
+      tipoBruto: null,
+      statusPublicacao: 'Completed',
+      statusPublicacaoBruto: null,
+      contentRating: null,
+      capaUrl: 'https://cdn.novelupdates.com/images/example.jpg',
+      ultimoCapitulo: null,
+      url: 'https://www.novelupdates.com/series/s-class-except-me/',
+      autores: ['Author'],
+      artistas: [],
+      generos: ['Action'],
+      tags: ['Weak to Strong'],
+      links: {
+        anilist_url: null,
+        myanimelist_url: null,
+        mangaupdates_url: null,
+        mangadex_url: null,
+        mangabaka_url: null,
+      },
+    };
+    expect(decodificarPayload(codificarPayload(obra))).toEqual(obra);
   });
 });
 

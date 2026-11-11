@@ -11,6 +11,13 @@ import type { StatusPublicacao, Tipo } from '../types';
 
 /** Payload normalizado de uma obra do comix.to, pronto para a tela de importação. */
 export interface ComixObra {
+  /**
+   * Origem do payload. Ausente/'comix' (padrão): a `url` é salva como fonte da
+   * obra. 'novelupdates': a `url` é salva no campo `novelupdates_url` (não como
+   * fonte); mesmo fluxo de importação, só muda onde o link é gravado. O
+   * bookmarklet do Novel Updates marca este campo (ver docs/EXTENSAO_NOVELUPDATES.md).
+   */
+  origem?: 'comix' | 'novelupdates';
   hid: string;
   titulo: string;
   titulosAlternativos: string[];
